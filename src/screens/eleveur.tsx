@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore, type Species } from '../data';
-import { simulate } from '../toast';
-import { Badge, Foot, Header, Icon, Photo, SectionHead, TabBar } from '../ui';
+import { downloadICS } from '../device';
+import { showToast } from '../toast';
+import { Badge, Foot, Header, Icon, Photo, PhotoAdd, SectionHead, TabBar } from '../ui';
+
+/* Échéances de la maquette : jour, mois, titre, détail, date du calendrier (AAAAMMJJ). */
+const DUE = [
+  ['20', 'nov.', 'Pesée mensuelle, 18 bovins', 'Parc 2', '20261120'],
+  ['22', 'nov.', 'Vaccination PPR, 9 ovins', 'Dr Y. Coulibaly, à confirmer', '20261122'],
+  ['03', 'déc.', 'Mise bas prévue, FK-0087', 'Vache N’Dama, gestation documentée', '20261203'],
+];
 
 /* Écran 08 : tableau de bord de l'exploitation. */
 export function Dashboard() {
   const s = useStore();
+  const unread = s.unread();
+  const online = s.myListings().filter((l) => l.status === 'online').length;
   return (
     <div className="app">
       <header className="hdr" style={{ paddingLeft: 16 }}>
@@ -14,9 +24,9 @@ export function Dashboard() {
           <span className="xs muted">Mon exploitation</span>
           <span className="b ell" style={{ fontSize: 17 }}>Ferme Koné &amp; Fils</span>
         </div>
-        <Link className="iconbtn" to="/notifications" aria-label="Notifications, 4 non lues">
+        <Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}>
           <Icon name="bell" />
-          <span className="dot">4</span>
+          {unread > 0 && <span className="dot">{unread}</span>}
         </Link>
       </header>
       <div className="body">
@@ -55,13 +65,9 @@ export function Dashboard() {
         </div>
 
         <div className="sec">
-          <SectionHead title="Échéances" link="Calendrier" onClick={() => simulate('Le calendrier n’est pas encore en ligne.')} />
+          <SectionHead title="Échéances" link="Calendrier" onClick={() => { downloadICS('echeances-savaa.ics', DUE.map(([, , t, x, day]) => ({ day, title: t, text: x }))); showToast('Échéances exportées : ouvrez le fichier pour les ajouter à votre agenda.'); }} />
           <div className="card list">
-            {[
-              ['20', 'nov.', 'Pesée mensuelle, 18 bovins', 'Parc 2'],
-              ['22', 'nov.', 'Vaccination PPR, 9 ovins', 'Dr Y. Coulibaly, à confirmer'],
-              ['03', 'déc.', 'Mise bas prévue, FK-0087', 'Vache N’Dama, gestation documentée'],
-            ].map(([d, m, t, x]) => (
+            {DUE.map(([d, m, t, x]) => (
               <div className="li" key={t}>
                 <span className="col" style={{ width: 40, alignItems: 'center', gap: 0 }}><span className="b num" style={{ fontSize: 17 }}>{d}</span><span className="xs muted">{m}</span></span>
                 <div className="col grow"><span className="small b ell">{t}</span><span className="xs muted ell">{x}</span></div>
@@ -73,7 +79,7 @@ export function Dashboard() {
         <div className="sec">
           <SectionHead title="Ventes" link="Ma boutique" to="/boutique" />
           <div className="grid2">
-            <div className="card pad stat"><span className="v">3</span><span className="l">Annonces en ligne</span></div>
+            <Link className="card pad stat" to="/boutique"><span className="v">{3 + online}</span><span className="l">Annonces en ligne</span></Link>
             <div className="card pad stat"><span className="v">1</span><span className="l">Commande à préparer</span></div>
           </div>
         </div>
@@ -144,6 +150,13 @@ export function AddAnimal() {
   const [sex, setSex] = useState('Femelle');
   const [f, setF] = useState({ officialId: '', breed: 'N’Dama', birth: '14/08/2026', coat: 'Fauve', marks: 'Tache blanche sur le front, encoche oreille droite.', entry: '14/08/2026, née sur place', mother: 'FK-0087', father: '' });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [docs, setDocs] = useState<string[]>([]);
+  const addDocs = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const names = Array.from(e.target.files ?? []).map((x) => x.name);
+    e.target.value = '';
+    setDocs((d) => [...d, ...names]);
+  };
   /* Prochain n° interne : le plus grand FK-xxxx du cheptel + 1 (FK-0151 dans la maquette). */
   const id = `FK-${String(Math.max(...s.animals().map((a) => Number(a.id.slice(3)) || 0)) + 1).padStart(4, '0')}`;
 
@@ -162,7 +175,9 @@ export function AddAnimal() {
       status: f.officialId ? 'ID à vérifier' : 'ID manquant',
       tone: f.officialId ? 'amber' : 'grey',
       officialId: f.officialId || undefined,
-      photo: defaultPhoto[species],
+      photo: photos[0] ?? defaultPhoto[species],
+      docs,
+      info: { breed: f.breed, coat: f.coat, marks: f.marks, entry: f.entry, mother: f.mother, father: f.father },
     });
     navigate(`/animal/${id}`, { replace: true });
   };
@@ -207,14 +222,21 @@ export function AddAnimal() {
         <div className="sec" style={{ gap: 12 }}>
           <span className="eyebrow">Photos et justificatifs</span>
           <div className="grid3">
-            <Photo label="Profil gauche" h={96} radius={8} />
-            <Photo label="Boucle" h={96} radius={8} />
-            <button className="addph" style={{ height: 96, cursor: 'pointer' }} onClick={() => simulate('Appareil photo non relié pour l’instant.')}><Icon name="camera" />Ajouter</button>
+            {photos.length === 0 && <><Photo label="Profil gauche" h={96} radius={8} /><Photo label="Boucle" h={96} radius={8} /></>}
+            {photos.map((p, i) => <Photo key={i} src={p} label={`Photo ${i + 1}`} h={96} radius={8} onRemove={() => setPhotos(photos.filter((_, j) => j !== i))} />)}
+            {photos.length < 6 && <PhotoAdd height={96} onAdd={(p) => setPhotos((x) => [...x, p])} />}
           </div>
-          <button className="row card pad plain" style={{ width: '100%' }} onClick={() => simulate('Ajout de documents à venir.')}>
+          <label className="row card pad" style={{ width: '100%', cursor: 'pointer', position: 'relative' }}>
+            <input type="file" accept="image/*,application/pdf" multiple onChange={addDocs} style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />
             <Icon name="file" />
             <span className="col grow"><span className="small b">Joindre un document</span><span className="xs muted">Certificat, carnet de vaccination, facture d’achat</span></span>
-          </button>
+          </label>
+          {docs.map((d, i) => (
+            <div className="row small" key={i} style={{ gap: 8 }}>
+              <Icon name="file" size="sm" /><span className="grow ell">{d}</span>
+              <button className="iconbtn" style={{ width: 32, height: 32 }} aria-label={`Retirer ${d}`} onClick={() => setDocs(docs.filter((_, j) => j !== i))}><Icon name="close" size="sm" /></button>
+            </div>
+          ))}
         </div>
 
         <div className="sec" style={{ gap: 12 }}>

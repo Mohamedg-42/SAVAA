@@ -26,6 +26,10 @@ export type Animal = {
   tone: Tone;
   officialId?: string;
   photo?: string;
+  /** Documents joints à la fiche (noms de fichiers). */
+  docs?: string[];
+  /** Détails saisis à l'identification (écran 09b). */
+  info?: { breed: string; coat: string; marks: string; entry: string; mother: string; father: string };
 };
 
 export type EventKind = 'obs' | 'trt' | 'vac';

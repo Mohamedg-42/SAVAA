@@ -56,6 +56,22 @@ export function downloadCSV(name: string, rows: (string | number)[][]) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+/** Télécharge des échéances au format calendrier (.ics) : le téléphone propose de les ajouter à l'agenda. */
+export function downloadICS(name: string, items: { day: string; title: string; text: string }[]) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  const esc = (s: string) => s.replace(/[\\;,]/g, (c) => `\\${c}`);
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SAVAA//Echeances//FR'];
+  items.forEach((it, i) => {
+    lines.push('BEGIN:VEVENT', `UID:savaa-${it.day}-${i}@demo`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${it.day}`, `SUMMARY:${esc(it.title)}`, `DESCRIPTION:${esc(it.text)}`, 'END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 /** Ouvre l'impression ; « Enregistrer en PDF » y est proposé par le navigateur. */
 export function printPage() {
   window.print();

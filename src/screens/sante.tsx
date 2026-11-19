@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { PROOF, useStore, type Animal, type EventKind, type HealthEvent } from '../data';
-import { simulate } from '../toast';
-import { Badge, Foot, Header, Icon, NotFound, Photo } from '../ui';
+import { nowTime, PROOF, today, useStore, type Animal, type EventKind, type HealthEvent } from '../data';
+import { printPage, share } from '../device';
+import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd } from '../ui';
 
 /* Seul le taurillon FK-0142 a une fiche complète dans la maquette (race, ascendance, mouvements…). */
 const DEMO_ID = 'FK-0142';
@@ -49,7 +49,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
 
   return (
     <div className="app">
-      <Header back title="Fiche animale" actions={<button className="iconbtn" aria-label="Partager la fiche" onClick={() => simulate('Partage pas encore actif.')}><Icon name="share" /></button>} />
+      <Header back title="Fiche animale" actions={<button className="iconbtn" aria-label="Partager la fiche" onClick={() => share(`Fiche animale ${a.id}`, `${a.name}, fiche de traçabilité SAVAA`)}><Icon name="share" /></button>} />
       <div className="body flush">
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="row top" style={{ gap: 14 }}>
@@ -86,11 +86,20 @@ function AnimalSheetInner({ a }: { a: Animal }) {
           {tab === 0 && !full && (
             <div className="card pad">
               <dl className="kv">
-                <dt>Espèce</dt><dd>{SPECIES_LABEL[a.species]}</dd>
+                <dt>Espèce</dt><dd>{SPECIES_LABEL[a.species]}{a.info?.breed ? `, ${a.info.breed}` : ''}</dd>
                 <dt>Description</dt><dd>{a.details}</dd>
-                <dt>Exploitation</dt><dd>Ferme Koné &amp; Fils, Sinématiali</dd>
-                <dt>Détenteur</dt><dd>Adama Koné</dd>
+                {a.info?.coat && <><dt>Robe</dt><dd>{a.info.coat}</dd></>}
+                {a.info?.marks && <><dt>Signes</dt><dd>{a.info.marks}</dd></>}
+                {a.info?.entry && <><dt>Entrée</dt><dd className="num">{a.info.entry}</dd></>}
+                {a.info && <><dt>Ascendance</dt><dd>Mère {a.info.mother || 'inconnue'}, père {a.info.father || 'inconnu'}</dd></>}
+                <dt>Exploitation</dt><dd>{s.shop().name}, {s.shop().town}</dd>
+                <dt>Détenteur</dt><dd>{s.session().name}</dd>
               </dl>
+            </div>
+          )}
+          {tab === 0 && !full && !!a.docs?.length && (
+            <div className="card list">
+              {a.docs.map((d) => <div className="li" key={d}><Icon name="file" /><span className="grow small b ell">{d}</span><Badge>Déclaré</Badge></div>)}
             </div>
           )}
           {tab === 0 && full && (
@@ -183,7 +192,7 @@ function HealthRecordInner({ a }: { a: Animal }) {
 
   return (
     <div className="app">
-      <Header back title="Dossier sanitaire" sub={`${a.id}, ${a.name}`} actions={<button className="iconbtn" aria-label="Exporter en PDF" onClick={() => simulate('Export PDF du dossier à venir.')}><Icon name="download" /></button>} />
+      <Header back title="Dossier sanitaire" sub={`${a.id}, ${a.name}`} actions={<button className="iconbtn" aria-label="Exporter en PDF" onClick={printPage}><Icon name="download" /></button>} />
       <div style={{ background: '#fff', borderBottom: '1px solid #E3E7E4', padding: '12px 16px', flex: 'none' }}>
         <div className="seg">
           {F.map(([k, t]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{t}</button>)}
@@ -215,6 +224,11 @@ function HealthRecordInner({ a }: { a: Animal }) {
                   <span className="b small">{e.title}</span>
                   <span className="small muted" style={{ lineHeight: 1.45 }}>{e.text}</span>
                   {e.file && <span className="row xs" style={{ gap: 6, color: '#145C3A', fontWeight: 600 }}><Icon name="file" size="sm" />{e.file}</span>}
+                  {!!e.photos?.length && (
+                    <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      {e.photos.map((p, i) => <Photo key={i} src={p} label={`Photo ${i + 1}`} w={64} h={64} radius={6} />)}
+                    </span>
+                  )}
                 </TimelineItem>
               ))}
             </Timeline>
@@ -244,6 +258,9 @@ function ObservationInner({ a }: { a: Animal }) {
   const [sel, setSel] = useState<string[]>(['Appétit réduit', 'Abattement']);
   const [level, setLevel] = useState('Moyenne');
   const [text, setText] = useState('Mange peu depuis hier soir, reste couché à l’écart du troupeau. Pas de toux.');
+  const [date, setDate] = useState(today);
+  const [time, setTime] = useState(nowTime);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [done, setDone] = useState(false);
 
   const toggle = (x: string) => setSel(sel.includes(x) ? sel.filter((y) => y !== x) : [...sel, x]);
@@ -251,11 +268,12 @@ function ObservationInner({ a }: { a: Animal }) {
     s.addEvent({
       animalId: a.id,
       kind: 'obs',
-      date: '18/11/2026',
+      date: date.trim() || today(),
       title: `Observation : ${sel.length ? sel.join(', ').toLowerCase() : 'signe non précisé'}`,
-      text: `${text} Urgence ${level.toLowerCase()}.`,
+      text: `${text.trim()} Urgence ${level.toLowerCase()}, relevée à ${time}.`,
       proof: 'declared',
       pending: true,
+      photos,
     });
     setDone(true);
   };
@@ -281,15 +299,16 @@ function ObservationInner({ a }: { a: Animal }) {
               </div>
             </div>
             <div className="grid2">
-              <div className="field"><label htmlFor="d">Date</label><input id="d" className="input num" defaultValue="18/11/2026" /></div>
-              <div className="field"><label htmlFor="h">Heure</label><input id="h" className="input num" defaultValue="07:40" /></div>
+              <div className="field"><label htmlFor="d">Date</label><input id="d" className="input num" inputMode="numeric" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+              <div className="field"><label htmlFor="h">Heure</label><input id="h" className="input num" inputMode="numeric" value={time} onChange={(e) => setTime(e.target.value)} /></div>
             </div>
             <div className="field"><label htmlFor="desc">Description</label><textarea id="desc" className="input" value={text} onChange={(e) => setText(e.target.value)} /></div>
             <div className="field">
               <span className="lbl">Photo ou vidéo</span>
               <div className="grid3">
-                <Photo label="IMG_0412" h={84} radius={8} />
-                <button className="addph" style={{ height: 84, cursor: 'pointer' }} onClick={() => simulate('Photo et vidéo à brancher sur le téléphone.')}><Icon name="camera" />Ajouter</button>
+                {photos.length === 0 && <Photo label="IMG_0412" h={84} radius={8} />}
+                {photos.map((p, i) => <Photo key={i} src={p} label={`Photo ${i + 1}`} h={84} radius={8} onRemove={() => setPhotos(photos.filter((_, j) => j !== i))} />)}
+                {photos.length < 5 && <PhotoAdd height={84} onAdd={(p) => setPhotos((x) => [...x, p])} />}
               </div>
             </div>
             <div className="field">
