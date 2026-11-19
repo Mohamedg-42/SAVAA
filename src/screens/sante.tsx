@@ -251,7 +251,14 @@ const LEVELS: Record<string, string> = {
 
 /* Écran 11 : observation et alerte, saisie hors connexion. */
 export function Observation() {
-  return <WithAnimal render={(a) => <ObservationInner key={a.id} a={a} />} />;
+  /* Seul le propriétaire de l'animal saisit une observation, même en tapant l'adresse. */
+  return (
+    <WithAnimal
+      render={(a) => (a.mine
+        ? <ObservationInner key={a.id} a={a} />
+        : <NotFound title="Nouvelle observation" text={`${a.id} n’est pas dans votre cheptel : seul son éleveur peut y ajouter une observation.`} to={`/animal/${a.id}`} cta="Voir la fiche" />)}
+    />
+  );
 }
 
 function ObservationInner({ a }: { a: Animal }) {
