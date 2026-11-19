@@ -33,7 +33,11 @@ const TYPES: { id: TypeId; t: string }[] = [
 
 const TYPE_LABEL: Record<Exclude<TypeId, 'all'>, string> = { resto: 'Restaurant', elev: 'Éleveur', fourn: 'Fournisseur' };
 
-type Prospect = { id: number; st: StageId; ty: Exclude<TypeId, 'all'>; ini: string; n: string; d: string; next: string };
+type Prospect = {
+  id: number; st: StageId; ty: Exclude<TypeId, 'all'>; ini: string; n: string; d: string; next: string;
+  /** Saisie de l'écran 16c, pour un prospect créé pendant la démo. */
+  form?: { contact: string; tel: string; needs: string; src: string; consent: boolean };
+};
 
 const PROSPECTS: Prospect[] = [
   { id: 1, st: 'int', ty: 'resto', ini: 'LB', n: 'Restaurant Le Baobab', d: 'Restaurant, Korhogo centre, poulets, mouton', next: 'Appel demain 10 h' },
@@ -204,12 +208,12 @@ function ProspectSheetInner({ p }: { p: Prospect }) {
             </dl>
           ) : (
             <dl className="kv">
-              <dt>Contact</dt><dd>[à confirmer]</dd>
-              <dt>Tél. pro</dt><dd>[à confirmer]</dd>
-              <dt>Activité</dt><dd>{p.d}</dd>
-              <dt>Source</dt><dd>[à confirmer]</dd>
+              <dt>Contact</dt><dd>{p.form?.contact || '[à confirmer]'}</dd>
+              <dt>Tél. pro</dt><dd className="num">{p.form?.tel || '[à confirmer]'}</dd>
+              {p.form?.needs ? <><dt>Besoins</dt><dd>{p.form.needs}</dd></> : <><dt>Activité</dt><dd>{p.d}</dd></>}
+              <dt>Source</dt><dd>{p.form?.src || '[à confirmer]'}</dd>
               <dt>Responsable</dt><dd>Koffi B. (SAVAA)</dd>
-              <dt>Consentement</dt><dd><Badge>[à confirmer]</Badge></dd>
+              <dt>Consentement</dt><dd>{p.form ? (p.form.consent ? <Badge tone="green">Accepte d’être recontacté</Badge> : <Badge tone="red">Refusé, ne pas relancer</Badge>) : <Badge>[à confirmer]</Badge>}</dd>
             </dl>
           )}
         </div>
@@ -272,6 +276,8 @@ function ProspectSheetInner({ p }: { p: Prospect }) {
 
 const ACTOR_TYPES = ['Éleveur', 'Producteur', 'Restaurant', 'Fournisseur', 'Grossiste', 'Transformateur'];
 const SOURCES = ['Visite', 'Appel', 'Recomm.', 'Salon'];
+/* Rattache chaque type d'acteur du formulaire à un filtre du pipeline. */
+const ACTOR_TYPE_ID: Record<string, Prospect['ty']> = { Éleveur: 'elev', Producteur: 'elev', Restaurant: 'resto', Fournisseur: 'fourn', Grossiste: 'fourn', Transformateur: 'fourn' };
 const COMMUNES = ['Korhogo, centre', 'Korhogo, Soba', 'Ferkessédougou', 'Sinématiali', 'Dikodougou', 'M’Bengué'];
 
 export function NewProspect() {
@@ -288,6 +294,26 @@ export function NewProspect() {
   const [when, setWhen] = useState('19/11, 10 h');
 
   const valid = name.trim().length > 0;
+
+  /* Formulaire pré-rempli avec le Baobab (maquette) : on rouvre sa fiche au lieu de créer un doublon. */
+  const save = () => {
+    const n = name.trim();
+    const existing = PROSPECTS.find((p) => p.n.toLowerCase() === n.toLowerCase());
+    if (existing) return navigate(`/prospect/${existing.id}`, { replace: true });
+    const id = Math.max(...PROSPECTS.map((p) => p.id)) + 1;
+    const words = n.split(/\s+/).filter((w) => /^\p{L}/u.test(w));
+    PROSPECTS.push({
+      id,
+      st: 'new',
+      ty: ACTOR_TYPE_ID[type],
+      ini: (words.length > 1 ? words[0][0] + words[1][0] : n.slice(0, 2)).toUpperCase(),
+      n,
+      d: `${type}, ${commune}`,
+      next: `${action} le ${when}`,
+      form: { contact: contact.trim(), tel: tel.trim(), needs: needs.trim(), src, consent },
+    });
+    navigate(`/prospect/${id}`, { replace: true });
+  };
 
   return (
     <div className="app">
@@ -347,7 +373,7 @@ export function NewProspect() {
         </div>
       </div>
       <Foot>
-        <button className="btn btn-p" disabled={!valid} onClick={() => navigate('/prospect/1')}>Enregistrer le prospect</button>
+        <button className="btn btn-p" disabled={!valid} onClick={save}>Enregistrer le prospect</button>
       </Foot>
     </div>
   );
