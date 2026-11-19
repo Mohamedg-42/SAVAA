@@ -500,7 +500,7 @@ export function BackOffice() {
             <button
               key={n.id}
               className={`adm-nav${on ? ' on' : ''}`}
-              onClick={() => setSec(n.id)}
+              onClick={(e) => { setSec(n.id); e.currentTarget.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' }); }}
               aria-current={on ? 'page' : undefined}
               style={{ border: 0, backgroundColor: on ? 'rgba(255,255,255,.16)' : 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', width: '100%' }}
             >

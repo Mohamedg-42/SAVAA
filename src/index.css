@@ -214,3 +214,25 @@ input.input,textarea.input,select.input{display:block}
 @keyframes savaa-furrow{to{stroke-dashoffset:0}}
 @keyframes savaa-fadeup{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.logo-rising .logo-sun,.logo-rising .logo-glow,.logo-rising .logo-furrow,.logo-rising .logo-name,.splash-after{animation:none;opacity:1;stroke-dashoffset:0;transform:none}}
+/* Back-office sur tablette et téléphone : menu en barre horizontale fixée en haut, défilable. */
+@media (max-width:900px){
+.adm{flex-direction:column;flex-wrap:nowrap}
+.adm-side{flex:none;position:sticky;top:0;z-index:20;flex-direction:row;align-items:center;gap:4px;padding:8px 10px;overflow-x:auto;scrollbar-width:none;box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.adm-side::-webkit-scrollbar{display:none}
+.adm-side .brand{flex:none;display:flex;align-items:center;padding:0 8px 0 2px}
+.adm-side .brand small{display:none}
+.adm-side .brand svg{height:28px;width:auto}
+.adm-nav{flex:none;width:auto!important;height:36px;white-space:nowrap}
+.adm-nav .c{margin-left:6px}
+.adm-main{padding:16px 16px 32px;gap:16px}
+.adm-top h1{font-size:19px}
+}
+/* Téléphone : chiffres clés sur deux colonnes, une seule colonne de blocs. */
+@media (max-width:600px){
+.adm-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.adm-kpis .card.pad{padding:12px}
+.adm-kpis .v{font-size:20px}
+.adm-top{align-items:flex-start}
+}
+/* Tableaux du back-office sur téléphone : ils défilent sur le côté au lieu de s'écraser. */
+@media (max-width:600px){.adm .scroll .tbl{min-width:620px}.adm .scroll .tbl td,.adm .scroll .tbl th{white-space:nowrap}.adm .scroll .tbl td .b{white-space:normal;min-width:150px;display:inline-block}}
