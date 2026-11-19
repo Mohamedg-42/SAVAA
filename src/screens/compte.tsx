@@ -182,8 +182,8 @@ export function Login() {
       </div>
       <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
         <div className="col" style={{ gap: 8, width: '100%' }}>
-          <button className="btn btn-p btn-block" disabled={!cgu || code.length < 6 || !contactOk || !name.trim()} onClick={validate}>Valider le code</button>
-          <button className="btn btn-ghost btn-block small" onClick={demo}>Essayer le compte de démonstration</button>
+          <button className="btn btn-p btn-block" style={{ flex: 'none' }} disabled={!cgu || code.length < 6 || !contactOk || !name.trim()} onClick={validate}>Valider le code</button>
+          <button className="btn btn-ghost btn-block small" style={{ flex: 'none', height: 40 }} onClick={demo}>Essayer le compte de démonstration</button>
         </div>
       </div>
     </div>

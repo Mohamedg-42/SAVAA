@@ -16,11 +16,36 @@ const matches = (l: Listing, q: string) => {
 };
 const hasSheet = (l: Listing) => !!l.animalIds?.length || (/fiche/i.test(l.trace[0]) && !/déclarée/i.test(l.trace[0]));
 
-/** Carte d'annonce en grille (Explorer, Favoris) : photo en haut, deux cartes par ligne. */
+/** Carte d'annonce en grille (Explorer, Favoris) : photo en haut avec compteur multi-photos, deux cartes par ligne. */
 function GridCard({ l }: { l: Listing }) {
+  const count = l.photos?.length ?? 1;
   return (
     <Link className="pc" to={`/annonce/${l.id}`} style={{ minWidth: 0 }}>
-      <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} h={112} />
+      <div style={{ position: 'relative' }}>
+        <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} h={112} />
+        {count > 1 && (
+          <span
+            className="num"
+            style={{
+              position: 'absolute',
+              right: 6,
+              bottom: 6,
+              background: 'rgba(23,32,27,.72)',
+              color: '#fff',
+              fontSize: 10.5,
+              fontWeight: 600,
+              padding: '2px 6px',
+              borderRadius: 4,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <Icon name="camera" size="sm" style={{ width: 12, height: 12 }} />
+            {count}
+          </span>
+        )}
+      </div>
       <div className="in" style={{ gap: 3 }}>
         {l.sponsored && <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>}
         <span className="small b" style={{ lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{l.title}</span>
@@ -71,12 +96,16 @@ function SearchHeader({ q, onQ }: { q: string; onQ?: (v: string) => void }) {
   );
 }
 
-/* Les 4 vignettes « Près de vous » de la maquette, reliées à leurs annonces. */
+/* Les vignettes « Près de vous », reliées à leurs annonces. */
 const NEAR: [string, string, string, string, string, string, Tone, 'w' | 's' | undefined][] = [
   ['FK-0142', 'Taurillon Zébu Goudali', '650 000 FCFA', 'Sinématiali, 12 km', 'Photo, taurillon', 'Fiche vérifiée', 'green', undefined],
   ['ALIM-50', 'Aliment bétail 50 kg', '14 500 FCFA', 'Korhogo, 3 km', 'Photo, sacs d’aliment', 'Livraison', 'grey', 'w'],
   ['POUSSINS', 'Poussins chair, J1', '650 FCFA', 'Korhogo, par 100', 'Photo, poussins', 'Profil non vérifié', 'grey', 's'],
   ['IGNAME', 'Igname Kponan', '425 FCFA / kg', 'Dikodougou, 38 km', 'Photo, igname', 'Min. 200 kg', 'grey', 'w'],
+  ['L-OEUFS', 'Œufs frais, plateau 30', '2 600 FCFA', 'Korhogo, Soba', 'Photo, œufs', 'Ponte du jour', 'green', 's'],
+  ['L-CAJOU', 'Noix de cajou KOR 49', '420 FCFA / kg', 'Sinématiali, 12 km', 'Photo, cajou', 'KOR 49 vérifié', 'blue', 'w'],
+  ['L-BOUC-REPRO', 'Bouc Djallonké', '75 000 FCFA', 'Boundiali, 98 km', 'Photo, bouc', 'Fiche vérifiée', 'green', undefined],
+  ['L-COUVEUSE', 'Couveuse 528 œufs', '385 000 FCFA', 'Korhogo, centre', 'Photo, couveuse', 'Garantie 1 an', 'green', 's'],
 ];
 const CATEGORY_SEARCH: Record<string, string> = { 'Ovins et caprins': 'ovins', 'Volailles et poussins': 'volailles', 'Aliments et intrants': 'aliment', Reproducteurs: 'reproducteur' };
 const CATEGORIES = ['Bovins', 'Ovins et caprins', 'Volailles et poussins', 'Reproducteurs', 'Récoltes', 'Aliments et intrants', 'Matériel', 'Services'];
@@ -196,7 +225,14 @@ export function Home() {
               <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px' }}>
                 {catalog.map((l) => (
                   <Link key={l.id} className="pc" to={`/annonce/${l.id}`} style={{ flex: 'none', width: 152 }}>
-                    <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} h={112} />
+                    <div style={{ position: 'relative' }}>
+                      <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} h={112} />
+                      {(l.photos?.length ?? 0) > 1 && (
+                        <span className="num" style={{ position: 'absolute', right: 6, bottom: 6, background: 'rgba(23,32,27,.72)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '1px 5px', borderRadius: 4 }}>
+                          {l.photos?.length} photos
+                        </span>
+                      )}
+                    </div>
                     <div className="in">
                       <span className="small b ell">{l.title}</span>
                       <span className="price ell">{fcfa(l.price)} FCFA</span>
@@ -236,6 +272,24 @@ export function Home() {
                     <span className="xs muted ell">{place}</span>
                     <Badge tone={tone} style={{ alignSelf: 'flex-start' }}>{b}</Badge>
                   </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="sec">
+            <SectionHead title="En images dans le Poro" link="Explorer" to="/explorer" />
+            <div className="grid3" style={{ gap: 8 }}>
+              {[
+                ['L-REPRO-GOUD', '/images/taureau-reproducteur.jpg', 'Reproducteurs'],
+                ['L-CHEVRES-SAH', '/images/chevres-saheliennes.jpg', 'Caprins'],
+                ['L-BREBIS-LOT', '/images/troupeau-ovins.jpg', 'Ovins'],
+                ['L-MAIS', '/images/mais-jaune.jpg', 'Céréales'],
+                ['L-TOURTEAU', '/images/tourteau-coton.jpg', 'Provende'],
+                ['L-VETO-SRV', '/images/visite-veterinaire.jpg', 'Suivi véto'],
+              ].map(([id, img, lbl]) => (
+                <Link key={id} to={`/annonce/${id}`} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', height: 88, display: 'flex', alignItems: 'flex-end', padding: 6, backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.68)), url(${img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                  <span className="xs b ell" style={{ color: '#fff' }}>{lbl}</span>
                 </Link>
               ))}
             </div>
@@ -355,7 +409,7 @@ const STATUS: Record<Listing['status'], [string, Tone]> = {
   out: ['Rupture', 'red'],
 };
 
-/* Écran 06 : détail de l'annonce. */
+/* Écran 06 : détail de l'annonce avec galerie multi-photos interactive. */
 export function ListingDetail() {
   const { id = '' } = useParams();
   const l = useStore().listing(id);
@@ -377,20 +431,102 @@ function ListingDetailInner({ l }: { l: Listing }) {
     if (!inCart) s.addToCart(l.id);
     navigate('/panier');
   };
-  const photo = l.photos?.[0] ?? photoFor(l.photo, l.tint);
+
+  const gallery = l.photos?.length ? l.photos : [photoFor(l.photo, l.tint)];
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const currentPhoto = gallery[photoIdx] ?? gallery[0];
+  const currentCaption = l.photoLabels?.[photoIdx] ?? (full && photoIdx === 0 ? 'Photo, taurillon de profil' : undefined);
+  const similar = s
+    .listings()
+    .filter((x) => x.id !== l.id && x.status === 'online' && x.category.split(',')[0] === l.category.split(',')[0])
+    .slice(0, 4);
 
   return (
     <div className="app">
       <div className="body flush">
-        <div className="ph" style={{ height: 270, alignItems: 'stretch', flexDirection: 'column', justifyContent: 'space-between', padding: 10, backgroundImage: `url(${photo})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+        <div
+          className="ph"
+          style={{
+            height: 270,
+            alignItems: 'stretch',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: 10,
+            backgroundImage: `url(${currentPhoto})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
           <div className="row between">
             <button className="iconbtn" aria-label="Retour" style={round} onClick={() => navigate(-1)}><Icon name="back" /></button>
             <button className="iconbtn" aria-label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={fav} style={{ ...round, color: fav ? '#F28C28' : '#17201B' }} onClick={() => s.toggleFavorite(l.id)}>
               <Icon name="heart" style={{ fill: fav ? '#F28C28' : 'none' }} />
             </button>
           </div>
-          <div className="row between"><span /><span className="num">1 / {full ? 6 : l.photos?.length || 1}</span></div>
+          {gallery.length > 1 && (
+            <div className="row between" style={{ pointerEvents: 'auto' }}>
+              <button
+                className="iconbtn"
+                aria-label="Photo précédente"
+                onClick={() => setPhotoIdx((photoIdx - 1 + gallery.length) % gallery.length)}
+                style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(23,32,27,.62)', color: '#fff' }}
+              >
+                <Icon name="back" size="sm" />
+              </button>
+              <button
+                className="iconbtn"
+                aria-label="Photo suivante"
+                onClick={() => setPhotoIdx((photoIdx + 1) % gallery.length)}
+                style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(23,32,27,.62)', color: '#fff' }}
+              >
+                <Icon name="chevron" size="sm" />
+              </button>
+            </div>
+          )}
+          <div className="row between">
+            {currentCaption ? <span>{currentCaption}</span> : <span style={{ background: 'transparent' }} />}
+            <span className="num">{photoIdx + 1} / {gallery.length}</span>
+          </div>
         </div>
+
+        {/* Bandeau de vignettes photos cliquables */}
+        {gallery.length > 1 && (
+          <div
+            role="region"
+            aria-label="Galerie photos de l’annonce"
+            style={{
+              background: '#fff',
+              padding: '10px 16px',
+              borderBottom: '1px solid #E3E7E4',
+              display: 'flex',
+              gap: 8,
+              overflowX: 'auto',
+            }}
+          >
+            {gallery.map((src, i) => (
+              <button
+                key={src + i}
+                onClick={() => setPhotoIdx(i)}
+                aria-label={`Afficher la photo ${i + 1} sur ${gallery.length}`}
+                aria-pressed={photoIdx === i}
+                style={{
+                  flex: 'none',
+                  width: 64,
+                  height: 48,
+                  borderRadius: 6,
+                  padding: 0,
+                  cursor: 'pointer',
+                  border: photoIdx === i ? '2.5px solid #145C3A' : '1px solid #C5CDC7',
+                  opacity: photoIdx === i ? 1 : 0.72,
+                  backgroundImage: `url(${src})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              />
+            ))}
+          </div>
+        )}
+
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid #E3E7E4' }}>
           <span className="xs muted">{l.category}, publiée le {l.date}</span>
           <h1 style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{full ? 'Taurillon Zébu Goudali, 26 mois' : l.title}</h1>
@@ -443,6 +579,7 @@ function ListingDetailInner({ l }: { l: Listing }) {
                 <div className="card list">
                   {animals.map((a) => a && (
                     <Link key={a.id} className="li" to={`/animal/${a.id}`}>
+                      <Photo w={44} h={44} radius={6} src={a.photo} />
                       <div className="col grow"><span className="small b ell">{a.id}, {a.name}</span><span className="xs muted ell">{a.details}</span></div>
                       <Icon name="chevron" size="sm" />
                     </Link>
@@ -458,7 +595,11 @@ function ListingDetailInner({ l }: { l: Listing }) {
             <SectionHead title="Vendeur" />
             <div className="card pad col" style={{ gap: 12 }}>
               <div className="row">
-                <span className="av">{l.seller.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
+                {full ? (
+                  <Photo w={40} h={40} radius={20} src="/images/ferme-kone-logo.jpg" />
+                ) : (
+                  <span className="av">{l.seller.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
+                )}
                 <div className="col grow"><span className="b small">{l.seller}</span><span className="xs muted">{full ? 'Sur SAVAA depuis mars 2025, répond en 2 h environ' : l.place.split(',')[0]}</span></div>
               </div>
               {full ? (
@@ -479,6 +620,25 @@ function ListingDetailInner({ l }: { l: Listing }) {
               <p className="small" style={{ lineHeight: 1.55 }}>{full ? 'Taurillon né sur l’exploitation, élevé au pâturage avec complément au tourteau de coton. Bon état général, calme à la manipulation. Visite possible sur rendez-vous à Sinématiali.' : l.description}</p>
             </div>
           )}
+
+          {similar.length > 0 && (
+            <div className="sec">
+              <SectionHead title="Annonces similaires" link="Tout voir" to="/explorer" />
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px' }}>
+                {similar.map((item) => (
+                  <Link key={item.id} className="pc" to={`/annonce/${item.id}`} style={{ flex: 'none', width: 146 }}>
+                    <Photo label={item.photo} tint={item.tint} src={item.photos?.[0]} h={96} />
+                    <div className="in">
+                      <span className="small b ell">{item.title}</span>
+                      <span className="price ell">{fcfa(item.price)} FCFA</span>
+                      <span className="xs muted ell">{item.place.split(',')[0]}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {!l.mine && <Link className="row small" to="/assistance?onglet=reclamation" style={{ color: '#A0221A', gap: 6 }}><Icon name="flag" size="sm" />Signaler cette annonce</Link>}
         </div>
       </div>
