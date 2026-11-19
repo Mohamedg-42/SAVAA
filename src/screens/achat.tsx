@@ -311,7 +311,7 @@ function ListingDetailInner() {
       </div>
       <Foot>
         <Link className="btn btn-s" to="/assistance?onglet=assistant" style={{ flex: '0 0 auto' }}><Icon name="chat" />Contacter</Link>
-        <Link className="btn btn-p" to="/panier">Commander</Link>
+        <Link className="btn btn-p" to="/panier">Commander via SAVAA</Link>
       </Foot>
     </div>
   );

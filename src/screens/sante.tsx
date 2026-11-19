@@ -57,8 +57,11 @@ function AnimalSheetInner({ a }: { a: Animal }) {
             <div className="col grow" style={{ gap: 3 }}>
               <span className="small muted num">{a.id}, n° interne</span>
               <span className="b" style={{ fontSize: 17, lineHeight: 1.25 }}>{a.name}</span>
-              <span className="small muted">{a.details}</span>
-              <div className="wrap" style={{ marginTop: 4 }}><Badge tone={a.tone}>{a.status}</Badge></div>
+              <span className="small muted">{full ? 'Mâle, né le 12/09/2024 (26 mois)' : a.details}</span>
+              <div className="wrap" style={{ marginTop: 4 }}>
+                <Badge tone={a.tone}>{a.status}</Badge>
+                {full && <Link className="badge bd-grey" to={`/annonce/${a.id}`}>Voir l’annonce</Link>}
+              </div>
             </div>
           </div>
           <div className="card" style={{ padding: 12, background: '#F8FAF8' }}>

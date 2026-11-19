@@ -199,7 +199,7 @@ export function Receipt() {
           <div className="pad">
             <dl className="kv">
               <dt>Transaction</dt><dd className="num">TX-7Q4K-21983</dd>
-              <dt>Moyen</dt><dd>{c.method}</dd>
+              <dt>Moyen</dt><dd>{MOMO.some((m) => m[0] === c.method) ? `${c.method}, 07 •• •• 33 90` : c.method}</dd>
               <dt>Statut</dt><dd><Badge tone="green">Confirmé</Badge></dd>
               <dt>Date</dt><dd className="num">18/11/2026, 09:42</dd>
             </dl>
@@ -222,13 +222,14 @@ export function Receipt() {
 
 /* Écran 20 : suivi de commande. */
 export function Tracking() {
+  const { bags } = useStore().cart();
   return (
     <div className="app">
       <Header back title="Suivi de commande" sub="SAV-2026-11-004812" />
       <div className="body">
         <div className="card pad col" style={{ gap: 6 }}>
           <div className="row between"><Badge tone="blue">En route</Badge><span className="small muted">Arrivée estimée 10:30</span></div>
-          <span className="b" style={{ fontSize: 16 }}>Taurillon FK-0142 et sacs d’aliment</span>
+          <span className="b" style={{ fontSize: 16 }}>{bags ? `Taurillon FK-0142 et ${bags} sac${bags > 1 ? 's' : ''} d’aliment` : 'Taurillon FK-0142'}</span>
           <span className="small muted">Livraison à Ferme Ouattara, route de Dikodougou</span>
         </div>
         <div className="card pad">

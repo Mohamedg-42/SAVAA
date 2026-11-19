@@ -142,17 +142,18 @@ export function AddAnimal() {
   const navigate = useNavigate();
   const [species, setSpecies] = useState<Species>('bovin');
   const [sex, setSex] = useState('Femelle');
-  const [f, setF] = useState({ officialId: '', breed: 'N’Dama', birth: '14/08/2026', coat: 'Fauve', marks: 'Tache blanche sur le front, encoche oreille droite.', mother: 'FK-0087', father: '' });
+  const [f, setF] = useState({ officialId: '', breed: 'N’Dama', birth: '14/08/2026', coat: 'Fauve', marks: 'Tache blanche sur le front, encoche oreille droite.', entry: '14/08/2026, née sur place', mother: 'FK-0087', father: '' });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
+  /* Prochain n° interne : le plus grand FK-xxxx du cheptel + 1 (FK-0151 dans la maquette). */
+  const id = `FK-${String(Math.max(...s.animals().map((a) => Number(a.id.slice(3)) || 0)) + 1).padStart(4, '0')}`;
 
   const save = () => {
-    const id = `FK-0${151 + s.animals().length - 8}`;
     const label = { bovin: 'Bovin', ovin: 'Ovin', caprin: 'Caprin' }[species];
     s.addAnimal({
       id,
       species,
       name: `${label} ${f.breed}`,
-      details: `${sex}, née le ${f.birth}`,
+      details: `${sex}, ${sex === 'Mâle' ? 'né' : 'née'} le ${f.birth}`,
       status: f.officialId ? 'ID à vérifier' : 'ID manquant',
       tone: f.officialId ? 'amber' : 'grey',
       officialId: f.officialId || undefined,
@@ -181,7 +182,7 @@ export function AddAnimal() {
             <span className="hint">Numéro de la boucle officielle, s’il existe. Il sera contrôlé par un agent.</span>
           </div>
           <div className="grid2">
-            <div className="field"><label>N° interne</label><div className="input muted" style={{ background: '#EEF0EE', fontSize: 13 }}>Automatique</div></div>
+            <div className="field"><label>N° interne</label><div className="input num" style={{ background: '#EEF0EE' }} title="Attribué automatiquement">{id}</div></div>
             <div className="field"><label htmlFor="breed">Race / type</label><input id="breed" className="input" value={f.breed} onChange={set('breed')} /></div>
           </div>
           <div className="field">
@@ -191,7 +192,7 @@ export function AddAnimal() {
             </div>
           </div>
           <div className="grid2">
-            <div className="field"><label htmlFor="birth">Naissance</label><input id="birth" className="input num" value={f.birth} onChange={set('birth')} /></div>
+            <div className="field"><label htmlFor="birth">Naissance</label><input id="birth" className="input num" value={f.birth} onChange={set('birth')} /><span className="hint">ou âge estimé</span></div>
             <div className="field"><label htmlFor="coat">Robe</label><input id="coat" className="input" value={f.coat} onChange={set('coat')} /></div>
           </div>
           <div className="field"><label htmlFor="marks">Signes distinctifs</label><textarea id="marks" className="input" value={f.marks} onChange={set('marks')} /></div>
@@ -212,6 +213,7 @@ export function AddAnimal() {
 
         <div className="sec" style={{ gap: 12 }}>
           <span className="eyebrow">Origine et ascendance</span>
+          <div className="field"><label htmlFor="entry">Date d’entrée sur l’exploitation</label><input id="entry" className="input num" value={f.entry} onChange={set('entry')} /></div>
           <div className="grid2">
             <div className="field"><label htmlFor="mother">Mère</label><input id="mother" className="input num" value={f.mother} onChange={set('mother')} /></div>
             <div className="field"><label htmlFor="father">Père</label><input id="father" className="input" placeholder="Inconnu" value={f.father} onChange={set('father')} /></div>
