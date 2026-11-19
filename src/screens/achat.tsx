@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { fcfa, priceLabel, useStore, type Listing } from '../data';
 import { photoFor } from '../photos';
@@ -66,6 +66,66 @@ const NEAR: [string, string, string, string, string, string, Tone, 'w' | 's' | u
 ];
 const CATEGORY_SEARCH: Record<string, string> = { 'Ovins et caprins': 'ovins', 'Volailles et poussins': 'volailles', 'Aliments et intrants': 'aliment', Reproducteurs: 'reproducteur' };
 
+/** Bannière des annonces sponsorisées (acheteurs) : défile seule toutes les 4 s, ou au doigt. */
+function SponsoredBanner({ items }: { items: Listing[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (items.length < 2 || paused || reduce) return;
+    const t = setInterval(() => {
+      const el = ref.current;
+      if (!el) return;
+      const next = (Math.round(el.scrollLeft / el.clientWidth) + 1) % items.length;
+      el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
+    }, 4000);
+    return () => clearInterval(t);
+  }, [items.length, paused]);
+
+  if (!items.length) return null;
+  const go = (i: number) => ref.current?.scrollTo({ left: i * ref.current.clientWidth, behavior: 'smooth' });
+
+  return (
+    <div className="col" style={{ gap: 8 }} onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)} onTouchStart={() => setPaused(true)}>
+      <div
+        ref={ref}
+        role="region"
+        aria-label="Annonces sponsorisées"
+        onScroll={(e) => setIndex(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
+        style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', borderRadius: 12 }}
+      >
+        {items.map((l) => (
+          <Link
+            key={l.id}
+            to={`/annonce/${l.id}`}
+            style={{
+              flex: '0 0 100%', scrollSnapAlign: 'start', height: 168, position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 14, color: '#fff',
+              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.05) 30%, rgba(0,0,0,.72)), url(${l.photos?.[0] ?? photoFor(l.photo, l.tint)})`, backgroundSize: 'cover', backgroundPosition: 'center',
+            }}
+          >
+            <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>
+            <div className="col" style={{ gap: 2 }}>
+              <span className="b ell" style={{ fontSize: 17 }}>{l.title}</span>
+              <span className="num" style={{ fontWeight: 700, fontSize: 16 }}>{fcfa(l.price)} FCFA{l.unit ? <span style={{ fontWeight: 400, fontSize: 13 }}> {l.unit}</span> : null}</span>
+              <span className="xs ell" style={{ color: '#E3E7E4' }}>{l.place.split(',')[0]}, {l.sellerShort ?? l.seller}</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+      {items.length > 1 && (
+        <div className="row" style={{ justifyContent: 'center', gap: 6 }}>
+          {items.map((l, i) => (
+            <button key={l.id} aria-label={`Annonce sponsorisée ${i + 1} sur ${items.length}`} aria-current={i === index} onClick={() => go(i)}
+              style={{ width: i === index ? 18 : 8, height: 8, borderRadius: 4, border: 0, padding: 0, cursor: 'pointer', background: i === index ? '#145C3A' : '#C5CDC7', transition: 'width .2s' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* Écran 02 : accueil. */
 export function Home() {
   const s = useStore();
@@ -87,31 +147,16 @@ export function Home() {
           <Link className="search" to="/explorer?q=" style={{ borderColor: '#fff' }}><Icon name="search" /><span>Animal, récolte, aliment, matériel…</span></Link>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Profil vendeur : les annonces sponsorisées défilent à la place des tuiles. */}
+          {/* Vendeurs : tuiles d'accès rapide. Acheteurs et visiteurs : bannière des annonces sponsorisées. */}
           {s.canSell() ? (
-            <div className="sec">
-              <SectionHead title="Sponsorisés" link="Tout voir" to="/explorer?q=" />
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px', scrollSnapType: 'x mandatory' }}>
-                {sponsored.length === 0 && <div className="card pad" style={{ flex: 1 }}><span className="small muted">Aucune annonce sponsorisée en ce moment.</span></div>}
-                {sponsored.map((l) => (
-                  <Link key={l.id} className="pc" to={`/annonce/${l.id}`} style={{ flex: 'none', width: 152, scrollSnapAlign: 'start' }}>
-                    <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} h={112} />
-                    <div className="in">
-                      <span className="small b ell">{l.title}</span>
-                      <span className="price">{fcfa(l.price)} FCFA{l.unit && <span className="small muted" style={{ fontWeight: 400 }}> {l.unit}</span>}</span>
-                      <span className="xs muted ell">{l.place.split(',')[0]}, {l.sellerShort ?? l.seller}</span>
-                      <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ) : (
             <div className="grid4">
               <Link className="tile" to="/explorer"><Icon name="search" size="lg" />Explorer</Link>
+              <Link className="tile" to="/vendre"><Icon name="sell" size="lg" />Vendre</Link>
               <Link className="tile" to="/commande"><Icon name="truck" size="lg" />Commandes</Link>
               <Link className="tile" to="/assistance"><Icon name="chat" size="lg" />Aide</Link>
             </div>
+          ) : (
+            <SponsoredBanner items={sponsored} />
           )}
 
           <div className="sec">
