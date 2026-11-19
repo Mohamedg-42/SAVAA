@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore, type Species } from '../data';
+import { simulate } from '../toast';
 import { Badge, Foot, Header, Icon, Photo, SectionHead, TabBar } from '../ui';
 
 /* Écran 08 : tableau de bord de l'exploitation. */
@@ -201,9 +202,9 @@ export function AddAnimal() {
           <div className="grid3">
             <Photo label="Profil gauche" h={96} radius={8} />
             <Photo label="Boucle" h={96} radius={8} />
-            <button className="addph" style={{ height: 96, cursor: 'pointer' }}><Icon name="camera" />Ajouter</button>
+            <button className="addph" style={{ height: 96, cursor: 'pointer' }} onClick={() => simulate('Prise de photo')}><Icon name="camera" />Ajouter</button>
           </div>
-          <button className="row card pad plain" style={{ width: '100%' }}>
+          <button className="row card pad plain" style={{ width: '100%' }} onClick={() => simulate('Ajout de justificatif')}>
             <Icon name="file" />
             <span className="col grow"><span className="small b">Joindre un document</span><span className="xs muted">Certificat, carnet de vaccination, facture d’achat</span></span>
           </button>

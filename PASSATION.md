@@ -25,6 +25,7 @@ npm run lint
 | `src/index.css` | Feuille de style de la maquette, reprise telle quelle (classes `.app`, `.hdr`, `.card`, `.badge`, `.btn`, `.adm`…) |
 | `src/ui.tsx` | Icônes, `Header`, `TabBar`, `Badge`, `Photo`, `Foot`, `SectionHead`, `Check`, `NotFound` (écran « introuvable » pour un identifiant d'URL inconnu) |
 | `src/data.ts` | Données de démo + store réactif (`useStore`) : animaux, événements sanitaires, panier |
+| `src/toast.ts` | Message éphémère global : `showToast(texte)`, et `simulate(action)` pour une action pas encore possible en démo (PDF, appel, photo, export). Affiché par `<Toaster />` dans `App` |
 | `src/App.tsx` | Toutes les routes de l'application (HashRouter) |
 | `src/screens/eleveur.tsx` | Lot 2 : tableau de bord (`/suivi`), cheptel (`/cheptel`), ajout d'animal (`/cheptel/ajout`) |
 | `src/screens/sante.tsx` | Lot 2 : fiche animale (`/animal/:id`), dossier sanitaire (`/animal/:id/sante`), observation (`/animal/:id/observation`) |
@@ -51,5 +52,7 @@ npm run lint
 - Paiements, MIRAH, capteurs = simulés ; « Sponsorisé » toujours affiché sur une annonce payée ; une alerte n'est jamais un diagnostic.
 - Photos : emplacements `<Photo>` en attendant les vraies images et le logo officiel.
 - Pas de « · » comme séparateur dans les textes (virgule à la place).
+- Aucun bouton inerte : soit une vraie action, soit `simulate('…')`, soit `disabled`.
+- Les blocs directs de `.body` ne rétrécissent pas (`.body>*{flex-shrink:0}`) : sans cette règle, sur un téléphone de moins de 844 px de haut, la photo d'annonce ou les onglets de la fiche animale étaient écrasés. Tester aussi en 390 × 667.
 - Un identifiant d'URL inconnu (`/animal/:id`, `/annonce/:id`, `/prospect/:id`) affiche `NotFound`, jamais un autre élément à la place.
 - Chaque événement sanitaire porte son `animalId` ; lire un dossier avec `store.eventsFor(id)`. Seul FK-0142 a une fiche complète (race, ascendance, mouvements) et seule son annonce a une page de détail ; les autres cartes d'annonce ne sont pas cliquables.

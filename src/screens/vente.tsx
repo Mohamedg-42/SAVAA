@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fcfa, useStore } from '../data';
+import { simulate } from '../toast';
 import { Badge, Check, Foot, Header, Icon, Photo } from '../ui';
 
 /* Lot 5 : vente (boutique, publication, campagne, statistiques, espace restaurant). */
@@ -60,7 +61,7 @@ export function CreateShop() {
       <Header back title="Créer ma boutique" actions={<span className="small muted" style={{ paddingRight: 12, flex: 'none' }}>Étape 3 sur 3</span>} />
       <div className="body" style={{ gap: 20 }}>
         <div className="row" style={{ gap: 14 }}>
-          <button className="addph" style={{ width: 76, height: 76, borderRadius: 12, fontFamily: 'inherit', cursor: 'pointer', flex: 'none' }}><Icon name="camera" />Logo</button>
+          <button className="addph" style={{ width: 76, height: 76, borderRadius: 12, fontFamily: 'inherit', cursor: 'pointer', flex: 'none' }} onClick={() => simulate('Ajout du logo')}><Icon name="camera" />Logo</button>
           <div className="field grow">
             <label htmlFor="shop-name">Nom de la boutique</label>
             <input id="shop-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />

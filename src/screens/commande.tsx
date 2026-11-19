@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { fcfa, useStore } from '../data';
+import { simulate } from '../toast';
 import { Badge, Foot, Header, Icon, Photo } from '../ui';
 
 function Steps({ n }: { n: number }) {
@@ -212,7 +213,7 @@ export function Receipt() {
           <div className="sum"><span className="muted">Frais de transaction</span><span className="num muted">0</span></div>
           <div className="sum t"><span>Total payé</span><span className="num">{fcfa(t.total)} FCFA</span></div>
         </div>
-        <button className="btn btn-s btn-block"><Icon name="download" />Télécharger le reçu (PDF)</button>
+        <button className="btn btn-s btn-block" onClick={() => simulate('Téléchargement du reçu PDF')}><Icon name="download" />Télécharger le reçu (PDF)</button>
       </div>
       <Foot><Link className="btn btn-p" to="/commande">Suivre la commande</Link></Foot>
     </div>
@@ -249,7 +250,7 @@ export function Tracking() {
         <div className="card pad row">
           <span className="av" style={{ background: '#EEF0EE', color: '#3E4943' }}>TO</span>
           <div className="col grow"><span className="b small">Transports Ouattara</span><span className="xs muted">Bétaillère AB 4512 CI, Issa O.</span></div>
-          <button className="iconbtn" aria-label="Appeler le transporteur" style={{ border: '1px solid #C5CDC7' }}><Icon name="phone" /></button>
+          <button className="iconbtn" aria-label="Appeler le transporteur" style={{ border: '1px solid #C5CDC7' }} onClick={() => simulate('Appel du transporteur, numéro masqué')}><Icon name="phone" /></button>
         </div>
         <div className="card pad col" style={{ gap: 10 }}>
           <span className="b small">Code de remise</span>
@@ -270,6 +271,13 @@ export function Support() {
   const tab = params.get('onglet') ?? 'aide';
   const [sent, setSent] = useState(false);
   const [urgent, setUrgent] = useState(true);
+  const [draft, setDraft] = useState('');
+  const [chat, setChat] = useState<string[]>([]);
+  const send = () => {
+    if (!draft.trim()) return;
+    setChat((c) => [...c, draft.trim()]);
+    setDraft('');
+  };
 
   return (
     <div className="app">
@@ -311,12 +319,18 @@ export function Support() {
               <div className="bubble bot">Le transporteur indique une arrivée vers 10 h 30, soit 30 min après le créneau. Vous pouvez l’appeler depuis le suivi, ou signaler un retard si le délai dépasse 2 h.</div>
               <div className="bubble me">Le taurillon boite légèrement à la descente.</div>
               <div className="bubble bot">Ne donnez pas encore le code de remise. Je vous mets en relation avec un conseiller pour ouvrir une réclamation. Pour l’état de l’animal, contactez un vétérinaire.</div>
+              {chat.map((m, i) => (
+                <div key={i} className="col" style={{ gap: 8 }}>
+                  <div className="bubble me">{m}</div>
+                  <div className="bubble bot" ref={i === chat.length - 1 ? (el) => el?.scrollIntoView({ block: 'end' }) : undefined}>Assistant simulé dans la démo. Pour une vraie réponse, parlez à un conseiller.</div>
+                </div>
+              ))}
             </div>
             <button className="btn btn-p btn-block" onClick={() => setParams({ onglet: 'reclamation' }, { replace: true })}>Parler à un conseiller</button>
           </div>
           <div className="foot" style={{ padding: '10px 12px 14px' }}>
-            <input className="input grow" placeholder="Écrire un message" aria-label="Message" />
-            <button className="iconbtn" aria-label="Envoyer" style={{ background: '#145C3A', color: '#fff' }}><Icon name="send" /></button>
+            <input className="input grow" placeholder="Écrire un message" aria-label="Message" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} />
+            <button className="iconbtn" aria-label="Envoyer" style={{ background: '#145C3A', color: '#fff' }} onClick={send}><Icon name="send" /></button>
           </div>
         </>
       )}
@@ -331,7 +345,7 @@ export function Support() {
               <select id="cmd" className="input num"><option>SAV-2026-11-004812</option></select>
             </div>
             <div className="field"><label htmlFor="desc">Description</label><textarea id="desc" className="input" defaultValue="Le taurillon boite de l’antérieur droit à la descente de la bétaillère. Je n’ai pas encore donné le code de remise." /></div>
-            <div className="grid3"><Photo label="VID_0921" h={80} radius={8} /><button className="addph" style={{ height: 80 }}>Ajouter</button></div>
+            <div className="grid3"><Photo label="VID_0921" h={80} radius={8} /><button className="addph" style={{ height: 80 }} onClick={() => simulate('Ajout de photo ou vidéo')}>Ajouter</button></div>
             <div className="field"><span className="lbl">Priorité</span>
               <div className="seg"><button className={!urgent ? 'on' : ''} onClick={() => setUrgent(false)}>Normale</button><button className={urgent ? 'on' : ''} onClick={() => setUrgent(true)}>Urgente</button></div>
             </div>

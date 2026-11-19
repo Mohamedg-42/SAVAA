@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { simulate } from '../toast';
 import { Badge, Foot, Icon, NotFound, Photo, SectionHead, TabBar, type Tone } from '../ui';
 
 /* Seule annonce détaillée de la maquette (écran 06). */
@@ -217,7 +218,7 @@ export function CatalogOffline() {
           <h2 style={{ fontSize: 19, fontWeight: 600 }}>Pas de connexion</h2>
           <p className="small muted" style={{ lineHeight: 1.5 }}>Impossible de charger les annonces. Vos favoris et les annonces déjà vues restent consultables.</p>
           <button className="btn btn-p btn-block" onClick={() => setSt('load')} style={{ marginTop: 8 }}>Réessayer</button>
-          <button className="btn btn-s btn-block">Voir mes favoris (3)</button>
+          <button className="btn btn-s btn-block" onClick={() => simulate('Favoris hors connexion')}>Voir mes favoris (3)</button>
         </div>
       )}
       {st === 'load' && (

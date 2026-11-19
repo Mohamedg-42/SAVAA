@@ -6,6 +6,7 @@ import { BackOffice, NewProspect, Prospection, ProspectSheet } from './screens/c
 import { AddAnimal, Dashboard, Herd } from './screens/eleveur';
 import { AnimalSheet, HealthRecord, Observation } from './screens/sante';
 import { Campaign, CampaignStats, CreateShop, Publish, Restaurant, Shop } from './screens/vente';
+import { Toaster } from './ui';
 
 export default function App() {
   return (
@@ -55,6 +56,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/accueil" replace />} />
       </Routes>
+      <Toaster />
     </HashRouter>
   );
 }

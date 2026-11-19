@@ -12,6 +12,7 @@
 .dot{position:absolute;top:6px;right:5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#F28C28;color:#fff;font-size:10px;font-weight:600;line-height:17px;text-align:center}
 .body{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:18px}
 .body.flush{padding:0;gap:0}
+.body>*{flex-shrink:0}
 .tabbar{flex:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:#fff;border-top:1px solid #E3E7E4;padding:4px 4px 12px}
 .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:500;color:#5D6862;min-height:50px}
 .tab.on{color:#145C3A;font-weight:600}
@@ -197,5 +198,5 @@ html,body,#root{margin:0;height:100%;background:#F8FAF8}
 button.li{width:100%;border-left:0;border-right:0;border-bottom:0;background:#fff;font:inherit;color:inherit;text-align:left;cursor:pointer}
 .input:focus,textarea.input:focus{outline:2px solid #145C3A;outline-offset:-1px}
 input.input,textarea.input,select.input{display:block}
-.toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#17201B;color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;max-width:calc(100% - 32px);z-index:10}
+.toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#17201B;color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;max-width:calc(100% - 32px);z-index:10;font-family:'IBM Plex Sans',system-ui,sans-serif;line-height:1.4}
 .stat{display:flex;flex-direction:column;gap:2px}

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useToast } from './toast';
 
 /* Icônes au trait de la maquette (24 × 24, trait 1,75). */
 const ICONS = {
@@ -134,6 +135,12 @@ export function NotFound({ title, text, to, cta }: { title: string; text: string
       </div>
     </div>
   );
+}
+
+/** Affiche le message de `showToast` / `simulate` (monté une seule fois, dans App). */
+export function Toaster() {
+  const msg = useToast();
+  return msg ? <div className="toast" role="status">{msg}</div> : null;
 }
 
 export function Check({ on }: { on: boolean }) {
