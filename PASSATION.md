@@ -1,58 +1,72 @@
-# SAVAA — passation du front React
+# Passation du front SAVAA
 
-État au 19/11/2026. Application de démonstration (front seul, données fictives) calquée sur la maquette v2.
+Mise à jour du 19/11/2026.
 
-## Lancer
+C'est le front de démonstration de SAVAA, fait à partir de la maquette v2. Il n'y a pas de backend : les données sont fictives et tout ce qu'on saisit est perdu au rechargement de la page.
+
+## Lancer le projet
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # vérification TypeScript + build
+npm run build    # vérifie aussi les types
 npm run lint
 ```
 
-## Références
+## Où trouver quoi
 
-- Maquette en ligne : https://claude.ai/artifact/TahrNHBEMz7wfapdJ2GTUr (32 planches)
-- Copie locale des écrans de la maquette : `maquette/*.dc.html` (HTML + classes CSS identiques à l'appli)
-- Cahier des charges : `C:\Users\HP\Downloads\SAVAA_Cahier_des_charges_complet_maquette_v2.pdf`
-- Dossier de conception technique : https://claude.ai/artifact/MjSbkCEbPcQHHwLJL2P4oQ
+La maquette en ligne (32 planches) : https://claude.ai/artifact/TahrNHBEMz7wfapdJ2GTUr. Une copie des écrans est dans `maquette/`, avec les mêmes classes CSS que l'appli, ce qui aide pour comparer. Le cahier des charges est le PDF `SAVAA_Cahier_des_charges_complet_maquette_v2.pdf` (dans Téléchargements) et le dossier de conception technique est ici : https://claude.ai/artifact/MjSbkCEbPcQHHwLJL2P4oQ.
 
-## Structure
+Côté code :
 
-| Fichier | Rôle |
-| --- | --- |
-| `src/index.css` | Feuille de style de la maquette, reprise telle quelle (classes `.app`, `.hdr`, `.card`, `.badge`, `.btn`, `.adm`…) |
-| `src/ui.tsx` | Icônes, `Header`, `TabBar`, `Badge`, `Photo`, `Foot`, `SectionHead`, `Check`, `NotFound` (écran « introuvable » pour un identifiant d'URL inconnu) |
-| `src/data.ts` | Données de démo + store réactif (`useStore`) : animaux, événements sanitaires, panier |
-| `src/toast.ts` | Message éphémère global : `showToast(texte)`, et `simulate(action)` pour une action pas encore possible en démo (PDF, appel, photo, export). Affiché par `<Toaster />` dans `App` |
-| `src/App.tsx` | Toutes les routes de l'application (HashRouter) |
-| `src/screens/eleveur.tsx` | Lot 2 : tableau de bord (`/suivi`), cheptel (`/cheptel`), ajout d'animal (`/cheptel/ajout`) |
-| `src/screens/sante.tsx` | Lot 2 : fiche animale (`/animal/:id`), dossier sanitaire (`/animal/:id/sante`), observation (`/animal/:id/observation`) |
-| `src/screens/achat.tsx` | Lot 3 : accueil (`/accueil`), catalogue (`/explorer`), erreur réseau (`/explorer/hors-ligne`), annonce (`/annonce/:id`) |
-| `src/screens/commande.tsx` | Lot 3 : panier (`/panier`), paiement simulé (`/paiement`), reçu (`/recu`), suivi (`/commande`), assistance (`/assistance`) |
-| `src/screens/compte.tsx` | Lot 4 : démarrage (`/demarrage`), connexion OTP (`/connexion`), choix du rôle (`/role`), profil (`/compte`), notifications (`/notifications`) |
-| `src/screens/vente.tsx` | Lot 5 : créer ma boutique (`/boutique/creer`), boutique (`/boutique`), publier (`/vendre`), campagne (`/campagne`), statistiques (`/campagne/stats`), espace restaurant (`/restaurant`) |
-| `src/screens/crm.tsx` | Lot 6 : prospection (`/prospection`), fiche prospect (`/prospect/:id`), nouveau prospect (`/prospect/nouveau`), back-office large (`/admin`) |
+- `src/App.tsx` contient toutes les routes (HashRouter).
+- `src/index.css` est la feuille de style de la maquette, reprise telle quelle.
+- `src/ui.tsx` regroupe les composants partagés : icônes, en-tête, barre d'onglets, badges, emplacements photo, écran « introuvable »…
+- `src/data.ts` porte les données de démo (animaux, dossiers sanitaires, panier) et un petit store maison, `useStore`. C'est là qu'il faudra brancher l'API ; les écrans n'auront normalement pas à changer.
+- `src/toast.ts` gère le petit message qui s'affiche en bas de l'écran.
 
-## Fait (Lots 1 à 6 complets)
+Les écrans sont rangés par thème dans `src/screens/` :
 
-- **Lot 1** : socle, charte (vert `#145C3A`, vert clair `#E8F3EA`, orange `#F28C28`, fond `#F8FAF8`), police IBM Plex Sans intégrée.
-- **Lot 2** : 6 écrans éleveur et santé animale.
-- **Lot 3** : 9 écrans achat, commande, paiement simulé et assistance.
-- **Lot 4** : 5 écrans démarrage, connexion OTP, choix du rôle, profil/vérification et centre de notifications filtrable.
-- **Lot 5** : 6 écrans création de boutique, boutique vendeur, publication d'annonce en 2 étapes, campagne sponsorisée, statistiques et espace restaurant B2B.
-- **Lot 6** : 4 écrans CRM de prospection terrain (pipeline, fiche, ajout) et back-office d'administration grand écran (`/admin`).
-- Tous les onglets et liens sont branchés (aucun écran `ComingSoon` restant).
+- `eleveur.tsx` : tableau de bord, cheptel, ajout d'un animal
+- `sante.tsx` : fiche animale, dossier sanitaire, nouvelle observation
+- `achat.tsx` : accueil, catalogue (et son état hors connexion), annonce
+- `commande.tsx` : panier, paiement, reçu, suivi, assistance
+- `compte.tsx` : démarrage, connexion par code, choix du rôle, profil, notifications
+- `vente.tsx` : boutique (création et vue vendeur), publication d'annonce, campagne et ses statistiques, espace restaurant
+- `crm.tsx` : prospection terrain (liste, fiche, ajout) et back-office, sur `/admin`
 
-## Règles gardées
+## Où on en est
 
-- Aucun débordement à 320 px : texte dynamique dans une ligne → classe `ell` ou `minWidth: 0` ; groupes de puces → `.wrap` ou `.chips`.
-- Aucun faux contact (numéro, horaires) : laisser `[à confirmer]`.
-- Paiements, MIRAH, capteurs = simulés ; « Sponsorisé » toujours affiché sur une annonce payée ; une alerte n'est jamais un diagnostic.
-- Photos : emplacements `<Photo>` en attendant les vraies images et le logo officiel.
-- Pas de « · » comme séparateur dans les textes (virgule à la place).
-- Aucun bouton inerte : soit une vraie action, soit `simulate('…')`, soit `disabled`.
-- Les blocs directs de `.body` ne rétrécissent pas (`.body>*{flex-shrink:0}`) : sans cette règle, sur un téléphone de moins de 844 px de haut, la photo d'annonce ou les onglets de la fiche animale étaient écrasés. Tester aussi en 390 × 667.
-- Un identifiant d'URL inconnu (`/animal/:id`, `/annonce/:id`, `/prospect/:id`) affiche `NotFound`, jamais un autre élément à la place.
-- Chaque événement sanitaire porte son `animalId` ; lire un dossier avec `store.eventsFor(id)`. Le champ `summary` règle la ligne courte de l'onglet Santé de la fiche (titre et sous-titre de la maquette, ou `false` pour l'en exclure). Seul FK-0142 a une fiche complète (race, ascendance, mouvements) et seule son annonce a une page de détail ; les autres cartes d'annonce ne sont pas cliquables.
+Les 30 écrans d'application de la maquette sont faits, avec tous leurs textes, onglets et états. Les planches 26 (feuille de route) et 27 (design system) sont des planches de présentation, il n'y a rien à intégrer.
+
+Aucun bouton n'est mort. Ce qui demanderait un serveur ou le téléphone (PDF, appel, appareil photo, export) affiche un court message qui dit que ce n'est pas encore disponible.
+
+La charte : vert `#145C3A`, vert clair `#E8F3EA`, orange `#F28C28`, fond `#F8FAF8`, police IBM Plex Sans (installée localement, pas de Google Fonts).
+
+## Ce qu'il reste
+
+- Comparer la mise en page à la maquette sur des captures. Les textes ont été vérifiés écran par écran, l'affichage seulement par endroits.
+- Ajouter des tests. Il n'y en a aucun pour l'instant ; Vitest serait le plus simple avec Vite.
+- Remplacer les emplacements photo et l'icône d'onglet provisoire quand on aura les vraies images et le logo.
+
+## À respecter
+
+Sur le contenu :
+
+- On n'invente pas de contact. Un numéro ou des horaires qu'on n'a pas restent `[à confirmer]`.
+- Le paiement, MIRAH et les capteurs sont simulés, et l'appli ne doit pas laisser croire le contraire.
+- Une annonce payée affiche toujours « Sponsorisé ».
+- Une alerte sanitaire n'est jamais présentée comme un diagnostic.
+- Pas de « · » comme séparateur dans les textes, on met une virgule.
+
+Sur l'affichage :
+
+- Rien ne doit déborder à 320 px de large. Pour un texte variable sur une ligne, utiliser la classe `ell` ou `minWidth: 0` ; pour une rangée de puces, `.wrap` ou `.chips`.
+- Tester aussi en 390 × 667. Les blocs directs de `.body` ont `flex-shrink: 0` : sans ça, sur un écran moins haut que la maquette (844 px), la photo de l'annonce et les onglets de la fiche animale se retrouvaient écrasés.
+
+Sur le code :
+
+- Un bouton fait quelque chose, sinon il est `disabled`. Pour une action pas encore branchée, appeler `simulate('…')` avec une phrase courte propre à ce bouton, pas une formule toute faite.
+- Si l'identifiant d'une URL n'existe pas (`/animal/:id`, `/annonce/:id`, `/prospect/:id`), on affiche `NotFound`. On ne montre jamais un autre élément à la place.
+- Chaque événement sanitaire est rattaché à un animal par `animalId`. On lit un dossier avec `store.eventsFor(id)`. Le champ `summary` donne la ligne courte affichée dans l'onglet Santé de la fiche ; `false` l'en exclut.
+- Seul le taurillon FK-0142 a une fiche complète (race, ascendance, mouvements), et c'est la seule annonce qui a une page de détail. Les autres cartes du catalogue ne sont donc pas cliquables.
