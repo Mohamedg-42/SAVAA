@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { fcfa, priceLabel, today, useStore, type Listing } from '../data';
 import { downloadCSV } from '../device';
 import { showToast } from '../toast';
@@ -51,11 +51,14 @@ export function CreateShop() {
   const s = useStore();
   const shop = s.shop();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = params.get('next');
+  const session = s.session();
   const [name, setName] = useState(shop.name);
   const [logo, setLogo] = useState(shop.logo);
   const [desc, setDesc] = useState(shop.desc);
   const [town, setTown] = useState(shop.town);
-  const [cats, setCats] = useState<Record<string, boolean>>({ Bovins: true, 'Ovins et caprins': true });
+  const [cats, setCats] = useState<Record<string, boolean>>({});
   const [delivery, setDelivery] = useState(true);
   const [cgv, setCgv] = useState(false);
   const ready = cgv && name.trim() !== '' && Object.values(cats).some(Boolean);
@@ -72,7 +75,7 @@ export function CreateShop() {
           )}
           <div className="field grow">
             <label htmlFor="shop-name">Nom de la boutique</label>
-            <input id="shop-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
+            <input id="shop-name" className="input" placeholder="Ex. Ferme Traoré" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
         </div>
         <div className="field">
@@ -81,7 +84,7 @@ export function CreateShop() {
         </div>
         <div className="field">
           <label htmlFor="shop-desc">Présentation</label>
-          <textarea id="shop-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} />
+          <textarea id="shop-desc" className="input" placeholder="Ce que vous produisez, depuis quand, comment vous visiter…" value={desc} onChange={(e) => setDesc(e.target.value)} />
         </div>
         <div className="grid2">
           <div className="field">
@@ -101,7 +104,7 @@ export function CreateShop() {
         <div className="field">
           <label htmlFor="shop-payout">Compte de versement des ventes</label>
           <select id="shop-payout" className="input" defaultValue="om">
-            <option value="om">Orange Money, 07 48 12 33 90</option>
+            <option value="om">{session.phone ? `Orange Money, ${session.phone}` : 'Mobile Money, numéro à renseigner'}</option>
             <option value="new">Ajouter un autre compte</option>
           </select>
           <span className="hint">Vérifié par le prestataire de paiement avant le premier versement.</span>
@@ -113,7 +116,7 @@ export function CreateShop() {
       </div>
       <Foot>
         <Link className="btn btn-s" to="/accueil" style={{ flex: '0 0 auto' }}>Plus tard</Link>
-        <button className="btn btn-p" disabled={!ready} onClick={() => { s.setShop({ name: name.trim(), desc: desc.trim(), town, logo }); navigate('/vendre'); }}>Créer et publier</button>
+        <button className="btn btn-p" disabled={!ready} onClick={() => { s.setShop({ created: true, name: name.trim(), desc: desc.trim(), town, logo }); navigate(next && next.startsWith('/') ? next : '/vendre', { replace: true }); }}>Créer et publier</button>
       </Foot>
     </div>
   );
@@ -138,26 +141,32 @@ export function Shop() {
   const [tab, setTab] = useState<ShopTab>('ads');
   const statCell: CSSProperties = { padding: 10, borderRight: '1px solid #E3E7E4', minWidth: 0 };
   const initials = shop.name.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-  const tabs: [ShopTab, string][] = [['ads', `Annonces (${4 + mine.length})`], ['orders', 'Commandes (3)'], ['reviews', 'Avis (23)']];
+  /* Le compte de démonstration garde l'historique de la maquette ; un nouveau vendeur part de zéro. */
+  const demo = !!s.session().demo;
+  const tabs: [ShopTab, string][] = [['ads', `Annonces (${(demo ? 4 : 0) + mine.length})`], ['orders', `Commandes (${demo ? 3 : 0})`], ['reviews', `Avis (${demo ? 23 : 0})`]];
+  const buyerView = demo ? '/annonce/FK-0142' : mine[0] ? `/annonce/${mine[0].id}` : null;
+  const empty = (t: string) => <div className="card pad"><span className="small muted">{t}</span></div>;
 
   return (
     <div className="app">
-      <Header back title="Ma boutique" actions={<Link className="link" to="/annonce/FK-0142" style={{ paddingRight: 12, flex: 'none' }}>Vue acheteur</Link>} />
+      <Header back title="Ma boutique" actions={buyerView ? <Link className="link" to={buyerView} style={{ paddingRight: 12, flex: 'none' }}>Vue acheteur</Link> : undefined} />
       <div className="body flush">
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 14, borderBottom: '1px solid #E3E7E4' }}>
           <div className="row" style={{ gap: 14 }}>
             {shop.logo ? <Photo src={shop.logo} label="Logo" w={60} h={60} radius={10} /> : <span className="av" style={{ width: 60, height: 60, fontSize: 20, borderRadius: 10 }}>{initials}</span>}
             <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
               <span className="b ell" style={{ fontSize: 17 }}>{shop.name}</span>
-              <span className="xs muted">Éleveur, bovins et ovins, {shop.town}</span>
-              <div className="wrap" style={{ marginTop: 2 }}><Badge tone="green">Compte vérifié</Badge><Badge tone="amber">Exploitation : visite le 25/11</Badge></div>
+              <span className="xs muted">{demo ? 'Éleveur, bovins et ovins' : shop.desc.split(/[.\n]/)[0] || 'Boutique'}, {shop.town}</span>
+              <div className="wrap" style={{ marginTop: 2 }}>
+                {demo ? <><Badge tone="green">Compte vérifié</Badge><Badge tone="amber">Exploitation : visite le 25/11</Badge></> : <Badge tone="amber">Vérification en cours</Badge>}
+              </div>
             </div>
           </div>
           <div className="grid4" style={{ gap: 0, border: '1px solid #E3E7E4', borderRadius: 10 }}>
-            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>41</span><span className="l">ventes</span></div>
-            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>4,7</span><span className="l">23 avis</span></div>
-            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>2 h</span><span className="l">réponse</span></div>
-            <div className="stat" style={{ ...statCell, borderRight: 0 }}><span className="v" style={{ fontSize: 18 }}>98 %</span><span className="l">livrées</span></div>
+            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>{demo ? 41 : 0}</span><span className="l">ventes</span></div>
+            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>{demo ? '4,7' : '–'}</span><span className="l">{demo ? '23 avis' : 'aucun avis'}</span></div>
+            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>{demo ? '2 h' : '–'}</span><span className="l">réponse</span></div>
+            <div className="stat" style={{ ...statCell, borderRight: 0 }}><span className="v" style={{ fontSize: 18 }}>{demo ? '98 %' : '–'}</span><span className="l">livrées</span></div>
           </div>
           <div className="grid3" style={{ gap: 8 }}>
             <Link className="btn btn-s btn-sm" style={wrapBtn} to="/vendre">Publier</Link>
@@ -171,7 +180,10 @@ export function Shop() {
           ))}
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {tab === 'ads' && (
+          {tab === 'ads' && !demo && mine.length === 0 && empty('Aucune annonce pour l’instant. Touchez « Publier » pour mettre en vente.')}
+          {tab === 'orders' && !demo && empty('Aucune commande reçue pour l’instant.')}
+          {tab === 'reviews' && !demo && empty('Aucun avis : ils arrivent après les premières ventes livrées.')}
+          {tab === 'ads' && (demo || mine.length > 0) && (
             <div className="card list">
               {mine.map((l) => {
                 const [label, tone] = LISTING_BADGE[l.status];
@@ -189,20 +201,22 @@ export function Shop() {
                   </div>
                 );
               })}
-              <Link className="li" to="/annonce/FK-0142">{thumb}<div className="col grow"><span className="small b ell">Taurillon Zébu Goudali</span><span className="xs muted num">650 000 FCFA, 214 vues, 9 contacts</span></div><Badge tone="blue">Vendu</Badge></Link>
-              <Link className="li" to="/campagne/stats"><Photo w={52} h={52} radius={6} src="/images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 / tête, stock 6</span></div><Badge tone="sp">Sponsorisé</Badge></Link>
-              <div className="li"><Photo w={52} h={52} radius={6} src="/images/genisse-metisse.jpg" /><div className="col grow"><span className="small b ell">Génisse métisse, 19 mois</span><span className="xs muted num">480 000 FCFA, en modération</span></div><Badge tone="amber">En revue</Badge></div>
-              <div className="li"><Photo w={52} h={52} radius={6} tint="w" /><div className="col grow"><span className="small b ell">Fumier composté, sac 40 kg</span><span className="xs muted num">2 000 FCFA, stock 0</span></div><Badge tone="red">Rupture</Badge></div>
+              {demo && <>
+                <Link className="li" to="/annonce/FK-0142">{thumb}<div className="col grow"><span className="small b ell">Taurillon Zébu Goudali</span><span className="xs muted num">650 000 FCFA, 214 vues, 9 contacts</span></div><Badge tone="blue">Vendu</Badge></Link>
+                <Link className="li" to="/campagne/stats"><Photo w={52} h={52} radius={6} src="/images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 / tête, stock 6</span></div><Badge tone="sp">Sponsorisé</Badge></Link>
+                <div className="li"><Photo w={52} h={52} radius={6} src="/images/genisse-metisse.jpg" /><div className="col grow"><span className="small b ell">Génisse métisse, 19 mois</span><span className="xs muted num">480 000 FCFA, en modération</span></div><Badge tone="amber">En revue</Badge></div>
+                <div className="li"><Photo w={52} h={52} radius={6} tint="w" /><div className="col grow"><span className="small b ell">Fumier composté, sac 40 kg</span><span className="xs muted num">2 000 FCFA, stock 0</span></div><Badge tone="red">Rupture</Badge></div>
+              </>}
             </div>
           )}
-          {tab === 'orders' && (
+          {tab === 'orders' && demo && (
             <div className="card list">
               <Link className="li" to="/commande"><div className="col grow"><span className="small b">SAV-2026-11-004812</span><span className="xs muted">Fatou Ouattara, taurillon, 650 000 FCFA</span></div><Badge tone="blue">En livraison</Badge></Link>
               <div className="li"><div className="col grow"><span className="small b">SAV-2026-11-004655</span><span className="xs muted">Maquis Le Carrefour, 2 béliers</span></div><Badge tone="amber">À préparer</Badge></div>
               <div className="li"><div className="col grow"><span className="small b">SAV-2026-10-003910</span><span className="xs muted">Boucherie Fofana, 1 bœuf</span></div><Badge tone="green">Livrée</Badge></div>
             </div>
           )}
-          {tab === 'reviews' && (
+          {tab === 'reviews' && demo && (
             <>
               <div className="card pad col" style={{ gap: 6 }}>
                 <span className="row between"><span className="small b">Boucherie Fofana</span><span className="small num">5 / 5</span></span>
@@ -244,16 +258,18 @@ export function Publish() {
   const herd = s.animals();
 
   const [draft] = useState(loadDraft);
+  /* Les animaux se vendent avec leur fiche : seul un éleveur (qui a un cheptel) les propose. */
+  const categories = s.isBreeder() ? CATEGORIES : CATEGORIES.filter((c) => !c.startsWith('Animaux'));
   const [step, setStep] = useState<1 | 2 | 'sent'>(1);
-  const [category, setCategory] = useState(draft?.category ?? CATEGORIES[0]);
-  const [picked, setPicked] = useState<string[]>(draft?.picked ?? ['FK-0091']);
+  const [category, setCategory] = useState(draft?.category && categories.includes(draft.category) ? draft.category : s.has('agri') && !s.isBreeder() ? 'Récoltes' : categories[0]);
+  const [picked, setPicked] = useState<string[]>(draft?.picked ?? []);
   const [picker, setPicker] = useState(false);
-  /* Photos : libellés de la maquette, ou images ajoutées (data URL). */
-  const [photos, setPhotos] = useState<string[]>(draft?.photos ?? ['1', '2', 'Vidéo']);
-  const [title, setTitle] = useState(draft?.title ?? 'Génisse métisse Goudali × N’Dama, 19 mois');
-  const [price, setPrice] = useState(draft?.price ?? 480000);
+  /* Photos ajoutées depuis l'appareil (data URL). */
+  const [photos, setPhotos] = useState<string[]>(draft?.photos?.filter((p) => p.startsWith('data:')) ?? []);
+  const [title, setTitle] = useState(draft?.title ?? '');
+  const [price, setPrice] = useState(draft?.price ?? 0);
   const [qty, setQty] = useState(draft?.qty ?? 1);
-  const [neg, setNeg] = useState(draft?.neg ?? true);
+  const [neg, setNeg] = useState(draft?.neg ?? false);
   const [delivery, setDelivery] = useState(draft?.delivery ?? true);
   const [published, setPublished] = useState<string | null>(null);
   const shop = s.shop();
@@ -411,14 +427,16 @@ export function Publish() {
         <div className="field">
           <label htmlFor="pub-cat">Catégorie</label>
           <select id="pub-cat" className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
-            {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+            {categories.map((c) => <option key={c}>{c}</option>)}
           </select>
         </div>
 
         {isAnimal && (
           <div className="field">
             <span className="lbl">Animaux concernés</span>
-            {chosen.length === 0 && <span className="hint">Choisissez au moins un animal du cheptel.</span>}
+            {herd.length === 0 ? (
+              <span className="hint">Votre cheptel est vide. <Link className="link" to="/cheptel/ajout">Ajoutez d’abord l’animal</Link> : il sera vendu avec sa fiche.</span>
+            ) : chosen.length === 0 && <span className="hint">Choisissez au moins un animal du cheptel.</span>}
             {chosen.map((a) => (
               <div key={a.id} className="card row" style={{ padding: '10px 12px' }}>
                 <button className="plain" aria-label={`Retirer ${a.id}`} onClick={() => togglePick(a.id)}><Check on /></button>
@@ -460,12 +478,12 @@ export function Publish() {
 
         <div className="field">
           <label htmlFor="pub-title">Titre</label>
-          <input id="pub-title" className="input" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} />
+          <input id="pub-title" className="input" placeholder="Ex. Génisse N’Dama, 19 mois" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="grid2">
           <div className="field">
             <label htmlFor="pub-price">Prix (FCFA)</label>
-            <input id="pub-price" className="input num b" inputMode="numeric" value={price ? fcfa(price) : ''} onChange={(e) => setPrice(parseAmount(e.target.value))} />
+            <input id="pub-price" className="input num b" inputMode="numeric" placeholder="0" value={price ? fcfa(price) : ''} onChange={(e) => setPrice(parseAmount(e.target.value))} />
           </div>
           <div className="field">
             <label htmlFor="pub-qty">Quantité</label>
@@ -478,7 +496,7 @@ export function Publish() {
         <ToggleRow on={neg} onClick={() => setNeg(!neg)} title="Prix négociable" sub="Les acheteurs peuvent faire une offre" />
         <div className="field">
           <label>Localisation</label>
-          <div className="input sel"><span className="ell">Sinématiali, Poro</span><Icon name="pin" size="sm" /></div>
+          <div className="input sel"><span className="ell">{shop.town}, Poro</span><Icon name="pin" size="sm" /></div>
         </div>
         <ToggleRow on={delivery} onClick={() => setDelivery(!delivery)} title="Livraison par un transporteur SAVAA" sub="Frais calculés et payés par l’acheteur" />
         <Link className="card pad row" to="/assistance" style={{ background: '#E8F3EA', borderColor: '#CFE0D4' }}>
@@ -507,26 +525,65 @@ const ZONES = ['Poro', 'Tchologo', 'Hambol', 'Gbêkê', 'Abidjan'];
 const BUYERS = ['Particuliers', 'Restaurants', 'Grossistes', 'Éleveurs'];
 const BILLING = ['Forfait', 'Par clic', 'Par 1 000 vues'];
 
-export function Campaign() {
-  const [fmt, setFmt] = useState<string>('top');
-  const [zones, setZones] = useState<Record<string, boolean>>({ Poro: true, Tchologo: true });
-  const [buyers, setBuyers] = useState<Record<string, boolean>>({ Particuliers: true, Restaurants: true });
-  const [bill, setBill] = useState('Forfait');
-  const [budget, setBudget] = useState(15000);
-  const [cap, setCap] = useState(1500);
+type CampaignDraft = { listingId: string; fmt: string; zones: string[]; budget: number; cap: number; start: string; end: string };
 
-  const ready = Object.values(zones).some(Boolean) && Object.values(buyers).some(Boolean) && budget > 0;
+export function Campaign() {
+  const s = useStore();
+  const navigate = useNavigate();
+  const demo = !!s.session().demo;
+  const online = s.myListings().filter((l) => l.status === 'online');
+  const [target, setTarget] = useState(online[0]?.id ?? '');
+  const [fmt, setFmt] = useState<string>('top');
+  const [zones, setZones] = useState<Record<string, boolean>>(demo ? { Poro: true, Tchologo: true } : { Poro: true });
+  const [buyers, setBuyers] = useState<Record<string, boolean>>(demo ? { Particuliers: true, Restaurants: true } : {});
+  const [bill, setBill] = useState('Forfait');
+  const [budget, setBudget] = useState(demo ? 15000 : 0);
+  const [cap, setCap] = useState(demo ? 1500 : 0);
+  const [start, setStart] = useState(demo ? '10/11/2026' : today());
+  const [end, setEnd] = useState(demo ? '24/11/2026' : '');
+
+  const ready = Object.values(zones).some(Boolean) && Object.values(buyers).some(Boolean) && budget > 0 && (demo || !!target);
   const days = cap > 0 ? Math.ceil(budget / cap) : 0;
+  const l = s.listing(target);
+
+  if (!demo && online.length === 0) {
+    return (
+      <div className="app">
+        <Header back title="Mettre en avant" />
+        <div className="body" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12, padding: 32 }}>
+          <Icon name="megaphone" style={{ width: 52, height: 52, color: '#5D6862', strokeWidth: 1.4 }} />
+          <h2 style={{ fontSize: 19, fontWeight: 600 }}>Aucune annonce en ligne</h2>
+          <p className="small muted" style={{ lineHeight: 1.5 }}>Une annonce doit être validée et en ligne avant d’être mise en avant.</p>
+          <Link className="btn btn-p btn-block" to="/vendre">Publier une annonce</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const submit = () => {
+    s.put('campaign', { listingId: target, fmt, zones: Object.keys(zones).filter((z) => zones[z]), budget, cap, start, end } satisfies CampaignDraft);
+    s.notify({ c: 'cmp', title: 'Campagne envoyée en validation', text: `« ${l?.title ?? ''} » sera relue par SAVAA avant diffusion.`, to: '/campagne/stats' });
+    navigate('/campagne/stats');
+  };
 
   return (
     <div className="app">
       <Header back title="Mettre en avant" />
       <div className="body" style={{ gap: 20 }}>
-        <div className="card row" style={{ padding: '10px 12px' }}>
-          <Photo w={48} h={48} radius={6} src="/images/beliers-saheliens.jpg" />
-          <div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 FCFA / tête, en ligne</span></div>
-          <Link className="link" to="/boutique" style={{ flex: 'none' }}>Changer</Link>
-        </div>
+        {demo ? (
+          <div className="card row" style={{ padding: '10px 12px' }}>
+            <Photo w={48} h={48} radius={6} src="/images/beliers-saheliens.jpg" />
+            <div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 FCFA / tête, en ligne</span></div>
+            <Link className="link" to="/boutique" style={{ flex: 'none' }}>Changer</Link>
+          </div>
+        ) : (
+          <div className="field">
+            <label htmlFor="cp-listing">Annonce à mettre en avant</label>
+            <select id="cp-listing" className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
+              {online.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+            </select>
+          </div>
+        )}
 
         <div className="sec" style={{ gap: 8 }}>
           <span className="lbl">Format</span>
@@ -550,8 +607,8 @@ export function Campaign() {
         </div>
 
         <div className="grid2">
-          <div className="field"><label htmlFor="cp-start">Début</label><input id="cp-start" className="input num" defaultValue="10/11/2026" /></div>
-          <div className="field"><label htmlFor="cp-end">Fin</label><input id="cp-end" className="input num" defaultValue="24/11/2026" /></div>
+          <div className="field"><label htmlFor="cp-start">Début</label><input id="cp-start" className="input num" value={start} onChange={(e) => setStart(e.target.value)} /></div>
+          <div className="field"><label htmlFor="cp-end">Fin</label><input id="cp-end" className="input num" placeholder="JJ/MM/AAAA" value={end} onChange={(e) => setEnd(e.target.value)} /></div>
         </div>
 
         <div className="field">
@@ -583,24 +640,53 @@ export function Campaign() {
         <div className="sec" style={{ gap: 8 }}>
           <span className="lbl">Aperçu dans les résultats</span>
           <div className="hc" style={{ borderStyle: 'dashed' }}>
-            <Photo label="Photo" w={84} h={84} src="/images/beliers-saheliens.jpg" />
+            <Photo label="Photo" w={84} h={84} src={demo ? '/images/beliers-saheliens.jpg' : l?.photos?.[0]} />
             <div className="col grow" style={{ gap: 3 }}>
               <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>
-              <span className="b small ell">Béliers Sahéliens, lot de 6</span>
-              <span className="price">117 500 FCFA</span>
-              <span className="xs muted ell">Sinématiali, Ferme Koné &amp; Fils</span>
+              <span className="b small ell">{demo ? 'Béliers Sahéliens, lot de 6' : l?.title}</span>
+              <span className="price">{demo ? '117 500 FCFA' : l ? priceLabel(l) : ''}</span>
+              <span className="xs muted ell">{demo ? 'Sinématiali, Ferme Koné & Fils' : `${s.shop().town}, ${s.shop().name}`}</span>
             </div>
           </div>
         </div>
         <p className="hint">Relue par SAVAA avant diffusion. Paiement de la campagne simulé dans cette démonstration.</p>
       </div>
       <Foot>
-        {ready ? (
+        {ready && demo ? (
           <Link className="btn btn-p" to="/campagne/stats">Soumettre à validation</Link>
         ) : (
-          <button className="btn btn-p" disabled>Soumettre à validation</button>
+          <button className="btn btn-p" disabled={!ready} onClick={submit}>Soumettre à validation</button>
         )}
       </Foot>
+    </div>
+  );
+}
+
+/* Un nouveau vendeur : sa campagne attend la validation, sans chiffres inventés. */
+function PendingCampaign() {
+  const s = useStore();
+  const c = s.get<CampaignDraft | null>('campaign', null);
+  const l = c ? s.listing(c.listingId) : undefined;
+  return (
+    <div className="app">
+      <Header back title="Résultats de campagne" />
+      <div className="body">
+        {c && l ? (
+          <div className="card pad col" style={{ gap: 8 }}>
+            <div className="row between"><span className="b" style={{ minWidth: 0 }}>{l.title}</span><Badge tone="amber">En validation</Badge></div>
+            <div className="wrap" style={{ alignItems: 'center' }}><Badge tone="sp">Sponsorisé</Badge><span className="xs muted">{FORMATS.find((f) => f[0] === c.fmt)?.[1]}, {c.zones.join(', ')}, du {c.start}{c.end ? ` au ${c.end}` : ''}</span></div>
+            <div className="row between small" style={{ flexWrap: 'wrap', gap: 4 }}><span className="muted">Budget dépensé</span><span className="b num">0 / {fcfa(c.budget)} FCFA</span></div>
+            <div className="bar"><i style={{ width: '0%' }} /></div>
+            <span className="xs muted">Les affichages, clics et commandes apparaîtront ici dès la diffusion.</span>
+          </div>
+        ) : (
+          <div className="card pad col" style={{ gap: 8 }}>
+            <span className="b">Aucune campagne</span>
+            <span className="small muted">Mettez une annonce en avant pour suivre ici ses résultats.</span>
+          </div>
+        )}
+      </div>
+      <Foot><Link className="btn btn-p" to="/campagne">{c ? 'Modifier' : 'Créer une campagne'}</Link></Foot>
     </div>
   );
 }
@@ -612,7 +698,9 @@ const CLICKS_MAX = Math.max(...CLICKS);
 const nineCols: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(9, minmax(0, 1fr))', gap: 8 };
 
 export function CampaignStats() {
+  const s = useStore();
   const [paused, setPaused] = useState(false);
+  if (!s.session().demo) return <PendingCampaign />;
 
   return (
     <div className="app">
@@ -692,19 +780,57 @@ const INVOICES: [string, string, number, string, 'green' | 'amber'][] = [
   ['FAC-2026-1098', 'Bergerie Soro', 240000, 'À régler le 25/11', 'amber'],
 ];
 
+type RestoRequest = { product: string; kg: number; place: string };
+
 export function Restaurant() {
+  const s = useStore();
+  const demo = !!s.session().demo;
   const [sel, setSel] = useState(1);
   const [ordered, setOrdered] = useState<string | null>(null);
   const [manage, setManage] = useState(false);
   const [paused, setPaused] = useState<Record<number, boolean>>({});
+  /* Un nouveau restaurant saisit sa propre demande ; le compte de démonstration garde celle de la maquette. */
+  const saved = s.get<RestoRequest | null>('resto.request', null);
+  const req: RestoRequest | null = demo ? { product: 'Poulets de chair prêts à cuire', kg: WEEKLY_KG, place: 'Abidjan-Plateau' } : saved;
+  const [product, setProduct] = useState('');
+  const [kg, setKg] = useState(0);
+  const [place, setPlace] = useState('');
   const chosen = OFFERS[sel];
+
+  if (!req) {
+    return (
+      <div className="app">
+        <header className="hdr green" style={{ paddingLeft: 16 }}>
+          <div className="col grow" style={{ gap: 1 }}>
+            <span className="xs" style={{ color: '#CFE0D4' }}>Espace professionnel</span>
+            <span className="b ell" style={{ fontSize: 17 }}>{s.session().name}</span>
+          </div>
+          <Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>
+        </header>
+        <div className="body" style={{ gap: 18 }}>
+          <div className="col" style={{ gap: 4 }}><h2 style={{ fontSize: 18, fontWeight: 600 }}>Demander un devis</h2><span className="small muted">Les fournisseurs vérifiés de la zone vous répondent avec leur prix.</span></div>
+          <div className="field"><label htmlFor="rq-product">Produit</label><input id="rq-product" className="input" placeholder="Ex. poulets de chair prêts à cuire" value={product} onChange={(e) => setProduct(e.target.value)} /></div>
+          <div className="field">
+            <label htmlFor="rq-kg">Volume par semaine</label>
+            <label className="input num" style={{ gap: 6 }}>
+              <input id="rq-kg" className="plain grow num" inputMode="numeric" placeholder="0" style={bare} value={kg || ''} onChange={(e) => setKg(Math.min(99999, parseAmount(e.target.value)))} />
+              <span className="muted" style={{ flex: 'none' }}>kg</span>
+            </label>
+          </div>
+          <div className="field"><label htmlFor="rq-place">Lieu de livraison</label><input id="rq-place" className="input" placeholder="Ex. Korhogo, quartier Soba" value={place} onChange={(e) => setPlace(e.target.value)} /></div>
+          <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Elles apparaîtront ici après votre première commande.</span></div>
+        </div>
+        <Foot><button className="btn btn-p" disabled={!product.trim() || kg <= 0 || !place.trim()} onClick={() => s.put('resto.request', { product: product.trim(), kg, place: place.trim() } satisfies RestoRequest)}>Envoyer la demande</button></Foot>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
       <header className="hdr green" style={{ paddingLeft: 16 }}>
         <div className="col grow" style={{ gap: 1 }}>
           <span className="xs" style={{ color: '#CFE0D4' }}>Espace professionnel</span>
-          <span className="b ell" style={{ fontSize: 17 }}>La Terrasse du Plateau</span>
+          <span className="b ell" style={{ fontSize: 17 }}>{demo ? 'La Terrasse du Plateau' : s.session().name}</span>
         </div>
         <Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>
       </header>
@@ -717,8 +843,10 @@ export function Restaurant() {
         <div className="sec">
           <div className="sech"><h2>Demande de devis</h2><Badge tone="blue">{OFFERS.length} offres</Badge></div>
           <div className="card pad col" style={{ gap: 4 }}>
-            <span className="b small">Poulets de chair prêts à cuire, {WEEKLY_KG} kg / semaine</span>
-            <span className="xs muted">Livraison Abidjan-Plateau, lundi avant 8 h, réponse avant le 20/11</span>
+            <span className="b small">{req.product}, {fcfa(req.kg)} kg / semaine</span>
+            <span className="xs muted">Livraison {req.place}{demo ? ', lundi avant 8 h, réponse avant le 20/11' : ''}</span>
+            {!demo && <span className="xs muted">Offres de démonstration : les prix seront ceux des fournisseurs qui répondent.</span>}
+            {!demo && <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => s.put('resto.request', null)}>Modifier la demande</button>}
           </div>
           <div className="card list" role="radiogroup">
             {OFFERS.map((o, i) => (
@@ -732,11 +860,11 @@ export function Restaurant() {
               </button>
             ))}
           </div>
-          <div className="sum" style={{ padding: '0 2px' }}><span className="muted">Coût hebdomadaire estimé</span><span className="b num" style={{ flex: 'none' }}>{fcfa(chosen.kg * WEEKLY_KG)} FCFA</span></div>
+          <div className="sum" style={{ padding: '0 2px' }}><span className="muted">Coût hebdomadaire estimé</span><span className="b num" style={{ flex: 'none' }}>{fcfa(chosen.kg * req.kg)} FCFA</span></div>
           {ordered === chosen.n ? (
             <div className="notice n-info" role="status">
               <Icon name="check" size="sm" />
-              <span><b>Commande transmise à {chosen.n}.</b> Le fournisseur confirme le créneau de lundi. Paiement simulé à la livraison des premières {WEEKLY_KG} kg.</span>
+              <span><b>Commande transmise à {chosen.n}.</b> Le fournisseur confirme le créneau de lundi. Paiement simulé à la livraison des premiers {fcfa(req.kg)} kg.</span>
             </div>
           ) : (
             <button className="btn btn-p btn-block" style={{ whiteSpace: 'normal', height: 'auto', minHeight: 48, padding: '8px 18px', lineHeight: 1.25 }} onClick={() => setOrdered(chosen.n)}>
@@ -745,6 +873,11 @@ export function Restaurant() {
           )}
         </div>
 
+        {!demo && (
+          <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Elles apparaîtront ici après votre première commande livrée.</span></div>
+        )}
+
+        {demo && <>
         <div className="sec">
           <div className="sech"><h2>Commandes récurrentes</h2><button className="link plain" aria-pressed={manage} onClick={() => setManage(!manage)}>{manage ? 'Terminé' : 'Gérer'}</button></div>
           <div className="card list">
@@ -767,6 +900,7 @@ export function Restaurant() {
             ))}
           </div>
         </div>
+        </>}
       </div>
     </div>
   );

@@ -26,6 +26,8 @@ export type Animal = {
   tone: Tone;
   officialId?: string;
   photo?: string;
+  /** Animal du cheptel de l'utilisateur connecté (les autres sont des fiches publiques liées aux annonces). */
+  mine?: boolean;
   /** Documents joints à la fiche (noms de fichiers). */
   docs?: string[];
   /** Détails saisis à l'identification (écran 09b). */
@@ -87,7 +89,7 @@ export type Listing = {
 };
 
 export type CartItem = { listingId: string; qty: number };
-export type Cart = { items: CartItem[]; delivery: boolean; method: string };
+export type Cart = { items: CartItem[]; delivery: boolean; method: string; /** Adresse de livraison saisie au panier. */ address?: string };
 
 export type OrderLine = { listingId: string; title: string; seller: string; qty: number; price: number };
 export type Order = {
@@ -98,6 +100,7 @@ export type Order = {
   lines: OrderLine[];
   method: string;
   delivery: boolean;
+  address?: string;
   shipping: number;
   total: number;
   /** Code de remise à donner au livreur. */
@@ -152,6 +155,20 @@ function initial() {
     { id: 'IGNAME', title: 'Igname Kponan', details: 'Minimum 200 kg', price: 425, unit: 'le kg', place: 'Dikodougou, 38 km', seller: 'Coopérative de Dikodougou', sellerVerified: true, category: 'Récoltes', photo: 'Photo, igname', photos: ['/images/igname-kponan.jpg'], tint: 'w', trace: ['Min. 200 kg', 'grey'], delivery: false, stock: 5000, status: 'online', date: '13/11/2026' },
   ];
 
+  /* Un nouveau compte part de zéro : rien de personnel n'est pré-rempli. */
+  const session: Session = { loggedIn: false, name: '', phone: '', roles: [], prefs: { push: true, mkt: false }, docs: [] };
+  const shop: Shop = { created: false, name: '', desc: '', town: 'Korhogo' };
+
+  return {
+    animals, events, listings, session, shop,
+    cart: { items: [], delivery: true, method: 'Orange Money' } as Cart,
+    orders: [] as Order[], favorites: [] as string[], tickets: [] as Ticket[], chat: [] as string[], notifs: [] as Notif[],
+    kv: {} as Record<string, unknown>,
+  };
+}
+
+/* Compte de démonstration de la maquette : Adama Koné, éleveur et vendeur (Ferme Koné & Fils). */
+function demoAccount() {
   const cart: Cart = { items: [{ listingId: 'FK-0142', qty: 1 }, { listingId: 'ALIM-50', qty: 4 }], delivery: true, method: 'Orange Money' };
 
   /* Commande de la maquette (écrans 19 et 20). */
@@ -170,6 +187,7 @@ function initial() {
   ];
 
   const shop: Shop = {
+    created: true,
     name: 'Ferme Koné & Fils',
     desc: 'Élevage familial de bovins et d’ovins à Sinématiali depuis 2009. Animaux suivis par un vétérinaire, visite possible sur rendez-vous.',
     town: 'Sinématiali',
@@ -185,9 +203,9 @@ function initial() {
     { id: 6, g: 'Hier', c: 'alr', title: 'Rappel vaccinal PPR', text: '9 ovins arrivent à échéance le 22 novembre.', time: '07:00', to: '/suivi', unread: false },
   ];
 
-  /* Compte de démonstration : Adama Koné, éleveur et vendeur. */
   const session: Session = {
-    loggedIn: false,
+    loggedIn: true,
+    demo: true,
     name: 'Adama Koné',
     phone: '07 48 12 33 90',
     roles: ['eleveur', 'vendeur'],
@@ -198,7 +216,7 @@ function initial() {
     ],
   };
 
-  return { animals, events, listings, cart, orders, favorites: ['L-METIS', 'L-BELIERS', 'IGNAME'] as string[], tickets, chat: [] as string[], shop, notifs, session, kv: {} as Record<string, unknown> };
+  return { cart, orders, favorites: ['L-METIS', 'L-BELIERS', 'IGNAME'], tickets, shop, notifs, session };
 }
 
 export type NotifCat = 'cmd' | 'pay' | 'cmp' | 'pro' | 'alr';
@@ -206,6 +224,8 @@ export type Notif = { id: number; c: NotifCat; title: string; text: string; time
 
 export type Session = {
   loggedIn: boolean;
+  /** Compte de démonstration de la maquette (données d'Adama Koné). */
+  demo?: boolean;
   name: string;
   phone: string;
   mail?: string;
@@ -214,7 +234,7 @@ export type Session = {
   docs: { name: string; date: string; status: 'verified' | 'documented' | 'review' }[];
 };
 
-export type Shop = { name: string; desc: string; town: string; logo?: string };
+export type Shop = { created: boolean; name: string; desc: string; town: string; logo?: string };
 
 export type Ticket = {
   id: string;
@@ -232,7 +252,7 @@ type State = ReturnType<typeof initial>;
 /* ------------------------------------------------------------------ */
 /* Sauvegarde dans le navigateur                                       */
 
-const KEY = 'savaa-demo-v2';
+const KEY = 'savaa-demo-v3';
 
 function load(): State {
   const base = initial();
@@ -294,14 +314,18 @@ export const store = {
   },
 
   /* Cheptel et santé */
-  animals: () => state.animals,
-  /** `undefined` si l'identifiant est inconnu : l'écran affiche alors « introuvable ». */
+  /** Cheptel de l'utilisateur connecté. */
+  animals: () => state.animals.filter((a) => a.mine),
+  /** Toute fiche, y compris les fiches publiques liées aux annonces. `undefined` si inconnue. */
   animal: (id: string): Animal | undefined => state.animals.find((a) => a.id === id),
   eventsFor: (animalId: string) => state.events.filter((e) => e.animalId === animalId),
-  count: (s: Species) => UNLISTED[s] + state.animals.filter((a) => a.species === s).length,
+  /* Le compte de démonstration reprend les effectifs de la maquette (18, 22, 6) : animaux non listés + listés. */
+  count: (s: Species) => (state.session.demo ? UNLISTED[s] : 0) + store.animals().filter((a) => a.species === s).length,
   total: () => (['bovin', 'ovin', 'caprin'] as Species[]).reduce((n, s) => n + store.count(s), 0),
+  /** Prochain n° interne libre (FK-xxxx), toutes fiches confondues. */
+  nextAnimalId: () => `FK-${String(Math.max(150, ...state.animals.map((a) => Number(a.id.slice(3)) || 0)) + 1).padStart(4, '0')}`,
   addAnimal(a: Animal) {
-    commit({ animals: [a, ...state.animals] });
+    commit({ animals: [{ ...a, mine: true }, ...state.animals] });
   },
   addEvent(e: HealthEvent) {
     commit({ events: [e, ...state.events] });
@@ -313,9 +337,21 @@ export const store = {
   login(patch: Partial<Session>) {
     commit({ session: { ...state.session, ...patch, loggedIn: true } });
   },
-  logout() {
-    commit({ session: { ...state.session, loggedIn: false } });
+  /** Charge le compte de la maquette (Adama Koné) avec son cheptel, sa boutique, ses commandes… */
+  loginDemo() {
+    const base = initial();
+    const demo = demoAccount();
+    state = { ...base, ...demo, animals: base.animals.map((a) => ({ ...a, mine: true })), events: base.events, listings: base.listings };
+    commit({});
   },
+  /** Déconnexion : les données de ce compte sont effacées de l'appareil (démo sans serveur). */
+  logout() {
+    store.reset();
+  },
+  /** Rôles : éleveur, producteur agricole, vendeur, fournisseur, restaurant, acheteur… */
+  has: (role: string) => state.session.loggedIn && state.session.roles.includes(role),
+  isBreeder: () => store.has('eleveur'),
+  canSell: () => ['eleveur', 'agri', 'vendeur', 'fourn'].some((r) => store.has(r)),
   setSession(patch: Partial<Session>) {
     commit({ session: { ...state.session, ...patch } });
   },
@@ -435,6 +471,7 @@ export const store = {
       time: nowTime(),
       method: state.cart.method,
       delivery: state.cart.delivery,
+      address: state.cart.address,
       shipping: t.shipping,
       total: t.total,
       code: String(Math.floor(Math.random() * 9000) + 1000),

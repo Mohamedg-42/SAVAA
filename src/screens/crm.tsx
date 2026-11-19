@@ -177,7 +177,7 @@ function ProspectSheetInner({ p }: { p: Prospect }) {
   const s = useStore();
   const isBaobab = p.id === 1;
   const [kind, setKind] = useState('Appel');
-  const [note, setNote] = useState(isBaobab ? 'Intéressée par un fournisseur de poulets vérifié avec livraison le lundi.' : '');
+  const [note, setNote] = useState('');
   const journal = s.get<Entry[]>(`crm.journal.${p.id}`, isBaobab ? BAOBAB_JOURNAL : []);
   const next = s.get<string | null>(`crm.next.${p.id}`, null);
   const converted = s.get<number[]>('crm.converted', []).includes(p.id);
@@ -298,18 +298,18 @@ export function NewProspect() {
   const s = useStore();
   const all = useProspects();
   const navigate = useNavigate();
-  const [name, setName] = useState('Restaurant Le Baobab');
-  const [type, setType] = useState('Restaurant');
-  const [contact, setContact] = useState('Mme Soro');
+  const [name, setName] = useState('');
+  const [type, setType] = useState('');
+  const [contact, setContact] = useState('');
   const [tel, setTel] = useState('');
   const [commune, setCommune] = useState(COMMUNES[0]);
-  const [needs, setNeeds] = useState('Poulets de chair 80 kg par semaine, 2 moutons par mois.');
+  const [needs, setNeeds] = useState('');
   const [src, setSrc] = useState('Visite');
   const [consent, setConsent] = useState(true);
   const [action, setAction] = useState('Appel');
-  const [when, setWhen] = useState('19/11, 10 h');
+  const [when, setWhen] = useState('');
 
-  const valid = name.trim().length > 0;
+  const valid = name.trim().length > 0 && type !== '';
 
   /* Formulaire pré-rempli avec le Baobab (maquette) : on rouvre sa fiche au lieu de créer un doublon. */
   const save = () => {
@@ -325,7 +325,7 @@ export function NewProspect() {
       ini: (words.length > 1 ? words[0][0] + words[1][0] : n.slice(0, 2)).toUpperCase(),
       n,
       d: `${type}, ${commune}`,
-      next: `${action} le ${when}`,
+      next: when.trim() ? `${action} le ${when.trim()}` : `${action} à planifier`,
       form: { contact: contact.trim(), tel: tel.trim(), needs: needs.trim(), src, consent },
     } satisfies Prospect]);
     navigate(`/prospect/${id}`, { replace: true });
@@ -337,7 +337,7 @@ export function NewProspect() {
       <div className="body" style={{ gap: 18 }}>
         <div className="field">
           <label htmlFor="np-name">Nom ou entreprise</label>
-          <input id="np-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          <input id="np-name" className="input" placeholder="Ex. Maquis Chez Awa" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="field">
           <span className="lbl">Type d’acteur</span>
@@ -348,7 +348,7 @@ export function NewProspect() {
         <div className="grid2">
           <div className="field" style={{ minWidth: 0 }}>
             <label htmlFor="np-contact">Contact</label>
-            <input id="np-contact" className="input" value={contact} onChange={(e) => setContact(e.target.value)} />
+            <input id="np-contact" className="input" placeholder="Nom de la personne" value={contact} onChange={(e) => setContact(e.target.value)} />
           </div>
           <div className="field" style={{ minWidth: 0 }}>
             <label htmlFor="np-tel">Tél. professionnel</label>
@@ -363,7 +363,7 @@ export function NewProspect() {
         </div>
         <div className="field">
           <label htmlFor="np-needs">Besoins exprimés</label>
-          <textarea id="np-needs" className="input" style={{ minHeight: 64 }} value={needs} onChange={(e) => setNeeds(e.target.value)} />
+          <textarea id="np-needs" className="input" style={{ minHeight: 64 }} placeholder="Produits, volumes, fréquence…" value={needs} onChange={(e) => setNeeds(e.target.value)} />
         </div>
         <div className="field">
           <span className="lbl">Source</span>
@@ -384,7 +384,7 @@ export function NewProspect() {
           </div>
           <div className="field" style={{ minWidth: 0 }}>
             <label htmlFor="np-when">Le</label>
-            <input id="np-when" className="input num" value={when} onChange={(e) => setWhen(e.target.value)} />
+            <input id="np-when" className="input num" placeholder="JJ/MM, heure" value={when} onChange={(e) => setWhen(e.target.value)} />
           </div>
         </div>
       </div>

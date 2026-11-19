@@ -24,6 +24,8 @@ export function Cart() {
   const lines = s.cartLines();
   const sellers = [...new Set(lines.map((l) => l.listing.seller))];
   const qtyBtn = { width: 36, height: 36 };
+  const demo = !!s.session().demo;
+  const needAddress = !demo && c.delivery && !(c.address ?? '').trim();
 
   if (!lines.length) {
     return (
@@ -85,10 +87,18 @@ export function Cart() {
           </div>
           {c.delivery ? (
             <>
-              <div className="card list">
-                <div className="li" style={{ alignItems: 'flex-start' }}><Icon name="pin" /><div className="col grow"><span className="small b">Ferme Ouattara, route de Dikodougou</span><span className="xs muted">Korhogo, Fatou Ouattara, 05 •• •• 21 48</span></div></div>
-                <div className="li" style={{ alignItems: 'flex-start' }}><Icon name="calendar" /><div className="col grow"><span className="small b">Jeudi 20 novembre, 7 h – 11 h</span><span className="xs muted">Créneau proposé par le transporteur</span></div></div>
-              </div>
+              {demo ? (
+                <div className="card list">
+                  <div className="li" style={{ alignItems: 'flex-start' }}><Icon name="pin" /><div className="col grow"><span className="small b">Ferme Ouattara, route de Dikodougou</span><span className="xs muted">Korhogo, Fatou Ouattara, 05 •• •• 21 48</span></div></div>
+                  <div className="li" style={{ alignItems: 'flex-start' }}><Icon name="calendar" /><div className="col grow"><span className="small b">Jeudi 20 novembre, 7 h – 11 h</span><span className="xs muted">Créneau proposé par le transporteur</span></div></div>
+                </div>
+              ) : (
+                <div className="field">
+                  <label htmlFor="cart-address">Adresse de livraison</label>
+                  <textarea id="cart-address" className="input" style={{ minHeight: 64 }} placeholder="Village ou quartier, repère, personne à contacter" value={c.address ?? ''} onChange={(e) => s.setCart({ address: e.target.value })} />
+                  <span className="hint">Le transporteur vous propose un créneau après le paiement.</span>
+                </div>
+              )}
               <span className="hint">Transport en bétaillère par un transporteur partenaire.</span>
             </>
           ) : (
@@ -106,7 +116,9 @@ export function Cart() {
           <div className="sum t"><span>Total estimé</span><span className="num">{fcfa(t.total)} FCFA</span></div>
         </div>
       </div>
-      <Foot><Link className="btn btn-p" to="/paiement">Choisir le paiement</Link></Foot>
+      <Foot>
+        {needAddress ? <button className="btn btn-p" disabled>Indiquez l’adresse de livraison</button> : <Link className="btn btn-p" to="/paiement">Choisir le paiement</Link>}
+      </Foot>
     </div>
   );
 }
@@ -181,7 +193,7 @@ export function Payment() {
             {isMomo(c.method) && (
               <div className="field">
                 <label htmlFor="tel">Numéro à débiter</label>
-                <input id="tel" className="input num" type="tel" inputMode="tel" defaultValue="+225 07 48 12 33 90" />
+                <input id="tel" className="input num" type="tel" inputMode="tel" placeholder="+225 07 00 00 00 00" defaultValue={s.session().phone ? `+225 ${s.session().phone}` : ''} />
                 <span className="hint">Vous validerez le paiement avec votre code secret sur votre téléphone. SAVAA ne le voit jamais.</span>
               </div>
             )}
@@ -321,7 +333,7 @@ export function Tracking() {
             <span className="small muted">{o.demo ? 'Arrivée estimée 10:30' : 'Créneau confirmé par le vendeur'}</span>
           </div>
           <span className="b" style={{ fontSize: 16 }}>{title}</span>
-          <span className="small muted">{o.delivery ? 'Livraison à Ferme Ouattara, route de Dikodougou' : 'Retrait sur place'}</span>
+          <span className="small muted">{o.delivery ? `Livraison à ${o.demo ? 'Ferme Ouattara, route de Dikodougou' : o.address ?? 'l’adresse indiquée'}` : 'Retrait sur place'}</span>
         </div>
         <div className="card pad">
           <div className="tl">
@@ -369,7 +381,7 @@ export function Support() {
   const orders = s.orders();
   const [motif, setMotif] = useState(MOTIFS[0]);
   const [order, setOrder] = useState(params.get('ref') ?? orders[0]?.ref ?? '');
-  const [text, setText] = useState('Le taurillon boite de l’antérieur droit à la descente de la bétaillère. Je n’ai pas encore donné le code de remise.');
+  const [text, setText] = useState(s.session().demo ? 'Le taurillon boite de l’antérieur droit à la descente de la bétaillère. Je n’ai pas encore donné le code de remise.' : '');
   const [photos, setPhotos] = useState<string[]>([]);
   const [urgent, setUrgent] = useState(true);
   const [sent, setSent] = useState<string | null>(null);
@@ -432,11 +444,17 @@ export function Support() {
           <div className="body" style={{ gap: 10 }}>
             <p className="xs muted" style={{ textAlign: 'center' }}>Assistant automatique. Il ne remplace pas un vétérinaire.</p>
             <div className="col" style={{ gap: 8 }}>
-              <div className="bubble bot">Bonjour Fatou. Votre commande SAV-2026-11-004812 est en route. Que puis-je faire pour vous ?</div>
-              <div className="bubble me">Le livreur aura du retard ?</div>
-              <div className="bubble bot">Le transporteur indique une arrivée vers 10 h 30, soit 30 min après le créneau. Vous pouvez l’appeler depuis le suivi, ou signaler un retard si le délai dépasse 2 h.</div>
-              <div className="bubble me">Le taurillon boite légèrement à la descente.</div>
-              <div className="bubble bot">Ne donnez pas encore le code de remise. Je vous mets en relation avec un conseiller pour ouvrir une réclamation. Pour l’état de l’animal, contactez un vétérinaire.</div>
+              {s.session().demo ? (
+                <>
+                  <div className="bubble bot">Bonjour Fatou. Votre commande SAV-2026-11-004812 est en route. Que puis-je faire pour vous ?</div>
+                  <div className="bubble me">Le livreur aura du retard ?</div>
+                  <div className="bubble bot">Le transporteur indique une arrivée vers 10 h 30, soit 30 min après le créneau. Vous pouvez l’appeler depuis le suivi, ou signaler un retard si le délai dépasse 2 h.</div>
+                  <div className="bubble me">Le taurillon boite légèrement à la descente.</div>
+                  <div className="bubble bot">Ne donnez pas encore le code de remise. Je vous mets en relation avec un conseiller pour ouvrir une réclamation. Pour l’état de l’animal, contactez un vétérinaire.</div>
+                </>
+              ) : (
+                <div className="bubble bot">Bonjour{s.session().name ? ` ${s.session().name.split(' ')[0]}` : ''}. Que puis-je faire pour vous ?{orders[0] ? ` Votre dernière commande est ${orders[0].ref}.` : ''}</div>
+              )}
               {chat.map((m, i) => (
                 <div key={i} className="col" style={{ gap: 8 }}>
                   <div className="bubble me">{m}</div>

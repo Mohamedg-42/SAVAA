@@ -88,7 +88,7 @@ export function Home() {
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="grid4">
             <Link className="tile" to="/explorer"><Icon name="search" size="lg" />Explorer</Link>
-            <Link className="tile" to="/vendre"><Icon name="sell" size="lg" />Vendre</Link>
+            {s.canSell() && <Link className="tile" to="/vendre"><Icon name="sell" size="lg" />Vendre</Link>}
             <Link className="tile" to="/commande"><Icon name="truck" size="lg" />Commandes</Link>
             <Link className="tile" to="/assistance"><Icon name="chat" size="lg" />Aide</Link>
           </div>
@@ -156,9 +156,10 @@ export function Catalog() {
   const s = useStore();
   const [params, setParams] = useSearchParams();
   const favMode = params.get('favoris') === '1';
-  const q = params.get('q') ?? 'taurillon';
+  const demo = !!s.session().demo;
+  const q = params.get('q') ?? (demo ? 'taurillon' : '');
   const [loading, setLoading] = useState(true);
-  const [verified, setVerified] = useState(!favMode);
+  const [verified, setVerified] = useState(!favMode && demo);
   const [delivery, setDelivery] = useState(false);
   const [trace, setTrace] = useState(false);
   useEffect(() => {

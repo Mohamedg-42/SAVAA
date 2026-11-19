@@ -1,4 +1,5 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Guard } from './guard';
 import { Catalog, CatalogOffline, Home, ListingDetail } from './screens/achat';
 import { Cart, Payment, Receipt, Support, Tracking } from './screens/commande';
 import { Login, Notifications, Profile, RolePicker, Splash } from './screens/compte';
@@ -8,6 +9,10 @@ import { AnimalSheet, HealthRecord, Observation } from './screens/sante';
 import { Campaign, CampaignStats, CreateShop, Publish, Restaurant, Shop } from './screens/vente';
 import { Toaster } from './ui';
 
+/*
+  Accès : sans compte, on parcourt l'accueil, le catalogue, les annonces et les fiches de traçabilité.
+  Le reste demande d'être connecté, et certains espaces un rôle (voir guard.tsx).
+*/
 export default function App() {
   return (
     <HashRouter>
@@ -18,37 +23,37 @@ export default function App() {
         <Route path="/demarrage" element={<Splash />} />
         <Route path="/connexion" element={<Login />} />
         <Route path="/role" element={<RolePicker />} />
-        <Route path="/compte" element={<Profile />} />
-        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/compte" element={<Guard need="login"><Profile /></Guard>} />
+        <Route path="/notifications" element={<Guard need="login"><Notifications /></Guard>} />
 
         {/* Lot 3, achat */}
         <Route path="/accueil" element={<Home />} />
         <Route path="/explorer" element={<Catalog />} />
         <Route path="/explorer/hors-ligne" element={<CatalogOffline />} />
         <Route path="/annonce/:id" element={<ListingDetail />} />
-        <Route path="/panier" element={<Cart />} />
-        <Route path="/paiement" element={<Payment />} />
-        <Route path="/recu" element={<Receipt />} />
-        <Route path="/commande" element={<Tracking />} />
+        <Route path="/panier" element={<Guard need="login"><Cart /></Guard>} />
+        <Route path="/paiement" element={<Guard need="login"><Payment /></Guard>} />
+        <Route path="/recu" element={<Guard need="login"><Receipt /></Guard>} />
+        <Route path="/commande" element={<Guard need="login"><Tracking /></Guard>} />
         <Route path="/assistance" element={<Support />} />
 
-        {/* Lot 2, éleveur */}
-        <Route path="/suivi" element={<Dashboard />} />
-        <Route path="/cheptel" element={<Herd />} />
-        <Route path="/cheptel/ajout" element={<AddAnimal />} />
+        {/* Lot 2, éleveur (les fiches et dossiers restent lisibles par tous : traçabilité des annonces) */}
+        <Route path="/suivi" element={<Guard need="breeder"><Dashboard /></Guard>} />
+        <Route path="/cheptel" element={<Guard need="breeder"><Herd /></Guard>} />
+        <Route path="/cheptel/ajout" element={<Guard need="breeder"><AddAnimal /></Guard>} />
         <Route path="/animal/:id" element={<AnimalSheet />} />
         <Route path="/animal/:id/sante" element={<HealthRecord />} />
-        <Route path="/animal/:id/observation" element={<Observation />} />
+        <Route path="/animal/:id/observation" element={<Guard need="breeder"><Observation /></Guard>} />
 
         {/* Lot 5, vente */}
-        <Route path="/vendre" element={<Publish />} />
-        <Route path="/boutique" element={<Shop />} />
-        <Route path="/boutique/creer" element={<CreateShop />} />
-        <Route path="/campagne" element={<Campaign />} />
-        <Route path="/campagne/stats" element={<CampaignStats />} />
-        <Route path="/restaurant" element={<Restaurant />} />
+        <Route path="/vendre" element={<Guard need="seller" shop><Publish /></Guard>} />
+        <Route path="/boutique" element={<Guard need="seller" shop><Shop /></Guard>} />
+        <Route path="/boutique/creer" element={<Guard need="seller"><CreateShop /></Guard>} />
+        <Route path="/campagne" element={<Guard need="seller" shop><Campaign /></Guard>} />
+        <Route path="/campagne/stats" element={<Guard need="seller" shop><CampaignStats /></Guard>} />
+        <Route path="/restaurant" element={<Guard need="resto"><Restaurant /></Guard>} />
 
-        {/* Lot 6, prospection et back-office */}
+        {/* Lot 6, outils de l'équipe SAVAA (hors application grand public) */}
         <Route path="/prospection" element={<Prospection />} />
         <Route path="/prospect/nouveau" element={<NewProspect />} />
         <Route path="/prospect/:id" element={<ProspectSheet />} />

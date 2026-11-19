@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { today, useStore, type NotifCat, type Session } from '../data';
 import { showToast } from '../toast';
 import { Badge, Check, Header, Icon, TabBar } from '../ui';
@@ -60,31 +60,48 @@ export function Splash() {
 }
 
 /* Écran 03 : connexion ou inscription (code simulé). */
+/** Page demandée avant la connexion (`?next=`), seulement si c'est un chemin interne. */
+function useNext() {
+  const [params] = useSearchParams();
+  const next = params.get('next');
+  return next && next.startsWith('/') && !next.startsWith('//') ? next : null;
+}
+
 export function Login() {
   const s = useStore();
   const session = s.session();
   const navigate = useNavigate();
+  const next = useNext();
   const [mode, setMode] = useState<'tel' | 'mail'>('tel');
-  const [cgu, setCgu] = useState(true);
-  const [mkt, setMkt] = useState(session.prefs.mkt);
-  const [code, setCode] = useState('4812');
+  const [cgu, setCgu] = useState(false);
+  const [mkt, setMkt] = useState(false);
+  const [name, setName] = useState(session.name);
+  const [code, setCode] = useState('');
   const [phone, setPhone] = useState(session.phone);
-  const [mail, setMail] = useState(session.mail ?? 'adama.kone@exemple.ci');
-  const [wait, setWait] = useState(42);
+  const [mail, setMail] = useState(session.mail ?? '');
+  /* Le code n'est « envoyé » qu'une fois le numéro ou l'e-mail saisi. */
+  const [sent, setSent] = useState(false);
+  const [wait, setWait] = useState(0);
   useEffect(() => {
     if (wait <= 0) return;
     const t = setTimeout(() => setWait(wait - 1), 1000);
     return () => clearTimeout(t);
   }, [wait]);
-  const resend = () => {
+  const contactOk = mode === 'tel' ? phone.replace(/\D/g, '').length === 10 : /^\S+@\S+\.\S+$/.test(mail);
+  const sendCode = () => {
+    setSent(true);
     setWait(60);
     setCode('');
-    showToast(`Nouveau code envoyé ${mode === 'tel' ? 'par SMS' : 'par e-mail'}. En démo, tout code à 6 chiffres est accepté.`);
+    showToast(`Code envoyé ${mode === 'tel' ? 'par SMS' : 'par e-mail'}. En démo, tout code à 6 chiffres est accepté.`);
   };
-  const contactOk = mode === 'tel' ? phone.replace(/\D/g, '').length === 10 : /^\S+@\S+\.\S+$/.test(mail);
   const validate = () => {
-    s.login(mode === 'tel' ? { phone: phone.trim(), prefs: { ...session.prefs, mkt } } : { mail: mail.trim(), prefs: { ...session.prefs, mkt } });
-    navigate('/role');
+    const contact = mode === 'tel' ? { phone: phone.trim() } : { mail: mail.trim() };
+    s.login({ ...contact, name: name.trim(), prefs: { ...session.prefs, mkt } });
+    navigate(s.session().roles.length ? next ?? '/accueil' : `/role${next ? `?next=${encodeURIComponent(next)}` : ''}`, { replace: true });
+  };
+  const demo = () => {
+    s.loginDemo();
+    navigate(next ?? '/accueil', { replace: true });
   };
 
   return (
@@ -95,32 +112,39 @@ export function Login() {
           <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Connexion ou inscription</h2>
           <p className="muted">Un seul compte pour acheter, vendre et suivre votre cheptel.</p>
         </div>
+        <div className="field">
+          <label htmlFor="login-name">Nom et prénom</label>
+          <input id="login-name" className="input" autoComplete="name" placeholder="Ex. Awa Traoré" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
         <div className="seg">
-          <button className={mode === 'tel' ? 'on' : ''} onClick={() => setMode('tel')}>Téléphone</button>
-          <button className={mode === 'mail' ? 'on' : ''} onClick={() => setMode('mail')}>E-mail</button>
+          <button className={mode === 'tel' ? 'on' : ''} onClick={() => { setMode('tel'); setSent(false); }}>Téléphone</button>
+          <button className={mode === 'mail' ? 'on' : ''} onClick={() => { setMode('mail'); setSent(false); }}>E-mail</button>
         </div>
         {mode === 'tel' ? (
           <div className="field">
             <label htmlFor="login-tel">Numéro de téléphone</label>
             <div className="row" style={{ gap: 8 }}>
               <div className="input" style={{ width: 92, flex: 'none', justifyContent: 'center', fontWeight: 500 }}>+225</div>
-              <input id="login-tel" className="input num" type="tel" inputMode="tel" autoComplete="tel-national" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 14))} style={{ fontWeight: 500, minWidth: 0 }} />
+              <input id="login-tel" className="input num" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="07 00 00 00 00" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 14))} style={{ fontWeight: 500, minWidth: 0 }} />
             </div>
             <p className="hint">Nous envoyons un code à 6 chiffres par SMS.</p>
           </div>
         ) : (
           <div className="field">
             <label htmlFor="login-mail">Adresse e-mail</label>
-            <input id="login-mail" className="input" type="email" autoComplete="email" value={mail} onChange={(e) => setMail(e.target.value)} />
+            <input id="login-mail" className="input" type="email" autoComplete="email" placeholder="nom@exemple.ci" value={mail} onChange={(e) => setMail(e.target.value)} />
             <p className="hint">Nous envoyons un code à 6 chiffres par e-mail.</p>
           </div>
         )}
+        {!sent ? (
+          <button className="btn btn-s btn-block" disabled={!contactOk} onClick={sendCode}>Recevoir le code</button>
+        ) : (
         <div className="field">
           <div className="row between">
             <label className="lbl" htmlFor="login-otp">Code reçu</label>
             {wait > 0
               ? <span className="small muted num">Renvoyer (0:{String(wait).padStart(2, '0')})</span>
-              : <button className="link plain" onClick={resend}>Renvoyer le code</button>}
+              : <button className="link plain" onClick={sendCode}>Renvoyer le code</button>}
           </div>
           <label className="otp num" style={{ position: 'relative' }}>
             {Array.from({ length: 6 }, (_, i) => (
@@ -138,6 +162,7 @@ export function Login() {
             />
           </label>
         </div>
+        )}
         <div className="col" style={{ gap: 14 }}>
           <button className="row top" role="checkbox" aria-checked={cgu} onClick={() => setCgu(!cgu)} style={checkRowStyle}>
             <Check on={cgu} />
@@ -150,7 +175,10 @@ export function Login() {
         </div>
       </div>
       <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
-        <button className="btn btn-p" disabled={!cgu || code.length < 6 || !contactOk} onClick={validate}>Valider le code</button>
+        <div className="col" style={{ gap: 8, width: '100%' }}>
+          <button className="btn btn-p btn-block" disabled={!cgu || code.length < 6 || !contactOk || !name.trim()} onClick={validate}>Valider le code</button>
+          <button className="btn btn-ghost btn-block small" onClick={demo}>Essayer le compte de démonstration</button>
+        </div>
       </div>
     </div>
   );
@@ -171,11 +199,14 @@ const ROLES: { id: string; t: string; d: string; v?: boolean }[] = [
 export function RolePicker() {
   const s = useStore();
   const navigate = useNavigate();
+  const back = useNext();
   const [sel, setSel] = useState<Record<string, boolean>>(() => Object.fromEntries(s.session().roles.map((r) => [r, true])));
   const count = Object.values(sel).filter(Boolean).length;
+  if (!s.session().loggedIn) return <Navigate to={`/connexion?next=${encodeURIComponent('/role')}`} replace />;
   const next = () => {
     s.setSession({ roles: ROLES.filter((r) => sel[r.id]).map((r) => r.id) });
-    navigate(sel.resto && !sel.eleveur && !sel.vendeur ? '/restaurant' : sel.vendeur ? '/boutique/creer' : sel.eleveur ? '/suivi' : '/accueil');
+    const sells = ['eleveur', 'agri', 'vendeur', 'fourn'].some((r) => sel[r]);
+    navigate(back ?? (sel.eleveur ? '/suivi' : sells ? '/boutique/creer' : sel.resto ? '/restaurant' : '/accueil'), { replace: true });
   };
 
   return (
@@ -246,7 +277,10 @@ export function Profile() {
     s.setSession({ docs: [...session.docs, { name: f.name, date: today(), status: 'review' }] });
     showToast('Justificatif reçu, il sera contrôlé par l’équipe SAVAA.');
   };
+  const idSent = session.docs.length > 0;
+  const level = session.demo ? 2 : 1;
   const logout = () => {
+    if (!window.confirm('Se déconnecter ? Sans serveur, les données de ce compte sont effacées de cet appareil.')) return;
     s.logout();
     navigate('/demarrage', { replace: true });
   };
@@ -254,6 +288,7 @@ export function Profile() {
     if (!window.confirm('Effacer tout ce qui a été saisi dans la démo et revenir aux données de départ ?')) return;
     s.reset();
     showToast('Démo remise à zéro.');
+    navigate('/demarrage', { replace: true });
   };
 
   return (
@@ -267,7 +302,7 @@ export function Profile() {
           <span className="av" style={{ width: 56, height: 56, fontSize: 18 }}>{initials}</span>
           <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
             <span className="b" style={{ fontSize: 16 }}>{session.name}</span>
-            <span className="small muted ell">{s.shop().name}, {s.shop().town}</span>
+            <span className="small muted ell">{s.shop().created ? `${s.shop().name}, ${s.shop().town}` : session.phone ? `+225 ${session.phone}` : session.mail}</span>
             <div className="wrap" style={{ marginTop: 4 }}>
               {roles.map((r) => <Badge key={r.id} tone={r.v ? 'amber' : 'green'}>{r.t.split(' / ')[0]}</Badge>)}
               <Link to="/role" className="badge bd-grey">+ Ajouter un rôle</Link>
@@ -276,25 +311,47 @@ export function Profile() {
         </div>
 
         <div className="sec">
-          <div className="sech"><h2>Niveau de vérification</h2><span className="small b num">2 / 3</span></div>
+          <div className="sech"><h2>Niveau de vérification</h2><span className="small b num">{level} / 3</span></div>
           <div className="card">
-            <div style={{ padding: '14px 14px 4px' }}><div className="bar"><i style={{ width: '66%' }} /></div></div>
+            <div style={{ padding: '14px 14px 4px' }}><div className="bar"><i style={{ width: `${Math.round((level / 3) * 100)}%` }} /></div></div>
             <div className="list">
               <div className="li">
                 <Icon name="check" style={{ color: '#145C3A' }} />
-                <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Téléphone confirmé</span><span className="xs muted">+225 {session.phone.replace(/\D/g, '').replace(/^(\d{2})\d{4}(\d{2})(\d{2})$/, '$1 •• •• $3')}, le 02/03/2025</span></div>
+                <div className="col grow" style={{ minWidth: 0 }}>
+                  <span className="b small">{session.phone ? 'Téléphone confirmé' : 'E-mail confirmé'}</span>
+                  <span className="xs muted">{session.phone ? `+225 ${session.phone.replace(/\D/g, '').replace(/^(\d{2})\d{4}(\d{2})(\d{2})$/, '$1 •• •• $3')}` : session.mail}{session.demo ? ', le 02/03/2025' : ''}</span>
+                </div>
                 <Badge tone="green">Vérifié</Badge>
               </div>
-              <div className="li">
-                <Icon name="check" style={{ color: '#145C3A' }} />
-                <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Pièce d’identité</span><span className="xs muted">CNI contrôlée par l’équipe SAVAA</span></div>
-                <Badge tone="green">Vérifié</Badge>
-              </div>
-              <div className="li">
-                <ClockIcon color="#F28C28" />
-                <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Exploitation</span><span className="xs muted">Visite d’un agent prévue le 25/11/2026</span></div>
-                <Badge tone="amber">En attente</Badge>
-              </div>
+              {session.demo ? (
+                <>
+                  <div className="li">
+                    <Icon name="check" style={{ color: '#145C3A' }} />
+                    <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Pièce d’identité</span><span className="xs muted">CNI contrôlée par l’équipe SAVAA</span></div>
+                    <Badge tone="green">Vérifié</Badge>
+                  </div>
+                  <div className="li">
+                    <ClockIcon color="#F28C28" />
+                    <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Exploitation</span><span className="xs muted">Visite d’un agent prévue le 25/11/2026</span></div>
+                    <Badge tone="amber">En attente</Badge>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="li">
+                    <ClockIcon color={idSent ? '#F28C28' : '#5D6862'} />
+                    <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Pièce d’identité</span><span className="xs muted">{idSent ? 'Justificatif reçu, contrôle par l’équipe SAVAA' : 'Ajoutez votre CNI dans Justificatifs'}</span></div>
+                    <Badge tone={idSent ? 'amber' : 'grey'}>{idSent ? 'En revue' : 'À fournir'}</Badge>
+                  </div>
+                  {s.isBreeder() && (
+                    <div className="li">
+                      <ClockIcon color="#5D6862" />
+                      <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Exploitation</span><span className="xs muted">Visite d’un agent après contrôle de la pièce d’identité</span></div>
+                      <Badge>À planifier</Badge>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -331,11 +388,12 @@ export function Profile() {
         </div>
 
         <div className="card list">
-          <Link className="li" to="/recu"><span className="grow small b">Paiements et reçus</span><Icon name="chevron" size="sm" /></Link>
-          <Link className="li" to="/boutique"><span className="grow small b">Ma boutique</span><Icon name="chevron" size="sm" /></Link>
-          <Link className="li" to="/restaurant"><span className="grow small b">Espace restaurant (B2B)</span><Icon name="chevron" size="sm" /></Link>
-          <Link className="li" to="/prospection"><span className="grow small b">Prospection (équipe SAVAA)</span><Icon name="chevron" size="sm" /></Link>
-          <Link className="li" to="/admin"><span className="grow small b">Back-office administration</span><Icon name="chevron" size="sm" /></Link>
+          {s.orders().length > 0 && <Link className="li" to="/recu"><span className="grow small b">Paiements et reçus</span><Icon name="chevron" size="sm" /></Link>}
+          {s.canSell() && <Link className="li" to="/boutique"><span className="grow small b">{s.shop().created ? 'Ma boutique' : 'Créer ma boutique'}</span><Icon name="chevron" size="sm" /></Link>}
+          {s.has('resto') && <Link className="li" to="/restaurant"><span className="grow small b">Espace restaurant (B2B)</span><Icon name="chevron" size="sm" /></Link>}
+          {/* Outils internes : montrés seulement avec le compte de démonstration, pour la présentation. */}
+          {session.demo && <Link className="li" to="/prospection"><span className="grow small b">Prospection (équipe SAVAA)</span><Icon name="chevron" size="sm" /></Link>}
+          {session.demo && <Link className="li" to="/admin"><span className="grow small b">Back-office administration</span><Icon name="chevron" size="sm" /></Link>}
           <button className="li" onClick={logout}><span className="grow small b" style={{ color: '#A0221A' }}>Se déconnecter</span></button>
         </div>
         <button className="btn btn-ghost btn-block small" onClick={reset}>Remettre la démo à zéro</button>

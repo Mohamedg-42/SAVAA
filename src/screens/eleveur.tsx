@@ -17,12 +17,17 @@ export function Dashboard() {
   const s = useStore();
   const unread = s.unread();
   const online = s.myListings().filter((l) => l.status === 'online').length;
+  /* Compte de démonstration : contenu de la maquette. Sinon, tout vient du cheptel saisi. */
+  const demo = !!s.session().demo;
+  const herd = s.animals();
+  const alerts = herd.flatMap((a) => s.eventsFor(a.id).filter((e) => e.kind === 'obs' && e.pending).slice(0, 1).map((e) => ({ a, e })));
+  const first = herd[0]?.id;
   return (
     <div className="app">
       <header className="hdr" style={{ paddingLeft: 16 }}>
         <div className="col grow" style={{ gap: 1 }}>
           <span className="xs muted">Mon exploitation</span>
-          <span className="b ell" style={{ fontSize: 17 }}>Ferme Koné &amp; Fils</span>
+          <span className="b ell" style={{ fontSize: 17 }}>{s.shop().created ? s.shop().name : s.session().name}</span>
         </div>
         <Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}>
           <Icon name="bell" />
@@ -30,7 +35,10 @@ export function Dashboard() {
         </Link>
       </header>
       <div className="body">
-        <span className="sync"><i></i>Synchronisé il y a 12 min, hors connexion disponible</span>
+        <span className="sync"><i></i>{demo ? 'Synchronisé il y a 12 min, hors connexion disponible' : 'Données gardées sur ce téléphone, hors connexion disponible'}</span>
+        {!demo && herd.length === 0 && (
+          <div className="notice n-info"><Icon name="info" size="sm" /><span>Votre cheptel est vide. Commencez par <Link className="link" to="/cheptel/ajout">ajouter un animal</Link>.</span></div>
+        )}
 
         <div className="card grid3" style={{ gap: 0 }}>
           <Link to="/cheptel" className="stat" style={{ padding: 14, borderRight: '1px solid #E3E7E4' }}><span className="v">{s.count('bovin')}</span><span className="l">Bovins</span></Link>
@@ -39,8 +47,21 @@ export function Dashboard() {
         </div>
 
         <div className="sec">
-          <div className="sech"><h2>Alertes ouvertes</h2><Badge tone="red">2</Badge></div>
-          <div className="card list">
+          <div className="sech"><h2>Alertes ouvertes</h2><Badge tone={demo || alerts.length ? 'red' : 'grey'}>{demo ? 2 : alerts.length}</Badge></div>
+          {!demo && (alerts.length === 0 ? (
+            <div className="card pad"><span className="small muted">Aucune alerte ouverte.</span></div>
+          ) : (
+            <div className="card list">
+              {alerts.map(({ a, e }) => (
+                <Link key={a.id} className="li" to={`/animal/${a.id}/sante`} style={{ alignItems: 'flex-start' }}>
+                  <Icon name="alert" style={{ color: '#B42318', marginTop: 2 }} />
+                  <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="b small ell">{a.id}, {a.name}</span><span className="xs muted ell">{e.title}, {e.date}</span></div>
+                  <Badge tone="amber">En attente</Badge>
+                </Link>
+              ))}
+            </div>
+          ))}
+          {demo && <div className="card list">
             <Link className="li" to="/animal/FK-0119/sante" style={{ alignItems: 'flex-start' }}>
               <Icon name="alert" style={{ color: '#B42318', marginTop: 2 }} />
               <div className="col grow" style={{ gap: 2 }}><span className="b small ell">FK-0119, Brebis Djallonké</span><span className="xs muted">Boiterie antérieure gauche, signalée ce matin par A. Koné</span></div>
@@ -51,20 +72,26 @@ export function Dashboard() {
               <div className="col grow" style={{ gap: 2 }}><span className="b small ell">Rappel vaccinal PPR, 9 ovins</span><span className="xs muted">Échéance le 22/11/2026</span></div>
               <Badge>4 j</Badge>
             </Link>
-          </div>
+          </div>}
         </div>
 
         <div className="sec">
           <SectionHead title="Actions rapides" />
           <div className="grid4">
             <Link className="tile" to="/cheptel/ajout"><Icon name="sell" size="lg" />Animal</Link>
-            <Link className="tile" to="/animal/FK-0142/observation"><Icon name="pulse" size="lg" />Observation</Link>
-            <Link className="tile" to="/animal/FK-0142/sante"><Icon name="scale" size="lg" />Pesée</Link>
+            <Link className="tile" to={demo ? '/animal/FK-0142/observation' : first ? `/animal/${first}/observation` : '/cheptel/ajout'}><Icon name="pulse" size="lg" />Observation</Link>
+            <Link className="tile" to={demo ? '/animal/FK-0142/sante' : first ? `/animal/${first}/sante` : '/cheptel/ajout'}><Icon name="scale" size="lg" />Pesée</Link>
             <Link className="tile" to="/vendre"><Icon name="megaphone" size="lg" />Vendre</Link>
           </div>
         </div>
 
-        <div className="sec">
+        {!demo && (
+          <div className="sec">
+            <SectionHead title="Échéances" />
+            <div className="card pad"><span className="small muted">Aucune échéance. Les rappels de vaccins et de pesées apparaîtront ici.</span></div>
+          </div>
+        )}
+        {demo && <div className="sec">
           <SectionHead title="Échéances" link="Calendrier" onClick={() => { downloadICS('echeances-savaa.ics', DUE.map(([, , t, x, day]) => ({ day, title: t, text: x }))); showToast('Échéances exportées : ouvrez le fichier pour les ajouter à votre agenda.'); }} />
           <div className="card list">
             {DUE.map(([d, m, t, x]) => (
@@ -74,13 +101,13 @@ export function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
 
         <div className="sec">
-          <SectionHead title="Ventes" link="Ma boutique" to="/boutique" />
+          <SectionHead title="Ventes" link={s.shop().created ? 'Ma boutique' : 'Créer ma boutique'} to="/boutique" />
           <div className="grid2">
-            <Link className="card pad stat" to="/boutique"><span className="v">{3 + online}</span><span className="l">Annonces en ligne</span></Link>
-            <div className="card pad stat"><span className="v">1</span><span className="l">Commande à préparer</span></div>
+            <Link className="card pad stat" to="/boutique"><span className="v">{(demo ? 3 : 0) + online}</span><span className="l">Annonces en ligne</span></Link>
+            <div className="card pad stat"><span className="v">{demo ? 1 : 0}</span><span className="l">Commande à préparer</span></div>
           </div>
         </div>
       </div>
@@ -148,7 +175,7 @@ export function AddAnimal() {
   const navigate = useNavigate();
   const [species, setSpecies] = useState<Species>('bovin');
   const [sex, setSex] = useState('Femelle');
-  const [f, setF] = useState({ officialId: '', breed: 'N’Dama', birth: '14/08/2026', coat: 'Fauve', marks: 'Tache blanche sur le front, encoche oreille droite.', entry: '14/08/2026, née sur place', mother: 'FK-0087', father: '' });
+  const [f, setF] = useState({ officialId: '', breed: '', birth: '', coat: '', marks: '', entry: '', mother: '', father: '' });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const [photos, setPhotos] = useState<string[]>([]);
   const [docs, setDocs] = useState<string[]>([]);
@@ -157,8 +184,8 @@ export function AddAnimal() {
     e.target.value = '';
     setDocs((d) => [...d, ...names]);
   };
-  /* Prochain n° interne : le plus grand FK-xxxx du cheptel + 1 (FK-0151 dans la maquette). */
-  const id = `FK-${String(Math.max(...s.animals().map((a) => Number(a.id.slice(3)) || 0)) + 1).padStart(4, '0')}`;
+  /* Prochain n° interne libre (FK-0151 au départ, comme dans la maquette). */
+  const id = s.nextAnimalId();
 
   const save = () => {
     const label = { bovin: 'Bovin', ovin: 'Ovin', caprin: 'Caprin' }[species];
@@ -170,8 +197,8 @@ export function AddAnimal() {
     s.addAnimal({
       id,
       species,
-      name: `${label} ${f.breed}`,
-      details: `${sex}, ${sex === 'Mâle' ? 'né' : 'née'} le ${f.birth}`,
+      name: `${label} ${f.breed.trim()}`,
+      details: f.birth.trim() ? `${sex}, ${sex === 'Mâle' ? 'né' : 'née'} le ${f.birth.trim()}` : `${sex}, âge non renseigné`,
       status: f.officialId ? 'ID à vérifier' : 'ID manquant',
       tone: f.officialId ? 'amber' : 'grey',
       officialId: f.officialId || undefined,
@@ -204,7 +231,7 @@ export function AddAnimal() {
           </div>
           <div className="grid2">
             <div className="field"><label>N° interne</label><div className="input num" style={{ background: '#EEF0EE' }} title="Attribué automatiquement">{id}</div></div>
-            <div className="field"><label htmlFor="breed">Race / type</label><input id="breed" className="input" value={f.breed} onChange={set('breed')} /></div>
+            <div className="field"><label htmlFor="breed">Race / type</label><input id="breed" className="input" placeholder="Ex. N’Dama" value={f.breed} onChange={set('breed')} /></div>
           </div>
           <div className="field">
             <span className="lbl">Sexe</span>
@@ -213,10 +240,10 @@ export function AddAnimal() {
             </div>
           </div>
           <div className="grid2">
-            <div className="field"><label htmlFor="birth">Naissance</label><input id="birth" className="input num" value={f.birth} onChange={set('birth')} /><span className="hint">ou âge estimé</span></div>
-            <div className="field"><label htmlFor="coat">Robe</label><input id="coat" className="input" value={f.coat} onChange={set('coat')} /></div>
+            <div className="field"><label htmlFor="birth">Naissance</label><input id="birth" className="input num" placeholder="JJ/MM/AAAA" value={f.birth} onChange={set('birth')} /><span className="hint">ou âge estimé</span></div>
+            <div className="field"><label htmlFor="coat">Robe</label><input id="coat" className="input" placeholder="Ex. fauve" value={f.coat} onChange={set('coat')} /></div>
           </div>
-          <div className="field"><label htmlFor="marks">Signes distinctifs</label><textarea id="marks" className="input" value={f.marks} onChange={set('marks')} /></div>
+          <div className="field"><label htmlFor="marks">Signes distinctifs</label><textarea id="marks" className="input" placeholder="Taches, encoches, cicatrices…" value={f.marks} onChange={set('marks')} /></div>
         </div>
 
         <div className="sec" style={{ gap: 12 }}>
@@ -241,16 +268,16 @@ export function AddAnimal() {
 
         <div className="sec" style={{ gap: 12 }}>
           <span className="eyebrow">Origine et ascendance</span>
-          <div className="field"><label htmlFor="entry">Date d’entrée sur l’exploitation</label><input id="entry" className="input num" value={f.entry} onChange={set('entry')} /></div>
+          <div className="field"><label htmlFor="entry">Date d’entrée sur l’exploitation</label><input id="entry" className="input num" placeholder="Ex. née sur place" value={f.entry} onChange={set('entry')} /></div>
           <div className="grid2">
-            <div className="field"><label htmlFor="mother">Mère</label><input id="mother" className="input num" value={f.mother} onChange={set('mother')} /></div>
+            <div className="field"><label htmlFor="mother">Mère</label><input id="mother" className="input num" placeholder="N° ou inconnue" value={f.mother} onChange={set('mother')} /></div>
             <div className="field"><label htmlFor="father">Père</label><input id="father" className="input" placeholder="Inconnu" value={f.father} onChange={set('father')} /></div>
           </div>
         </div>
       </div>
       <Foot>
         <button className="btn btn-s" style={{ flex: '0 0 auto' }} onClick={() => navigate(-1)}>Annuler</button>
-        <button className="btn btn-p" onClick={save}>Enregistrer la fiche</button>
+        <button className="btn btn-p" disabled={!f.breed.trim()} onClick={save}>Enregistrer la fiche</button>
       </Foot>
     </div>
   );

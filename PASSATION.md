@@ -47,6 +47,24 @@ Il reste trois actions qui affichent seulement un message : appeler le transport
 
 La charte : vert `#145C3A`, vert clair `#E8F3EA`, orange `#F28C28`, fond `#F8FAF8`, police IBM Plex Sans (installée localement, pas de Google Fonts).
 
+## Comptes et rôles
+
+Un nouveau compte part de zéro : formulaires vides, cheptel vide, pas de boutique, pas de commande ni de notification. Seules les annonces des autres vendeurs existent déjà.
+
+Sur l'écran de connexion, « Essayer le compte de démonstration » charge les données de la maquette (Adama Koné, Ferme Koné & Fils, cheptel de 46 têtes, commande, notifications). C'est ce compte qu'il faut utiliser pour présenter la maquette telle quelle.
+
+Les accès sont gérés dans `src/guard.tsx` et les onglets du bas suivent les rôles :
+
+- sans compte : accueil, catalogue, annonces, fiches et dossiers sanitaires (traçabilité) ;
+- connecté : panier, paiement, commandes, compte, notifications ;
+- éleveur : Suivi, cheptel, ajout d'animal, observations (seulement sur ses propres animaux) ;
+- éleveur, producteur, vendeur ou fournisseur : Vendre, boutique, campagnes ; la boutique doit être créée avant de publier ; seuls les éleveurs publient des animaux (vendus avec leur fiche) ;
+- restaurant : espace professionnel.
+
+La prospection et le back-office sont des outils de l'équipe SAVAA : ils restent accessibles par leur adresse (`/#/prospection`, `/#/admin`) et n'apparaissent dans le profil qu'avec le compte de démonstration.
+
+Se déconnecter efface les données du compte sur l'appareil, puisqu'il n'y a pas de serveur.
+
 ## Ce qu'il reste
 
 - Comparer la mise en page à la maquette sur des captures. Les textes ont été vérifiés écran par écran, l'affichage seulement par endroits.

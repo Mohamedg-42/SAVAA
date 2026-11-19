@@ -44,6 +44,8 @@ function AnimalSheetInner({ a }: { a: Animal }) {
   const s = useStore();
   const full = a.id === DEMO_ID;
   const recent = s.eventsFor(a.id).filter((e) => e.summary !== false).slice(0, 4);
+  /* Seul le propriétaire (éleveur) saisit des observations ; les acheteurs consultent. */
+  const owner = !!a.mine && s.isBreeder();
   const [tab, setTab] = useState(0);
   const tabs = ['Identité', 'Santé', 'Ascendance', 'Mouvements', 'Historique'];
 
@@ -92,8 +94,8 @@ function AnimalSheetInner({ a }: { a: Animal }) {
                 {a.info?.marks && <><dt>Signes</dt><dd>{a.info.marks}</dd></>}
                 {a.info?.entry && <><dt>Entrée</dt><dd className="num">{a.info.entry}</dd></>}
                 {a.info && <><dt>Ascendance</dt><dd>Mère {a.info.mother || 'inconnue'}, père {a.info.father || 'inconnu'}</dd></>}
-                <dt>Exploitation</dt><dd>{s.shop().name}, {s.shop().town}</dd>
-                <dt>Détenteur</dt><dd>{s.session().name}</dd>
+                <dt>Exploitation</dt><dd>{a.mine && !s.session().demo ? (s.shop().created ? `${s.shop().name}, ${s.shop().town}` : 'Non renseignée') : 'Ferme Koné & Fils, Sinématiali'}</dd>
+                <dt>Détenteur</dt><dd>{a.mine && !s.session().demo ? s.session().name : 'Adama Koné'}</dd>
               </dl>
             </div>
           )}
@@ -171,7 +173,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
         </div>
       </div>
       <Foot>
-        <Link className="btn btn-s" to={`/animal/${a.id}/observation`}>Observation</Link>
+        {owner && <Link className="btn btn-s" to={`/animal/${a.id}/observation`}>Observation</Link>}
         <Link className="btn btn-p" to={`/animal/${a.id}/sante`}>Dossier sanitaire</Link>
       </Foot>
     </div>
@@ -235,7 +237,7 @@ function HealthRecordInner({ a }: { a: Animal }) {
           )}
         </div>
       </div>
-      <Foot><Link className="btn btn-p" to={`/animal/${a.id}/observation`}>Ajouter une observation</Link></Foot>
+      {a.mine && s.isBreeder() && <Foot><Link className="btn btn-p" to={`/animal/${a.id}/observation`}>Ajouter une observation</Link></Foot>}
     </div>
   );
 }
@@ -255,9 +257,9 @@ export function Observation() {
 function ObservationInner({ a }: { a: Animal }) {
   const s = useStore();
   const navigate = useNavigate();
-  const [sel, setSel] = useState<string[]>(['Appétit réduit', 'Abattement']);
+  const [sel, setSel] = useState<string[]>([]);
   const [level, setLevel] = useState('Moyenne');
-  const [text, setText] = useState('Mange peu depuis hier soir, reste couché à l’écart du troupeau. Pas de toux.');
+  const [text, setText] = useState('');
   const [date, setDate] = useState(today);
   const [time, setTime] = useState(nowTime);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -302,7 +304,7 @@ function ObservationInner({ a }: { a: Animal }) {
               <div className="field"><label htmlFor="d">Date</label><input id="d" className="input num" inputMode="numeric" value={date} onChange={(e) => setDate(e.target.value)} /></div>
               <div className="field"><label htmlFor="h">Heure</label><input id="h" className="input num" inputMode="numeric" value={time} onChange={(e) => setTime(e.target.value)} /></div>
             </div>
-            <div className="field"><label htmlFor="desc">Description</label><textarea id="desc" className="input" value={text} onChange={(e) => setText(e.target.value)} /></div>
+            <div className="field"><label htmlFor="desc">Description</label><textarea id="desc" className="input" placeholder="Ce que vous avez constaté, depuis quand…" value={text} onChange={(e) => setText(e.target.value)} /></div>
             <div className="field">
               <span className="lbl">Photo ou vidéo</span>
               <div className="grid3">
@@ -323,7 +325,7 @@ function ObservationInner({ a }: { a: Animal }) {
               <span>Une alerte n’est pas un diagnostic. Si l’état s’aggrave, appelez un vétérinaire.</span>
             </div>
           </div>
-          <Foot><button className="btn btn-p" onClick={save}>Enregistrer et alerter</button></Foot>
+          <Foot><button className="btn btn-p" disabled={!sel.length && !text.trim()} onClick={save}>Enregistrer et alerter</button></Foot>
         </>
       ) : (
         <div className="body" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 14, padding: 32 }}>

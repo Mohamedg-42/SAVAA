@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useStore } from './data';
 import { readImage } from './device';
 import { photoFor } from './photos';
 import { clearToast, showToast, useToast } from './toast';
@@ -74,18 +75,21 @@ export function Header({ title, sub, back, close, actions }: { title: ReactNode;
   );
 }
 
-const TABS: { to: string; label: string; icon: IconName }[] = [
-  { to: '/accueil', label: 'Accueil', icon: 'home' },
-  { to: '/explorer', label: 'Explorer', icon: 'search' },
-  { to: '/vendre', label: 'Vendre', icon: 'sell' },
-  { to: '/suivi', label: 'Suivi', icon: 'pulse' },
-  { to: '/compte', label: 'Compte', icon: 'user' },
-];
-
+/** Onglets selon les rôles : Vendre pour les vendeurs, Suivi pour les éleveurs, Pro pour les restaurants. */
 export function TabBar() {
+  const s = useStore();
+  const logged = s.session().loggedIn;
+  const tabs: { to: string; label: string; icon: IconName }[] = [
+    { to: '/accueil', label: 'Accueil', icon: 'home' },
+    { to: '/explorer', label: 'Explorer', icon: 'search' },
+    ...(s.canSell() ? [{ to: '/vendre', label: 'Vendre', icon: 'sell' as IconName }] : []),
+    ...(s.isBreeder() ? [{ to: '/suivi', label: 'Suivi', icon: 'pulse' as IconName }] : []),
+    ...(s.has('resto') ? [{ to: '/restaurant', label: 'Pro', icon: 'truck' as IconName }] : []),
+    logged ? { to: '/compte', label: 'Compte', icon: 'user' } : { to: '/connexion', label: 'Connexion', icon: 'user' },
+  ];
   return (
     <nav className="tabbar">
-      {TABS.map((t) => (
+      {tabs.map((t) => (
         <NavLink key={t.to} to={t.to} className={({ isActive }) => `tab${isActive ? ' on' : ''}`}>
           <Icon name={t.icon} size="lg" />
           {t.label}
