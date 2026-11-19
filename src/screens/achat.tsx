@@ -65,6 +65,7 @@ const NEAR: [string, string, string, string, string, string, Tone, 'w' | 's' | u
   ['IGNAME', 'Igname Kponan', '425 FCFA / kg', 'Dikodougou, 38 km', 'Photo, igname', 'Min. 200 kg', 'grey', 'w'],
 ];
 const CATEGORY_SEARCH: Record<string, string> = { 'Ovins et caprins': 'ovins', 'Volailles et poussins': 'volailles', 'Aliments et intrants': 'aliment', Reproducteurs: 'reproducteur' };
+const CATEGORIES = ['Bovins', 'Ovins et caprins', 'Volailles et poussins', 'Reproducteurs', 'Récoltes', 'Aliments et intrants', 'Matériel', 'Services'];
 
 /** Bannière des annonces sponsorisées (acheteurs) : défile seule toutes les 4 s, ou au doigt. */
 function SponsoredBanner({ items }: { items: Listing[] }) {
@@ -132,6 +133,9 @@ export function Home() {
   const cartCount = s.cartLines().length;
   const unread = s.unread();
   const sponsored = s.listings().filter((l) => l.sponsored && l.status === 'online');
+  const [cat, setCat] = useState<string | null>(null);
+  const catQuery = cat ? CATEGORY_SEARCH[cat] ?? cat : '';
+  const catalog = s.listings().filter((l) => l.status === 'online' && matches(l, catQuery));
   return (
     <div className="app">
       <header className="hdr" style={{ padding: '10px 8px 10px 16px' }}>
@@ -162,10 +166,23 @@ export function Home() {
           <div className="sec">
             <SectionHead title="Catégories" />
             <div className="chips">
-              {['Bovins', 'Ovins et caprins', 'Volailles et poussins', 'Reproducteurs', 'Récoltes', 'Aliments et intrants', 'Matériel', 'Services'].map((c) => (
-                <Link key={c} className="chip" to={`/explorer?q=${encodeURIComponent(CATEGORY_SEARCH[c] ?? c)}`}>{c}</Link>
+              {CATEGORIES.map((c) => (
+                <button key={c} className={`chip${cat === c ? ' on' : ''}`} aria-pressed={cat === c} onClick={() => setCat(cat === c ? null : c)}>{c}</button>
               ))}
             </div>
+          </div>
+
+          {/* Catalogue juste sous les catégories : une catégorie touchée filtre la liste. */}
+          <div className="sec">
+            <SectionHead title={cat ? `Catalogue, ${cat.toLowerCase()}` : 'Catalogue'} link="Tout voir" to={`/explorer?q=${encodeURIComponent(catQuery)}`} />
+            {catalog.length === 0 ? (
+              <div className="card pad"><span className="small muted">Aucune annonce dans cette catégorie pour l’instant.</span></div>
+            ) : (
+              <div className="col" style={{ gap: 10 }}>
+                {catalog.slice(0, 6).map((l) => <ListingCard key={l.id} l={l} />)}
+                {catalog.length > 6 && <Link className="btn btn-s btn-block" to={`/explorer?q=${encodeURIComponent(catQuery)}`}>Voir les {catalog.length} annonces</Link>}
+              </div>
+            )}
           </div>
 
           <div className="sec">
@@ -182,17 +199,20 @@ export function Home() {
             </div>
           </div>
 
-          <div className="sec">
-            <SectionHead title="Mis en avant" link="Tout voir" to="/explorer?q=" />
-            <Link className="pc" to="/annonce/L-BELIERS">
-              <Photo label="Photo, béliers" h={170} />
-              <div className="in" style={{ padding: 12, gap: 4 }}>
-                <div className="row between"><span className="b ell">Béliers Sahéliens, lot de 6</span><Badge tone="sp">Sponsorisé</Badge></div>
-                <span className="price">117 500 FCFA <span className="small muted" style={{ fontWeight: 400 }}>la tête</span></span>
-                <span className="xs muted ell">Ferkessédougou, Bergerie Soro</span>
-              </div>
-            </Link>
-          </div>
+          {/* Les acheteurs ont déjà la bannière sponsorisée : « Mis en avant » reste pour les vendeurs. */}
+          {s.canSell() && (
+            <div className="sec">
+              <SectionHead title="Mis en avant" link="Tout voir" to="/explorer?q=" />
+              <Link className="pc" to="/annonce/L-BELIERS">
+                <Photo label="Photo, béliers" h={170} />
+                <div className="in" style={{ padding: 12, gap: 4 }}>
+                  <div className="row between"><span className="b ell">Béliers Sahéliens, lot de 6</span><Badge tone="sp">Sponsorisé</Badge></div>
+                  <span className="price">117 500 FCFA <span className="small muted" style={{ fontWeight: 400 }}>la tête</span></span>
+                  <span className="xs muted ell">Ferkessédougou, Bergerie Soro</span>
+                </div>
+              </Link>
+            </div>
+          )}
 
           <div className="sec">
             <SectionHead title="Près de vous" link="Tout voir" to="/explorer?q=" />
