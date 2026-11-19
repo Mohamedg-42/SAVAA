@@ -178,25 +178,21 @@ export function Home() {
             {catalog.length === 0 ? (
               <div className="card pad"><span className="small muted">Aucune annonce dans cette catégorie pour l’instant.</span></div>
             ) : (
-              <div className="col" style={{ gap: 10 }}>
-                {catalog.slice(0, 6).map((l) => <ListingCard key={l.id} l={l} />)}
-                {catalog.length > 6 && <Link className="btn btn-s btn-block" to={`/explorer?q=${encodeURIComponent(catQuery)}`}>Voir les {catalog.length} annonces</Link>}
+              /* Même présentation que « Près de vous » : petites cartes qui défilent. */
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px' }}>
+                {catalog.map((l) => (
+                  <Link key={l.id} className="pc" to={`/annonce/${l.id}`} style={{ flex: 'none', width: 152 }}>
+                    <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} h={112} />
+                    <div className="in">
+                      <span className="small b ell">{l.title}</span>
+                      <span className="price ell">{fcfa(l.price)} FCFA</span>
+                      <span className="xs muted ell">{l.place}</span>
+                      {l.sponsored ? <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge> : <Badge tone={l.trace[1]} style={{ alignSelf: 'flex-start' }}>{l.trace[0]}</Badge>}
+                    </div>
+                  </Link>
+                ))}
               </div>
             )}
-          </div>
-
-          <div className="sec">
-            <div className="sech"><h2>Prix du marché à Poro</h2><span className="xs muted">cette semaine</span></div>
-            <div className="card">
-              <table className="tbl num">
-                <thead><tr><th>Produit</th><th className="r">Fourchette</th><th className="r">7 jours</th></tr></thead>
-                <tbody>
-                  <tr><td>Bovin sur pied, kg vif</td><td className="r b">1 450 – 1 700</td><td className="r" style={{ color: '#145C3A' }}>+2 %</td></tr>
-                  <tr><td>Bélier adulte, tête</td><td className="r b">85 000 – 140 000</td><td className="r" style={{ color: '#145C3A' }}>+6 %</td></tr>
-                  <tr><td>Maïs grain, kg</td><td className="r b">210 – 245</td><td className="r muted">stable</td></tr>
-                </tbody>
-              </table>
-            </div>
           </div>
 
           {/* Les acheteurs ont déjà la bannière sponsorisée : « Mis en avant » reste pour les vendeurs. */}
