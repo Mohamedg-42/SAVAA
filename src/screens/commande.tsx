@@ -124,15 +124,16 @@ export function Cart() {
 }
 
 const MOMO = [
-  ['Orange Money', 'OM', 'Validation par code secret'],
-  ['MTN MoMo', 'MTN', 'Validation par code secret'],
-  ['Moov Money', 'MV', 'Validation par code secret'],
-  ['Wave', 'WV', 'Validation dans l’application'],
+  ['Orange Money', '/images/payments/orange-money.svg', 'Validation par code secret'],
+  ['MTN MoMo', '/images/payments/mtn-momo.svg', 'Validation par code secret'],
+  ['Moov Money', '/images/payments/moov-money.svg', 'Validation par code secret'],
+  ['Wave', '/images/payments/wave.svg', 'Validation dans l’application'],
 ];
 const OTHER = [
-  ['Carte bancaire', 'CB', 'Visa, Mastercard, authentification 3-D Secure'],
-  ['Virement bancaire', 'VIR', 'Achats professionnels, 24 à 72 h'],
+  ['Carte bancaire', '/images/payments/carte-bancaire.svg', 'Visa, Mastercard, authentification 3-D Secure'],
+  ['Virement bancaire', '/images/payments/virement.svg', 'Achats professionnels, 24 à 72 h'],
 ];
+const PAY_LOGO: Record<string, string> = Object.fromEntries([...MOMO, ...OTHER].map(([n, logo]) => [n, logo]));
 const isMomo = (method: string) => MOMO.some((m) => m[0] === method);
 
 /** Délai laissé pour valider sur le téléphone avant l'échec automatique. */
@@ -168,9 +169,9 @@ export function Payment() {
     navigate(`/recu?ref=${o.ref}`, { replace: true });
   };
 
-  const methodRow = ([name, code, sub]: string[]) => (
+  const methodRow = ([name, logo, sub]: string[]) => (
     <button key={name} className="li" onClick={() => s.setCart({ method: name })} style={{ background: c.method === name ? '#E8F3EA' : '#fff' }}>
-      <span className="mono">{code}</span>
+      <img src={logo} alt={name} width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, flex: 'none', objectFit: 'cover' }} />
       <span className="col grow"><span className="small b">{name}</span><span className="xs muted">{sub}</span></span>
       <span className={`radio${c.method === name ? ' on' : ''}`} />
     </button>
@@ -201,8 +202,8 @@ export function Payment() {
               <span className="eyebrow">Autres moyens</span>
               <div className="card list">
                 {OTHER.map(methodRow)}
-                <div className="li" style={{ opacity: 0.55 }}><span className="mono">LIV</span><span className="col grow"><span className="small b">Paiement à la livraison</span><span className="xs muted">Indisponible pour les animaux vivants</span></span></div>
-                <div className="li" style={{ opacity: 0.55 }}><span className="mono">SAV</span><span className="col grow"><span className="small b">Solde SAVAA</span><span className="xs muted">Fonction future, soumise à agrément</span></span><Badge>Bientôt</Badge></div>
+                <div className="li" style={{ opacity: 0.55 }}><img src="/images/payments/livraison.svg" alt="Paiement à la livraison" width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, flex: 'none' }} /><span className="col grow"><span className="small b">Paiement à la livraison</span><span className="xs muted">Indisponible pour les animaux vivants</span></span></div>
+                <div className="li" style={{ opacity: 0.55 }}><img src="/favicon.svg" alt="Solde SAVAA" width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, flex: 'none', background: '#E8F3EA', padding: 4 }} /><span className="col grow"><span className="small b">Solde SAVAA</span><span className="xs muted">Fonction future, soumise à agrément</span></span><Badge>Bientôt</Badge></div>
               </div>
             </div>
             <p className="xs muted">Paiement opéré par un prestataire agréé. SAVAA ne conserve aucune donnée de carte.</p>
@@ -280,7 +281,11 @@ export function Receipt() {
           <div className="pad">
             <dl className="kv">
               <dt>Transaction</dt><dd className="num">{o.tx}</dd>
-              <dt>Moyen</dt><dd>{isMomo(o.method) ? `${o.method}, 07 •• •• 33 90` : o.method}</dd>
+              <dt>Moyen</dt>
+              <dd className="row" style={{ gap: 6 }}>
+                {PAY_LOGO[o.method] && <img src={PAY_LOGO[o.method]} alt={o.method} width={20} height={20} style={{ width: 20, height: 20, borderRadius: 4, flex: 'none' }} />}
+                <span>{isMomo(o.method) ? `${o.method}, 07 •• •• 33 90` : o.method}</span>
+              </dd>
               <dt>Statut</dt><dd><Badge tone="green">Confirmé</Badge></dd>
               <dt>Date</dt><dd className="num">{o.date}, {o.time}</dd>
             </dl>

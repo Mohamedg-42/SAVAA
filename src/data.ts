@@ -117,6 +117,24 @@ export type Order = {
 
 const forAnimal = (animalId: string, list: Omit<HealthEvent, 'animalId'>[]): HealthEvent[] => list.map((e) => ({ animalId, ...e }));
 
+/** Villes et communes principales de toute la Côte d'Ivoire, classées par district. */
+export const CI_REGIONS: { region: string; towns: string[] }[] = [
+  { region: 'District d’Abidjan', towns: ['Abobo', 'Adjamé', 'Anyama', 'Attécoubé', 'Bingerville', 'Cocody', 'Koumassi', 'Marcory', 'Plateau', 'Port-Bouët', 'Songon', 'Treichville', 'Yopougon'] },
+  { region: 'District de Yamoussoukro', towns: ['Yamoussoukro', 'Attiégouakro'] },
+  { region: 'Savanes (Poro, Tchologo, Bagoué)', towns: ['Korhogo', 'Sinématiali', 'Ferkessédougou', 'Ouangolodougou', 'Kong', 'Boundiali', 'Tengrela', 'Kouto', 'Dikodougou', 'M’Bengué', 'Napiéolédougou'] },
+  { region: 'Vallée du Bandama (Gbêkê, Hambol)', towns: ['Bouaké', 'Katiola', 'Dabakala', 'Niakaramadougou', 'Sakassou', 'Béoumi', 'Botro'] },
+  { region: 'Bas-Sassandra', towns: ['San-Pédro', 'Soubré', 'Sassandra', 'Tabou', 'Méagui', 'Guéyo'] },
+  { region: 'Sassandra-Marahoué', towns: ['Daloa', 'Bouaflé', 'Issia', 'Vavoua', 'Zuénoula', 'Sinfra', 'Zoukougbeu'] },
+  { region: 'Gôh-Djiboua', towns: ['Gagnoa', 'Divo', 'Oumé', 'Lakota', 'Guitry'] },
+  { region: 'Montagnes', towns: ['Man', 'Danané', 'Duékoué', 'Guiglo', 'Bangolo', 'Biankouma', 'Toulepleu', 'Bloléquin'] },
+  { region: 'Lagunes', towns: ['Dabou', 'Agboville', 'Adzopé', 'Azaguié', 'Tiassalé', 'Grand-Lahou', 'Jacqueville', 'Sikensi', 'Akoupé'] },
+  { region: 'Comoé', towns: ['Abengourou', 'Aboisso', 'Grand-Bassam', 'Bonoua', 'Adiaké', 'Agnibilékrou', 'Bettié'] },
+  { region: 'Lacs', towns: ['Dimbokro', 'Toumodi', 'Bongouanou', 'Daoukro', 'Bocanda', 'M’Bahiakro', 'Arrah', 'Prikro'] },
+  { region: 'Zanzan', towns: ['Bondoukou', 'Bouna', 'Tanda', 'Koun-Fao', 'Nassian', 'Sandégué', 'Transua'] },
+  { region: 'Woroba', towns: ['Séguéla', 'Mankono', 'Touba', 'Kani', 'Koro', 'Ouaninou'] },
+  { region: 'Denguélé', towns: ['Odienné', 'Minignan', 'Madinani', 'Kaniasso', 'Samatiguila'] },
+];
+
 /** Frais de livraison forfaitaires de la maquette (bétaillère). */
 export const SHIPPING = 25000;
 
@@ -1112,6 +1130,7 @@ export type Session = {
   name: string;
   phone: string;
   mail?: string;
+  town?: string;
   roles: string[];
   prefs: { push: boolean; mkt: boolean };
   docs: { name: string; date: string; status: 'verified' | 'documented' | 'review' }[];

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { fcfa, useStore, type Listing } from '../data';
+import { CI_REGIONS, fcfa, useStore, type Listing } from '../data';
 import { LogoInline } from '../logo';
 import { photoFor } from '../photos';
 import { Badge, Foot, Icon, NotFound, Photo, SectionHead, TabBar, type Tone } from '../ui';
@@ -179,12 +179,19 @@ export function Home() {
   const [cat, setCat] = useState<string | null>(null);
   const catQuery = cat ? CATEGORY_SEARCH[cat] ?? cat : '';
   const catalog = s.listings().filter((l) => l.status === 'online' && matches(l, catQuery));
+  const activeTown = s.session().town || (s.shop().created ? s.shop().town : '') || 'Korhogo';
+  const activeRegion = CI_REGIONS.find((g) => g.towns.includes(activeTown))?.region.replace(/^District d[’']/, '').replace(/\s*\(.+\)/, '');
+  const locationLabel = !activeRegion || activeRegion === activeTown ? activeTown : `${activeTown}, ${activeRegion}`;
+
   return (
     <div className="app">
       <header className="hdr" style={{ padding: '10px 8px 10px 16px' }}>
-        <div className="col grow" style={{ gap: 0 }}>
-          <LogoInline tone="white" height={34} name={false} />
-          <span className="row xs" style={{ gap: 4, color: '#CFE0D4' }}><Icon name="pin" size="sm" /><span className="ell">Korhogo, Poro</span></span>
+        <div className="col grow" style={{ gap: 2 }}>
+          <LogoInline tone="white" height={34} animated name={false} />
+          <span className="row xs" style={{ gap: 4, color: '#CFE0D4' }}>
+            <Icon name="pin" size="sm" />
+            <span className="ell">{locationLabel}</span>
+          </span>
         </div>
         <Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}><Icon name="bell" />{unread > 0 && <span className="dot">{unread}</span>}</Link>
         <Link className="iconbtn" to="/panier" aria-label={`Panier, ${cartCount} article${cartCount > 1 ? 's' : ''}`}><Icon name="cart" />{cartCount > 0 && <span className="dot">{cartCount}</span>}</Link>

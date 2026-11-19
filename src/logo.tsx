@@ -1,58 +1,109 @@
-/**
- * Logo horizontal pour les en-têtes : symbole + nom côte à côte.
- * `tone="white"` sur fond vert (reliefs et nom blancs), `"color"` sur fond clair.
- */
-export function LogoInline({ height = 28, tone = 'color', name = true }: { height?: number; tone?: 'color' | 'white'; name?: boolean }) {
-  const ink = tone === 'white' ? '#FFFFFF' : '#145C3A';
-  const hole = tone === 'white' ? '#145C3A' : '#FFFFFF';
+/*
+  Logo vectoriel SAVAA haute netteté (courbes de Bézier lisses, source : public/logo-savaa.svg).
+  `tone="white"` sur fond vert foncé (tracés verts en blanc, orange lumineux), `"color"` sur fond clair.
+  `rising` : déclenche l'animation « Récolte & Marché » (vagues, feuilles qui poussent, chariot, SAVAA, soulignement).
+*/
+
+function SavaaSvg({
+  green,
+  orange,
+  width,
+  height,
+  className,
+}: {
+  green: string;
+  orange: string;
+  width?: number | string;
+  height?: number | string;
+  className?: string;
+}) {
   return (
-    <span className="row" style={{ gap: Math.round(height / 4), alignItems: 'center', flex: 'none' }} role="img" aria-label="SAVAA">
-      <svg viewBox="200 160 800 500" height={height} style={{ display: 'block', flex: 'none' }} aria-hidden="true">
-        <circle cx="600" cy="285" r="122" fill="#F28C28" />
-        <path d="M220 618 L426 285 Q470 213 521 285 L600 420 L679 285 Q730 213 774 285 L980 618 L829 618 L700 414 L600 577 L500 414 L371 618 Z" fill={ink} />
-        <path d="M448 415 L500 331 L551 415 Z" fill={hole} />
-        <path d="M649 415 L700 331 L752 415 Z" fill={hole} />
-        <path d="M350 638 C470 566 730 566 850 638" fill="none" stroke="#F28C28" strokeWidth="30" strokeLinecap="round" />
-      </svg>
-      {name && <span aria-hidden="true" style={{ fontWeight: 700, fontSize: Math.round(height * 0.68), letterSpacing: '0.04em', color: ink, lineHeight: 1 }}>SAVAA</span>}
+    <svg
+      className={className}
+      viewBox="28 4 456 266"
+      width={width}
+      height={height}
+      role="img"
+      aria-label="SAVAA"
+      style={{ display: 'block', flex: 'none', height: height ?? 'auto', width: width ?? 'auto', shapeRendering: 'geometricPrecision', overflow: 'visible' }}
+    >
+      {/* Double vague verte */}
+      <g className="savaa-waves" fill={green}>
+        <path d="M 104 88 C 118 65 138 53 162 53 C 184 53 204 60 222 72 C 204 65 186 63 166 64 C 143 65 123 74 104 88 Z" />
+        <path d="M 116 108 C 136 87 162 76 192 76 C 218 76 244 84 268 90 C 277 92 284 93 291 93 C 277 97 262 98 244 96 C 222 93 204 89 184 89 C 158 89 135 96 116 108 Z" />
+      </g>
+
+      {/* Feuilles qui poussent */}
+      <path
+        className="savaa-leaf-l"
+        fill={green}
+        d="M 307 75 C 310 56 303 40 288 30 C 279 24 270 22 261 23 C 261 36 264 49 271 59 C 279 70 291 76 303 77 C 301 72 294 62 285 50 C 284 48 286 47 288 49 C 296 57 303 66 307 75 Z"
+      />
+      <path
+        className="savaa-leaf-r"
+        fill={green}
+        d="M 317 65 C 314 48 320 32 334 21 C 346 12 361 9 377 10 C 376 27 371 44 360 58 C 349 71 335 76 320 76 C 324 67 335 52 350 35 C 352 33 349 31 347 33 C 335 44 324 55 317 65 Z"
+      />
+
+      {/* Chariot orange qui glisse de la gauche */}
+      <g className="savaa-cart" fill={orange}>
+        <path fillRule="evenodd" d="M 43 90 L 62 93 C 68 94 72 98 74 105 L 79 125 L 140 125 C 144 125 146 129 145 133 L 134 170 C 132 175 129 177 124 177 L 85 177 C 80 177 77 174 75 169 L 61 108 C 60 105 58 103 55 103 L 43 101 C 40 100 39 98 39 95 C 39 92 41 90 43 90 Z M 83 137 L 130 137 L 128 147 L 85 147 Z M 87 156 L 125 156 L 123 166 L 89 166 Z" />
+        <circle cx="86" cy="191" r="10" />
+        <circle cx="122.5" cy="191" r="10" />
+      </g>
+
+      {/* Lettres SAVAA + arc supérieur */}
+      <g className="savaa-letters">
+        <g fill={green}>
+          <path d="M 183 111 C 166 111 155 121 155 136 C 155 151 166 158 182 163 C 191 166 194 169 194 174 C 194 179 189 182 181 182 C 172 182 164 179 158 174 L 151 188 C 159 195 170 199 183 199 C 201 199 213 189 213 172 C 213 158 203 150 186 145 C 177 142 173 139 173 134 C 173 130 177 127 184 127 C 191 127 197 129 203 133 L 209 119 C 202 114 193 111 183 111 Z" />
+          <path fillRule="evenodd" d="M 239 112 L 208 197 L 227 197 L 233 179 L 262 179 L 268 197 L 287 197 L 256 112 Z M 247.5 135 L 257 164 L 238 164 Z" />
+          <path d="M 267 112 L 296 197 L 313 197 L 342 112 L 323 112 L 304.5 171 L 286 112 Z" />
+          <path fillRule="evenodd" d="M 352 112 L 321 197 L 340 197 L 346 179 L 375 179 L 381 197 L 400 197 L 369 112 Z M 360.5 135 L 370 164 L 351 164 Z" />
+        </g>
+        <g fill={orange}>
+          <path d="M 306 125 C 306 106 320 90 340 90 C 351 90 361 95 369 103 C 360 100 351 99 343 100 C 326 102 314 111 306 125 Z" />
+          <path fillRule="evenodd" d="M 426 112 L 395 197 L 414 197 L 420 179 L 449 179 L 455 197 L 474 197 L 443 112 Z M 434.5 135 L 444 164 L 425 164 Z" />
+        </g>
+      </g>
+
+      {/* Soulignement courbe orange qui se trace */}
+      <path
+        className="savaa-underline"
+        fill={orange}
+        d="M 161 258 C 202 246 244 242 284 244 C 316 245 344 250 369 258 C 342 254 314 252 282 252 C 242 252 201 256 161 264 Z"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Logo horizontal pour les en-têtes.
+ * `tone="white"` sur fond vert, `"color"` sur fond clair.
+ * `animated` : petite animation douce d'entrée + léger souffle sur les feuilles (écran d'accueil).
+ */
+export function LogoInline({ height = 34, tone = 'color', animated = false }: { height?: number; tone?: 'color' | 'white'; name?: boolean; animated?: boolean }) {
+  return (
+    <span className="row" style={{ alignItems: 'center', flex: 'none' }}>
+      <SavaaSvg
+        className={animated ? 'logo-home-anim' : undefined}
+        green={tone === 'white' ? '#FFFFFF' : '#075b38'}
+        orange={tone === 'white' ? '#FF9429' : '#ee7200'}
+        height={height}
+      />
     </span>
   );
 }
 
-/*
-  Logo SAVAA (fichier source : public/logo-savaa.svg).
-  Deux reliefs en forme de A, un soleil orange derrière, un sillon, le nom.
-  `rising` : le soleil se lève derrière les reliefs, puis le sillon se trace et le nom apparaît.
-*/
-export function Logo({ width = 280, rising = false, name = true }: { width?: number | string; rising?: boolean; name?: boolean }) {
+/**
+ * Grand logo SAVAA (écran de démarrage).
+ */
+export function Logo({ width = 280, rising = false }: { width?: number | string; rising?: boolean; name?: boolean }) {
   return (
-    <svg
+    <SavaaSvg
       className={rising ? 'logo-rising' : undefined}
-      viewBox={name ? '180 120 840 720' : '200 120 800 540'}
+      green="#075b38"
+      orange="#ee7200"
       width={width}
-      role="img"
-      aria-label="SAVAA"
-      style={{ display: 'block', overflow: 'visible' }}
-    >
-      <defs>
-        {/* Horizon : le soleil n'apparaît qu'au-dessus du pied des reliefs. */}
-        <clipPath id="savaa-horizon"><rect x="0" y="0" width="1200" height="600" /></clipPath>
-        <radialGradient id="savaa-glow">
-          <stop offset="0" stopColor="#F28C28" stopOpacity="0.45" />
-          <stop offset="1" stopColor="#F28C28" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <g clipPath="url(#savaa-horizon)">
-        {rising && <circle className="logo-glow" cx="600" cy="285" r="300" fill="url(#savaa-glow)" />}
-        <circle className="logo-sun" cx="600" cy="285" r="122" fill="#F28C28" />
-      </g>
-      <path d="M220 618 L426 285 Q470 213 521 285 L600 420 L679 285 Q730 213 774 285 L980 618 L829 618 L700 414 L600 577 L500 414 L371 618 Z" fill="#145C3A" />
-      <path d="M448 415 L500 331 L551 415 Z" fill="#FFFFFF" />
-      <path d="M649 415 L700 331 L752 415 Z" fill="#FFFFFF" />
-      <path className="logo-furrow" pathLength={1} d="M350 638 C470 566 730 566 850 638" fill="none" stroke="#F28C28" strokeWidth="24" strokeLinecap="round" />
-      {name && (
-        <text className="logo-name" x="600" y="806" textAnchor="middle" fontFamily="IBM Plex Sans, Arial, sans-serif" fontSize="172" fontWeight="700" letterSpacing="3" fill="#145C3A">SAVAA</text>
-      )}
-    </svg>
+    />
   );
 }

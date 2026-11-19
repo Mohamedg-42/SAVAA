@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { fcfa, priceLabel, today, useStore, type Listing } from '../data';
+import { CI_REGIONS, fcfa, priceLabel, today, useStore, type Listing } from '../data';
 import { downloadCSV } from '../device';
 import { showToast } from '../toast';
-import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd } from '../ui';
+import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd, TabBar } from '../ui';
 
 /* Lot 5 : vente (boutique, publication, campagne, statistiques, espace restaurant). */
 
@@ -88,9 +88,13 @@ export function CreateShop() {
         </div>
         <div className="grid2">
           <div className="field">
-            <label htmlFor="shop-town">Commune</label>
+            <label htmlFor="shop-town">Commune ou ville</label>
             <select id="shop-town" className="input" value={town} onChange={(e) => setTown(e.target.value)}>
-              {['Sinématiali', 'Korhogo', 'Ferkessédougou', 'Boundiali', 'Napiéolédougou'].map((t) => <option key={t}>{t}</option>)}
+              {CI_REGIONS.map((g) => (
+                <optgroup key={g.region} label={g.region}>
+                  {g.towns.map((t) => <option key={t} value={t}>{t}</option>)}
+                </optgroup>
+              ))}
             </select>
           </div>
           <div className="field">
@@ -821,6 +825,7 @@ export function Restaurant() {
           <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Elles apparaîtront ici après votre première commande.</span></div>
         </div>
         <Foot><button className="btn btn-p" disabled={!product.trim() || kg <= 0 || !place.trim()} onClick={() => s.put('resto.request', { product: product.trim(), kg, place: place.trim() } satisfies RestoRequest)}>Envoyer la demande</button></Foot>
+        <TabBar />
       </div>
     );
   }
@@ -904,6 +909,7 @@ export function Restaurant() {
         </div>
         </>}
       </div>
+      <TabBar />
     </div>
   );
 }

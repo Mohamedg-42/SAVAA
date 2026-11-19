@@ -5,16 +5,20 @@ import { Header, Icon } from './ui';
 
 /* Accès selon la connexion et les rôles choisis à l'inscription. */
 
-type Need = 'login' | 'breeder' | 'seller' | 'resto';
+type Need = 'login' | 'breeder' | 'seller' | 'resto' | 'veto' | 'coursier' | 'agri' | 'fourn';
 
 const LABEL: Record<Exclude<Need, 'login'>, [string, string]> = {
   breeder: ['Réservé aux éleveurs', 'Le suivi du cheptel et des soins est ouvert aux comptes « Éleveur ».'],
   seller: ['Réservé aux vendeurs', 'Publier des annonces et tenir une boutique demande un profil éleveur, producteur, vendeur ou fournisseur.'],
   resto: ['Réservé aux restaurants', 'L’espace professionnel est ouvert aux comptes « Restaurant / hôtel ».'],
+  veto: ['Réservé aux vétérinaires', 'Les alertes et validations sanitaires sont ouvertes aux comptes « Vétérinaire / agent habilité ».'],
+  coursier: ['Réservé aux transporteurs', 'Les missions de livraison sont ouvertes aux comptes « Coursier / transporteur ».'],
+  agri: ['Réservé aux producteurs', 'Le suivi des récoltes et disponibilités est ouvert aux comptes « Producteur agricole ».'],
+  fourn: ['Réservé aux fournisseurs', 'Les devis et tarifs B2B sont ouverts aux comptes « Fournisseur / entreprise ».'],
 };
 
 /**
- * `login` : connexion demandée. `breeder`, `seller`, `resto` : rôle demandé en plus.
+ * `login` : connexion demandée. `breeder`, `seller`, `resto`, `veto`, `coursier`, `agri`, `fourn` : rôle demandé en plus.
  * `shop` : un vendeur doit d'abord créer sa boutique.
  */
 export function Guard({ need, shop, children }: { need: Need; shop?: boolean; children: ReactNode }) {
@@ -25,7 +29,15 @@ export function Guard({ need, shop, children }: { need: Need; shop?: boolean; ch
   if (!s.session().loggedIn) return <Navigate to={`/connexion?next=${here}`} replace />;
   if (!s.session().roles.length) return <Navigate to={`/role?next=${here}`} replace />;
 
-  const ok = need === 'login' || (need === 'breeder' && s.isBreeder()) || (need === 'seller' && s.canSell()) || (need === 'resto' && s.has('resto'));
+  const ok =
+    need === 'login' ||
+    (need === 'breeder' && s.isBreeder()) ||
+    (need === 'seller' && s.canSell()) ||
+    (need === 'resto' && s.has('resto')) ||
+    (need === 'veto' && s.has('veto')) ||
+    (need === 'coursier' && s.has('coursier')) ||
+    (need === 'agri' && s.has('agri')) ||
+    (need === 'fourn' && s.has('fourn'));
   if (!ok) {
     const [title, text] = LABEL[need as Exclude<Need, 'login'>];
     return (

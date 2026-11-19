@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { today, useStore, type NotifCat, type Session } from '../data';
+import { CI_REGIONS, today, useStore, type NotifCat, type Session } from '../data';
 import { Logo, LogoInline } from '../logo';
 import { showToast } from '../toast';
 import { Badge, Check, Header, Icon, TabBar } from '../ui';
@@ -19,40 +19,17 @@ function WhiteHeader({ right }: { right: React.ReactNode }) {
 
 const checkRowStyle: React.CSSProperties = { border: 0, background: 'none', padding: 0, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: 'inherit' };
 
-/* Écran Main : démarrage (barre de chargement simulée). */
+/* Écran Main : démarrage. */
 export function Splash() {
-  const [p, setP] = useState(8);
-  const timer = useRef<number | undefined>(undefined);
-
-  useEffect(() => {
-    timer.current = window.setInterval(() => setP((x) => Math.min(100, x + 23)), 350);
-    return () => window.clearInterval(timer.current);
-  }, []);
-
-  useEffect(() => {
-    if (p >= 100) window.clearInterval(timer.current);
-  }, [p]);
-
   const logged = useStore().session().loggedIn;
 
-  /* Ciel d'aube : le soleil du logo se lève derrière les reliefs. */
+  /* Fond frais vert clair → blanc assorti à l'animation « Récolte & Marché ». */
   return (
-    <div className="app" style={{ background: 'linear-gradient(180deg, #FDE9D3 0%, #FFF7EF 42%, #FFFFFF 100%)', color: '#17201B' }}>
+    <div className="app" style={{ background: 'linear-gradient(180deg, #E8F3EA 0%, #F5FAF6 42%, #FFFFFF 100%)', color: '#17201B' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 18, padding: 32 }}>
         <Logo rising width="min(280px, 76%)" />
         <div className="splash-after col" style={{ alignItems: 'center', gap: 14 }}>
           <div style={{ fontSize: 17, fontWeight: 600, color: '#145C3A' }}>Le marché agricole de confiance</div>
-          <div
-            role="progressbar"
-            aria-label="Chargement"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={p}
-            style={{ width: 120, height: 3, background: '#E3E7E4', borderRadius: 2, overflow: 'hidden', marginTop: 10 }}
-          >
-            <div style={{ width: `${p}%`, height: '100%', background: '#F28C28', transition: 'width .3s' }} />
-          </div>
-          <span className="xs muted">{p < 100 ? 'Chargement des annonces de votre zone…' : 'Prêt'}</span>
         </div>
       </div>
       <div className="splash-after" style={{ padding: '0 24px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -78,31 +55,21 @@ export function Login() {
   const session = s.session();
   const navigate = useNavigate();
   const next = useNext();
-  const [mode, setMode] = useState<'tel' | 'mail'>('tel');
+  const parts = session.name.trim().split(/\s+/);
+  const [lastName, setLastName] = useState(parts.length > 1 ? parts.slice(1).join(' ') : '');
+  const [firstName, setFirstName] = useState(parts[0] ?? '');
+  const [town, setTown] = useState(session.town ?? '');
+  const [phone, setPhone] = useState(session.phone);
   const [cgu, setCgu] = useState(false);
   const [mkt, setMkt] = useState(false);
-  const [name, setName] = useState(session.name);
-  const [code, setCode] = useState('');
-  const [phone, setPhone] = useState(session.phone);
-  const [mail, setMail] = useState(session.mail ?? '');
-  /* Le code n'est « envoyé » qu'une fois le numéro ou l'e-mail saisi. */
-  const [sent, setSent] = useState(false);
-  const [wait, setWait] = useState(0);
-  useEffect(() => {
-    if (wait <= 0) return;
-    const t = setTimeout(() => setWait(wait - 1), 1000);
-    return () => clearTimeout(t);
-  }, [wait]);
-  const contactOk = mode === 'tel' ? phone.replace(/\D/g, '').length === 10 : /^\S+@\S+\.\S+$/.test(mail);
-  const sendCode = () => {
-    setSent(true);
-    setWait(60);
-    setCode('');
-    showToast(`Code envoyé ${mode === 'tel' ? 'par SMS' : 'par e-mail'}. En démo, tout code à 6 chiffres est accepté.`);
-  };
+
+  const phoneOk = phone.replace(/\D/g, '').length === 10;
+  const ready = cgu && phoneOk && lastName.trim() !== '' && firstName.trim() !== '' && town !== '';
+
   const validate = () => {
-    const contact = mode === 'tel' ? { phone: phone.trim() } : { mail: mail.trim() };
-    s.login({ ...contact, name: name.trim(), prefs: { ...session.prefs, mkt } });
+    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+    s.login({ phone: phone.trim(), name: fullName, town, prefs: { ...session.prefs, mkt } });
+    if (!s.shop().created) s.setShop({ town });
     navigate(s.session().roles.length ? next ?? '/accueil' : `/role${next ? `?next=${encodeURIComponent(next)}` : ''}`, { replace: true });
   };
   const demo = () => {
@@ -113,62 +80,47 @@ export function Login() {
   return (
     <div className="app" style={{ background: '#fff' }}>
       <WhiteHeader right={<span style={{ paddingRight: 12 }}><LogoInline height={30} name={false} /></span>} />
-      <div className="body" style={{ background: '#fff', padding: '8px 20px 20px', gap: 22 }}>
+      <div className="body" style={{ background: '#fff', padding: '8px 20px 20px', gap: 18 }}>
         <div className="col" style={{ gap: 6 }}>
           <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Connexion ou inscription</h2>
-          <p className="muted">Un seul compte pour acheter, vendre et suivre votre cheptel.</p>
+          <p className="muted">Un seul compte pour acheter, vendre et suivre votre cheptel partout en Côte d’Ivoire.</p>
+        </div>
+        <div className="grid2">
+          <div className="field">
+            <label htmlFor="login-last">Nom</label>
+            <input id="login-last" className="input" autoComplete="family-name" placeholder="Ex. Traoré" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="login-first">Prénom</label>
+            <input id="login-first" className="input" autoComplete="given-name" placeholder="Ex. Awa" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          </div>
         </div>
         <div className="field">
-          <label htmlFor="login-name">Nom et prénom</label>
-          <input id="login-name" className="input" autoComplete="name" placeholder="Ex. Awa Traoré" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="seg">
-          <button className={mode === 'tel' ? 'on' : ''} onClick={() => { setMode('tel'); setSent(false); }}>Téléphone</button>
-          <button className={mode === 'mail' ? 'on' : ''} onClick={() => { setMode('mail'); setSent(false); }}>E-mail</button>
-        </div>
-        {mode === 'tel' ? (
-          <div className="field">
-            <label htmlFor="login-tel">Numéro de téléphone</label>
-            <div className="row" style={{ gap: 8 }}>
-              <div className="input" style={{ width: 92, flex: 'none', justifyContent: 'center', fontWeight: 500 }}>+225</div>
-              <input id="login-tel" className="input num" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="07 00 00 00 00" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 14))} style={{ fontWeight: 500, minWidth: 0 }} />
-            </div>
-            <p className="hint">Nous envoyons un code à 6 chiffres par SMS.</p>
-          </div>
-        ) : (
-          <div className="field">
-            <label htmlFor="login-mail">Adresse e-mail</label>
-            <input id="login-mail" className="input" type="email" autoComplete="email" placeholder="nom@exemple.ci" value={mail} onChange={(e) => setMail(e.target.value)} />
-            <p className="hint">Nous envoyons un code à 6 chiffres par e-mail.</p>
-          </div>
-        )}
-        {!sent ? (
-          <button className="btn btn-s btn-block" disabled={!contactOk} onClick={sendCode}>Recevoir le code</button>
-        ) : (
-        <div className="field">
-          <div className="row between">
-            <label className="lbl" htmlFor="login-otp">Code reçu</label>
-            {wait > 0
-              ? <span className="small muted num">Renvoyer (0:{String(wait).padStart(2, '0')})</span>
-              : <button className="link plain" onClick={sendCode}>Renvoyer le code</button>}
-          </div>
-          <label className="otp num" style={{ position: 'relative' }}>
-            {Array.from({ length: 6 }, (_, i) => (
-              <div key={i} className={i === Math.min(code.length, 5) ? 'on' : ''}>{code[i] ?? ''}</div>
+          <label htmlFor="login-town">Commune ou ville</label>
+          <select
+            id="login-town"
+            className="input"
+            value={town}
+            onChange={(e) => setTown(e.target.value)}
+            style={{ color: town ? '#17201B' : '#5D6862' }}
+          >
+            <option value="" disabled>Choisir votre commune ou ville…</option>
+            {CI_REGIONS.map((g) => (
+              <optgroup key={g.region} label={g.region}>
+                {g.towns.map((t) => <option key={t} value={t}>{t}</option>)}
+              </optgroup>
             ))}
-            <input
-              id="login-otp"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              aria-label="Code à 6 chiffres"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, border: 0, cursor: 'text' }}
-            />
-          </label>
+          </select>
+          <p className="hint">Disponible sur toute l’étendue de la Côte d’Ivoire (14 districts).</p>
         </div>
-        )}
+        <div className="field">
+          <label htmlFor="login-tel">Numéro de téléphone</label>
+          <div className="row" style={{ gap: 8 }}>
+            <div className="input" style={{ width: 92, flex: 'none', justifyContent: 'center', fontWeight: 500 }}>+225</div>
+            <input id="login-tel" className="input num" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="07 00 00 00 00" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 14))} style={{ fontWeight: 500, minWidth: 0 }} />
+          </div>
+          <p className="hint">Numéro à 10 chiffres en Côte d’Ivoire.</p>
+        </div>
         <div className="col" style={{ gap: 14 }}>
           <button className="row top" role="checkbox" aria-checked={cgu} onClick={() => setCgu(!cgu)} style={checkRowStyle}>
             <Check on={cgu} />
@@ -182,7 +134,7 @@ export function Login() {
       </div>
       <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
         <div className="col" style={{ gap: 8, width: '100%' }}>
-          <button className="btn btn-p btn-block" style={{ flex: 'none' }} disabled={!cgu || code.length < 6 || !contactOk || !name.trim()} onClick={validate}>Valider le code</button>
+          <button className="btn btn-p btn-block" style={{ flex: 'none' }} disabled={!ready} onClick={validate}>Continuer</button>
           <button className="btn btn-ghost btn-block small" style={{ flex: 'none', height: 40 }} onClick={demo}>Essayer le compte de démonstration</button>
         </div>
       </div>
@@ -211,8 +163,16 @@ export function RolePicker() {
   if (!s.session().loggedIn) return <Navigate to={`/connexion?next=${encodeURIComponent('/role')}`} replace />;
   const next = () => {
     s.setSession({ roles: ROLES.filter((r) => sel[r.id]).map((r) => r.id) });
-    const sells = ['eleveur', 'agri', 'vendeur', 'fourn'].some((r) => sel[r]);
-    navigate(back ?? (sel.eleveur ? '/suivi' : sells ? '/boutique/creer' : sel.resto ? '/restaurant' : '/accueil'), { replace: true });
+    const target =
+      sel.eleveur ? '/suivi'
+        : sel.agri ? '/recoltes'
+          : sel.fourn ? '/fournisseur'
+            : sel.vendeur ? (s.shop().created ? '/boutique' : '/boutique/creer')
+              : sel.resto ? '/restaurant'
+                : sel.veto ? '/veto'
+                  : sel.coursier ? '/missions'
+                    : '/accueil';
+    navigate(back ?? target, { replace: true });
   };
 
   return (
@@ -398,7 +358,11 @@ export function Profile() {
         <div className="card list">
           {s.orders().length > 0 && <Link className="li" to="/recu"><span className="grow small b">Paiements et reçus</span><Icon name="chevron" size="sm" /></Link>}
           {s.canSell() && <Link className="li" to="/boutique"><span className="grow small b">{s.shop().created ? 'Ma boutique' : 'Créer ma boutique'}</span><Icon name="chevron" size="sm" /></Link>}
+          {s.has('agri') && <Link className="li" to="/recoltes"><span className="grow small b">Mes récoltes et disponibilités</span><Icon name="chevron" size="sm" /></Link>}
+          {s.has('fourn') && <Link className="li" to="/fournisseur"><span className="grow small b">Espace fournisseur (devis B2B)</span><Icon name="chevron" size="sm" /></Link>}
           {s.has('resto') && <Link className="li" to="/restaurant"><span className="grow small b">Espace restaurant (B2B)</span><Icon name="chevron" size="sm" /></Link>}
+          {s.has('veto') && <Link className="li" to="/veto"><span className="grow small b">Espace vétérinaire</span><Icon name="chevron" size="sm" /></Link>}
+          {s.has('coursier') && <Link className="li" to="/missions"><span className="grow small b">Espace transporteur (missions)</span><Icon name="chevron" size="sm" /></Link>}
           {/* Outils internes : montrés seulement avec le compte de démonstration, pour la présentation. */}
           {session.demo && <Link className="li" to="/admin"><span className="grow small b">Back-office et prospection (équipe SAVAA)</span><Icon name="chevron" size="sm" /></Link>}
           <button className="li" onClick={() => setConfirmKind('logout')}><span className="grow small b" style={{ color: '#A0221A' }}>Se déconnecter</span></button>

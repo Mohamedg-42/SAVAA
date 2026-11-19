@@ -76,23 +76,35 @@ export function Header({ title, sub, back, close, actions }: { title: ReactNode;
 }
 
 /**
- * Onglets selon les rôles : Favoris et Commandes pour les acheteurs, Vendre pour les vendeurs,
- * Suivi pour les éleveurs, Pro pour les restaurants.
+ * Onglets selon les rôles : chaque métier dispose de son onglet dédié (5 onglets max).
  */
 export function TabBar() {
   const s = useStore();
   const logged = s.session().loggedIn;
-  const buyer = logged && !s.canSell();
-  /* Le restaurant a déjà son espace Pro : pas d'onglet Favoris, pour tenir sur un petit écran. */
-  const favTab = buyer && !s.has('resto');
+  const hasSpecial = s.canSell() || s.has('resto') || s.has('veto') || s.has('coursier');
+  const pureBuyer = logged && !hasSpecial;
+  const middle: { to: string; label: string; icon: IconName }[] = [];
+
+  if (pureBuyer) {
+    middle.push({ to: '/favoris', label: 'Favoris', icon: 'heart' });
+    middle.push({ to: '/commandes', label: 'Commandes', icon: 'truck' });
+  } else {
+    if (s.canSell()) middle.push({ to: '/vendre', label: 'Vendre', icon: 'sell' });
+    if (s.isBreeder()) middle.push({ to: '/suivi', label: 'Suivi', icon: 'pulse' });
+    else if (s.has('agri')) middle.push({ to: '/recoltes', label: 'Récoltes', icon: 'calendar' });
+    else if (s.has('fourn')) middle.push({ to: '/fournisseur', label: 'Devis B2B', icon: 'file' });
+    if (s.has('resto')) {
+      if (!s.canSell()) middle.push({ to: '/commandes', label: 'Commandes', icon: 'truck' });
+      middle.push({ to: '/restaurant', label: 'Pro', icon: 'calendar' });
+    }
+    if (s.has('veto')) middle.push({ to: '/veto', label: 'Véto', icon: 'pulse' });
+    if (s.has('coursier')) middle.push({ to: '/missions', label: 'Missions', icon: 'truck' });
+  }
+
   const tabs: { to: string; label: string; icon: IconName }[] = [
     { to: '/accueil', label: 'Accueil', icon: 'home' },
     { to: '/explorer', label: 'Explorer', icon: 'search' },
-    ...(favTab ? [{ to: '/favoris', label: 'Favoris', icon: 'heart' as IconName }] : []),
-    ...(buyer ? [{ to: '/commandes', label: 'Commandes', icon: 'truck' as IconName }] : []),
-    ...(s.canSell() ? [{ to: '/vendre', label: 'Vendre', icon: 'sell' as IconName }] : []),
-    ...(s.isBreeder() ? [{ to: '/suivi', label: 'Suivi', icon: 'pulse' as IconName }] : []),
-    ...(s.has('resto') ? [{ to: '/restaurant', label: 'Pro', icon: 'calendar' as IconName }] : []),
+    ...middle.slice(0, 2),
     logged ? { to: '/compte', label: 'Compte', icon: 'user' } : { to: '/connexion', label: 'Connexion', icon: 'user' },
   ];
   return (

@@ -5,6 +5,7 @@ import { Cart, Orders, Payment, Receipt, Support, Tracking } from './screens/com
 import { Login, Notifications, Profile, RolePicker, Splash } from './screens/compte';
 import { BackOffice, NewProspect, Prospection, ProspectSheet } from './screens/crm';
 import { AddAnimal, Dashboard, Herd } from './screens/eleveur';
+import { AgriSpace, CourierSpace, SupplierSpace, VetSpace } from './screens/metiers';
 import { AnimalSheet, HealthRecord, Observation } from './screens/sante';
 import { Campaign, CampaignStats, CreateShop, Publish, Restaurant, Shop } from './screens/vente';
 import { Toaster } from './ui';
@@ -54,6 +55,12 @@ export default function App() {
         <Route path="/campagne" element={<Guard need="seller" shop><Campaign /></Guard>} />
         <Route path="/campagne/stats" element={<Guard need="seller" shop><CampaignStats /></Guard>} />
         <Route path="/restaurant" element={<Guard need="resto"><Restaurant /></Guard>} />
+
+        {/* Espaces métiers dédiés (vétérinaire, transporteur, producteur agricole, fournisseur B2B) */}
+        <Route path="/veto" element={<Guard need="veto"><VetSpace /></Guard>} />
+        <Route path="/missions" element={<Guard need="coursier"><CourierSpace /></Guard>} />
+        <Route path="/recoltes" element={<Guard need="agri"><AgriSpace /></Guard>} />
+        <Route path="/fournisseur" element={<Guard need="fourn"><SupplierSpace /></Guard>} />
 
         {/* Lot 6, outils de l'équipe SAVAA (hors application grand public) */}
         <Route path="/prospection" element={<Prospection />} />

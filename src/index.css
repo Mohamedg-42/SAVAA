@@ -196,24 +196,38 @@ html,body,#root{margin:0;height:100%;background:#F8FAF8}
 .app{width:100%;max-width:480px;height:100dvh;margin:0 auto}
 .plain{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
 button.li{width:100%;border-left:0;border-right:0;border-bottom:0;background:#fff;font:inherit;color:inherit;text-align:left;cursor:pointer}
-.input:focus,textarea.input:focus{outline:2px solid #145C3A;outline-offset:-1px}
+.input:focus,textarea.input:focus,select.input:focus{outline:2px solid #145C3A;outline-offset:-1px}
 input.input,textarea.input,select.input{display:block}
+select.input{appearance:none;-webkit-appearance:none;height:46px;line-height:1.3;padding:11px 38px 11px 12px;cursor:pointer;background-color:#fff;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%235D6862' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:18px;text-overflow:ellipsis}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#17201B;color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;max-width:calc(100% - 32px);z-index:10;font-family:'IBM Plex Sans',system-ui,sans-serif;line-height:1.4}
 .stat{display:flex;flex-direction:column;gap:2px}
 @media print{html,body,#root{height:auto;background:#fff}.app{height:auto;max-width:none;overflow:visible}.body{overflow:visible}.hdr,.foot,.tabbar,.toast,.utabs,.no-print{display:none!important}.card{break-inside:avoid}}
 .spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.spin{animation:none}}
 .app,.app *{scrollbar-width:none}.app::-webkit-scrollbar,.app *::-webkit-scrollbar{display:none}
-/* Logo : le soleil se lève derrière les reliefs, puis le sillon se trace et le nom apparaît. */
-.logo-rising .logo-sun{animation:savaa-sunrise 2.2s cubic-bezier(.2,.7,.2,1) both}
-.logo-rising .logo-glow{transform-origin:600px 285px;animation:savaa-glow 2.6s ease-out both}
-.logo-rising .logo-furrow{stroke-dasharray:1;stroke-dashoffset:1;animation:savaa-furrow .9s ease-out 1.7s forwards}
-.logo-rising .logo-name{opacity:0;animation:savaa-fadeup .7s ease-out 2.3s forwards}
-.splash-after{opacity:0;animation:savaa-fadeup .6s ease-out 2.8s forwards}
-@keyframes savaa-sunrise{from{transform:translateY(330px)}to{transform:translateY(0)}}
-@keyframes savaa-glow{0%{opacity:0;transform:translateY(330px) scale(.6)}70%{opacity:1}100%{opacity:.85;transform:translateY(0) scale(1)}}
-@keyframes savaa-furrow{to{stroke-dashoffset:0}}
-@keyframes savaa-fadeup{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.logo-rising .logo-sun,.logo-rising .logo-glow,.logo-rising .logo-furrow,.logo-rising .logo-name,.splash-after{animation:none;opacity:1;stroke-dashoffset:0;transform:none}}
+/* Logo : animation « Récolte & Marché » (vagues, feuilles qui poussent, chariot, SAVAA, soulignement en 1,3 s). */
+.logo-rising .savaa-waves{opacity:0;animation:savaa-wave-in .5s cubic-bezier(.2,.8,.2,1) .05s forwards}
+.logo-rising .savaa-leaf-l{opacity:0;transform-origin:304px 74px;animation:savaa-leaf-left .55s cubic-bezier(.22,1.15,.36,1) .2s forwards}
+.logo-rising .savaa-leaf-r{opacity:0;transform-origin:320px 72px;animation:savaa-leaf-right .55s cubic-bezier(.22,1.15,.36,1) .28s forwards}
+.logo-rising .savaa-cart{opacity:0;animation:savaa-cart-in .55s cubic-bezier(.2,.85,.25,1) .24s forwards}
+.logo-rising .savaa-letters{opacity:0;animation:savaa-fadeup .48s cubic-bezier(.2,.8,.2,1) .48s forwards}
+.logo-rising .savaa-underline{clip-path:inset(0 100% 0 0);animation:savaa-reveal .48s cubic-bezier(.2,.8,.2,1) .78s forwards}
+.splash-after{opacity:0;animation:savaa-fadeup .45s ease-out 1.1s forwards}
+@keyframes savaa-wave-in{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes savaa-leaf-left{from{opacity:0;transform:scale(.25) rotate(22deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes savaa-leaf-right{from{opacity:0;transform:scale(.25) rotate(-22deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes savaa-cart-in{from{opacity:0;transform:translateX(-34px)}to{opacity:1;transform:none}}
+@keyframes savaa-reveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes savaa-fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* Petite animation douce sur le logo de l'accueil : entrée fluide + léger souffle des feuilles. */
+.logo-home-anim{animation:savaa-home-pop .65s cubic-bezier(.2,.9,.3,1) both}
+.logo-home-anim .savaa-leaf-l{transform-origin:304px 74px;animation:savaa-breeze-l 4.2s ease-in-out 1s infinite}
+.logo-home-anim .savaa-leaf-r{transform-origin:320px 72px;animation:savaa-breeze-r 4.2s ease-in-out 1.2s infinite}
+.logo-home-anim .savaa-cart{animation:savaa-cart-nudge .75s cubic-bezier(.2,.9,.3,1) .15s both}
+@keyframes savaa-home-pop{from{opacity:0;transform:translateY(-6px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes savaa-cart-nudge{from{transform:translateX(-14px)}to{transform:none}}
+@keyframes savaa-breeze-l{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-5deg)}}
+@keyframes savaa-breeze-r{0%,100%{transform:rotate(0deg)}50%{transform:rotate(5deg)}}
+@media (prefers-reduced-motion:reduce){.logo-rising .savaa-waves,.logo-rising .savaa-leaf-l,.logo-rising .savaa-leaf-r,.logo-rising .savaa-cart,.logo-rising .savaa-letters,.logo-rising .savaa-underline,.splash-after,.logo-home-anim,.logo-home-anim .savaa-leaf-l,.logo-home-anim .savaa-leaf-r,.logo-home-anim .savaa-cart{animation:none;opacity:1;clip-path:none;transform:none}}
 /* Back-office sur tablette et téléphone : menu compact en haut, rubriques qui passent à la ligne (aucun défilement horizontal). */
 @media (max-width:900px){
 .adm{flex-direction:column;flex-wrap:nowrap}
