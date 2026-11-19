@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">SAVAA — symbole agricole simplifié</title>
+  <desc id="desc">Deux formes de A évoquant des reliefs agricoles, un soleil orange et un unique sillon, au-dessus du nom SAVAA.</desc>
+  <rect width="1200" height="900" fill="#FFFFFF"/>
+  <!-- Soleil derrière les deux reliefs -->
+  <circle cx="600" cy="285" r="122" fill="#F28C28"/>
+  <!-- Double relief / double A : silhouette pleine, géométrie volontairement simple -->
+  <path d="M220 618 L426 285 Q470 213 521 285 L600 420 L679 285 Q730 213 774 285 L980 618 L829 618 L700 414 L600 577 L500 414 L371 618 Z" fill="#145C3A"/>
+  <!-- Contreformes A larges et nettes -->
+  <path d="M448 415 L500 331 L551 415 Z" fill="#FFFFFF"/>
+  <path d="M649 415 L700 331 L752 415 Z" fill="#FFFFFF"/>
+  <!-- Un seul sillon orange, assez épais pour rester lisible en réduction -->
+  <path d="M350 638 C470 566 730 566 850 638" fill="none" stroke="#F28C28" stroke-width="24" stroke-linecap="round"/>
+  <!-- Nom conservé exactement ; dessin à plat sans effets -->
+  <text x="600" y="806" text-anchor="middle" font-family="IBM Plex Sans, Arial, sans-serif" font-size="172" font-weight="700" letter-spacing="3" fill="#145C3A">SAVAA</text>
+</svg>

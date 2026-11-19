@@ -203,3 +203,14 @@ input.input,textarea.input,select.input{display:block}
 @media print{html,body,#root{height:auto;background:#fff}.app{height:auto;max-width:none;overflow:visible}.body{overflow:visible}.hdr,.foot,.tabbar,.toast,.utabs,.no-print{display:none!important}.card{break-inside:avoid}}
 .spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.spin{animation:none}}
 .app,.app *{scrollbar-width:none}.app::-webkit-scrollbar,.app *::-webkit-scrollbar{display:none}
+/* Logo : le soleil se lève derrière les reliefs, puis le sillon se trace et le nom apparaît. */
+.logo-rising .logo-sun{animation:savaa-sunrise 2.2s cubic-bezier(.2,.7,.2,1) both}
+.logo-rising .logo-glow{transform-origin:600px 285px;animation:savaa-glow 2.6s ease-out both}
+.logo-rising .logo-furrow{stroke-dasharray:1;stroke-dashoffset:1;animation:savaa-furrow .9s ease-out 1.7s forwards}
+.logo-rising .logo-name{opacity:0;animation:savaa-fadeup .7s ease-out 2.3s forwards}
+.splash-after{opacity:0;animation:savaa-fadeup .6s ease-out 2.8s forwards}
+@keyframes savaa-sunrise{from{transform:translateY(330px)}to{transform:translateY(0)}}
+@keyframes savaa-glow{0%{opacity:0;transform:translateY(330px) scale(.6)}70%{opacity:1}100%{opacity:.85;transform:translateY(0) scale(1)}}
+@keyframes savaa-furrow{to{stroke-dashoffset:0}}
+@keyframes savaa-fadeup{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.logo-rising .logo-sun,.logo-rising .logo-glow,.logo-rising .logo-furrow,.logo-rising .logo-name,.splash-after{animation:none;opacity:1;stroke-dashoffset:0;transform:none}}

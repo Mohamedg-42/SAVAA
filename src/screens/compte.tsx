@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { today, useStore, type NotifCat, type Session } from '../data';
+import { Logo } from '../logo';
 import { showToast } from '../toast';
 import { Badge, Check, Header, Icon, TabBar } from '../ui';
 
@@ -32,28 +33,33 @@ export function Splash() {
     if (p >= 100) window.clearInterval(timer.current);
   }, [p]);
 
+  const logged = useStore().session().loggedIn;
+
+  /* Ciel d'aube : le soleil du logo se lève derrière les reliefs. */
   return (
-    <div className="app" style={{ background: '#145C3A', color: '#fff' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 14, padding: 32 }}>
-        <div style={{ fontSize: 56, fontWeight: 700, letterSpacing: '0.06em', lineHeight: 1 }}>SAVAA</div>
-        <div style={{ width: 64, height: 3, background: '#F28C28' }} />
-        <div style={{ fontSize: 16, fontWeight: 500, color: '#CFE0D4' }}>Ça va maintenant !</div>
-        <div
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={p}
-          style={{ width: 120, height: 3, background: 'rgba(255,255,255,.18)', borderRadius: 2, overflow: 'hidden', marginTop: 28 }}
-        >
-          <div style={{ width: `${p}%`, height: '100%', background: '#F28C28', transition: 'width .3s' }} />
+    <div className="app" style={{ background: 'linear-gradient(180deg, #FDE9D3 0%, #FFF7EF 42%, #FFFFFF 100%)', color: '#17201B' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 18, padding: 32 }}>
+        <Logo rising width="min(280px, 76%)" />
+        <div className="splash-after col" style={{ alignItems: 'center', gap: 14 }}>
+          <div style={{ fontSize: 17, fontWeight: 600, color: '#145C3A' }}>Ça va maintenant !</div>
+          <div
+            role="progressbar"
+            aria-label="Chargement"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={p}
+            style={{ width: 120, height: 3, background: '#E3E7E4', borderRadius: 2, overflow: 'hidden', marginTop: 10 }}
+          >
+            <div style={{ width: `${p}%`, height: '100%', background: '#F28C28', transition: 'width .3s' }} />
+          </div>
+          <span className="xs muted">{p < 100 ? 'Chargement des annonces de votre zone…' : 'Prêt'}</span>
         </div>
-        <span className="xs" style={{ color: '#CFE0D4' }}>{p < 100 ? 'Chargement des annonces de votre zone…' : 'Prêt'}</span>
       </div>
-      <div style={{ padding: '0 24px 40px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <p style={{ fontSize: 14, lineHeight: 1.5, color: '#CFE0D4', textAlign: 'center' }}>Acheter et vendre des animaux, des récoltes et des intrants. Chaque animal avec son origine et son suivi sanitaire.</p>
-        <Link className="btn btn-block" to="/connexion" style={{ background: '#fff', color: '#145C3A' }}>Commencer</Link>
-        <Link className="btn btn-block" to="/accueil" style={{ background: 'transparent', color: '#fff', borderColor: 'rgba(255,255,255,.4)' }}>Parcourir sans compte</Link>
-        <p className="xs" style={{ textAlign: 'center', color: '#A9C2B1' }}>Prototype de démonstration v2.0, données fictives</p>
+      <div className="splash-after" style={{ padding: '0 24px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, textAlign: 'center' }}>Acheter et vendre des animaux, des récoltes et des intrants. Chaque animal avec son origine et son suivi sanitaire.</p>
+        <Link className="btn btn-p btn-block" to={logged ? '/accueil' : '/connexion'}>{logged ? 'Continuer' : 'Commencer'}</Link>
+        {!logged && <Link className="btn btn-s btn-block" to="/accueil">Parcourir sans compte</Link>}
+        <p className="xs muted" style={{ textAlign: 'center' }}>Prototype de démonstration v2.0, données fictives</p>
       </div>
     </div>
   );
