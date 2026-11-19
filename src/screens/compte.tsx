@@ -454,7 +454,7 @@ export function Notifications() {
                 const [k, tint, ink] = CAT_STYLE[n.c];
                 return (
                   <Link key={n.id} className="li" to={n.to} onClick={() => s.markRead(n.id)} style={{ alignItems: 'flex-start', background: n.unread ? '#E8F3EA' : '#fff' }}>
-                    <span className="mono" style={{ background: tint, color: ink, border: 0 }}>{k}</span>
+                    <span className="mono" style={{ color: ink, borderColor: tint }}>{k}</span>
                     <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
                       <span className="row between" style={{ gap: 8 }}><span className="b small ell">{n.title}</span><span className="xs muted num" style={{ flex: 'none' }}>{n.time}</span></span>
                       <span className="small muted" style={{ lineHeight: 1.4 }}>{n.text}</span>
