@@ -42,9 +42,7 @@ function ChipPicker({ items, sel, onToggle }: { items: string[]; sel: Record<str
 /** Saisie d'un montant entier, affiché avec séparateur de milliers. */
 const parseAmount = (v: string) => Number(v.replace(/\D/g, '').slice(0, 9));
 
-/* ------------------------------------------------------------------ */
-/* Écran 12b : créer ma boutique                                       */
-/* ------------------------------------------------------------------ */
+/* Écran 12b : créer ma boutique */
 
 const SHOP_CATS = ['Bovins', 'Ovins et caprins', 'Volailles', 'Récoltes', 'Aliments et intrants', 'Matériel'];
 
@@ -61,7 +59,7 @@ export function CreateShop() {
       <Header back title="Créer ma boutique" actions={<span className="small muted" style={{ paddingRight: 12, flex: 'none' }}>Étape 3 sur 3</span>} />
       <div className="body" style={{ gap: 20 }}>
         <div className="row" style={{ gap: 14 }}>
-          <button className="addph" style={{ width: 76, height: 76, borderRadius: 12, fontFamily: 'inherit', cursor: 'pointer', flex: 'none' }} onClick={() => simulate('Ajout du logo')}><Icon name="camera" />Logo</button>
+          <button className="addph" style={{ width: 76, height: 76, borderRadius: 12, fontFamily: 'inherit', cursor: 'pointer', flex: 'none' }} onClick={() => simulate('Ajout du logo à venir.')}><Icon name="camera" />Logo</button>
           <div className="field grow">
             <label htmlFor="shop-name">Nom de la boutique</label>
             <input id="shop-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -111,9 +109,7 @@ export function CreateShop() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Écran 12 : ma boutique                                              */
-/* ------------------------------------------------------------------ */
+/* Écran 12 : ma boutique */
 
 const SHOP_TABS = [['ads', 'Annonces (4)'], ['orders', 'Commandes (3)'], ['reviews', 'Avis (23)']] as const;
 type ShopTab = (typeof SHOP_TABS)[number][0];
@@ -190,9 +186,7 @@ export function Shop() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Écran 13 : publier une annonce (onglet « Vendre »)                  */
-/* ------------------------------------------------------------------ */
+/* Écran 13 : publier une annonce (onglet « Vendre ») */
 
 const CATEGORIES = ['Animaux, Bovins', 'Animaux, Ovins', 'Animaux, Caprins', 'Volailles', 'Récoltes', 'Aliments et intrants', 'Matériel'];
 
@@ -414,9 +408,7 @@ export function Publish() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Écran 14 : campagne de mise en avant                                */
-/* ------------------------------------------------------------------ */
+/* Écran 14 : campagne de mise en avant */
 
 const FORMATS = [
   ['top', 'En tête des résultats', 'Recherches « bélier », « mouton », « Tabaski »'],
@@ -526,9 +518,7 @@ export function Campaign() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Écran 15 : résultats de campagne                                    */
-/* ------------------------------------------------------------------ */
+/* Écran 15 : résultats de campagne */
 
 const CLICKS = [14, 19, 22, 18, 27, 41, 25, 23, 18];
 const CLICKS_MAX = Math.max(...CLICKS);
@@ -598,9 +588,7 @@ export function CampaignStats() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Écran 24 : espace restaurant                                        */
-/* ------------------------------------------------------------------ */
+/* Écran 24 : espace restaurant */
 
 const OFFERS = [
   { n: 'Avicole Bingerville', kg: 2350, d: 'Livraison lundi 6 h, chaîne du froid', v: 'Vérifié', verified: true, note: '4,8, 61 avis' },

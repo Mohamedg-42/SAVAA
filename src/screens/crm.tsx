@@ -3,9 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { simulate } from '../toast';
 import { Badge, Check, Foot, Header, Icon, NotFound } from '../ui';
 
-/* ------------------------------------------------------------------ */
 /* Données de démo (prospection)                                       */
-/* ------------------------------------------------------------------ */
 
 type StageId = 'new' | 'ct' | 'int' | 'acc' | 'ver' | 'act' | 'rel';
 type TypeId = 'all' | 'resto' | 'elev' | 'fourn';
@@ -51,9 +49,7 @@ const PROSPECTS: Prospect[] = [
 
 const avStyle = { background: '#EEF0EE', color: '#3E4943' };
 
-/* ------------------------------------------------------------------ */
-/* Écran 16 : prospection (pipeline + filtres)                         */
-/* ------------------------------------------------------------------ */
+/* Écran 16 : prospection (pipeline + filtres) */
 
 export function Prospection() {
   const [type, setType] = useState<TypeId>('all');
@@ -143,9 +139,7 @@ export function Prospection() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Écran 16b : fiche prospect                                          */
-/* ------------------------------------------------------------------ */
+/* Écran 16b : fiche prospect */
 
 type Entry = { t: string; d: string; x: string };
 
@@ -270,9 +264,7 @@ function ProspectSheetInner({ p }: { p: Prospect }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Écran 16c : nouveau prospect                                        */
-/* ------------------------------------------------------------------ */
+/* Écran 16c : nouveau prospect */
 
 const ACTOR_TYPES = ['Éleveur', 'Producteur', 'Restaurant', 'Fournisseur', 'Grossiste', 'Transformateur'];
 const SOURCES = ['Visite', 'Appel', 'Recomm.', 'Salon'];
@@ -379,9 +371,7 @@ export function NewProspect() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Écran 25 : back-office (page large)                                 */
-/* ------------------------------------------------------------------ */
+/* Écran 25 : back-office (page large) */
 
 type Sec = 'dash' | 'users' | 'camp' | 'stats';
 type Res = 'ok' | 'ko';
@@ -482,7 +472,7 @@ export function BackOffice() {
           <>
             <div className="adm-top">
               <div style={colStyle}><h1>Tableau de bord</h1><span className="small muted">Mardi 18 novembre 2026, zone pilote Poro et Tchologo</span></div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="btn btn-s btn-sm" onClick={() => simulate('Changement de période')}>7 derniers jours</button><button className="btn btn-p btn-sm" onClick={() => simulate('Export du tableau de bord')}>Exporter</button></div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="btn btn-s btn-sm" onClick={() => simulate('Une seule période dans les données de test.')}>7 derniers jours</button><button className="btn btn-p btn-sm" onClick={() => simulate('Export bientôt disponible.')}>Exporter</button></div>
             </div>
             <div className="adm-kpis">
               <div className="card pad stat"><span className="l">Vendeurs actifs</span><span className="v">209</span><span className="xs" style={{ color: '#145C3A' }}>+14 sur 7 j</span></div>
@@ -571,7 +561,7 @@ export function BackOffice() {
                   placeholder="Nom, téléphone, n° de compte"
                   aria-label="Rechercher un compte"
                 />
-                <button className="btn btn-s btn-sm" onClick={() => simulate('Export de la liste des comptes')}>Exporter</button>
+                <button className="btn btn-s btn-sm" onClick={() => simulate('Export CSV pas encore disponible.')}>Exporter</button>
               </div>
             </div>
             <div className="wrap" style={{ gap: 8 }}>
@@ -649,7 +639,7 @@ export function BackOffice() {
           <>
             <div className="adm-top">
               <div style={colStyle}><h1>Statistiques du pilote</h1><span className="small muted">Depuis l’ouverture le 1er septembre 2026</span></div>
-              <div className="seg" style={{ minWidth: 0, width: 260, maxWidth: '100%' }}><button onClick={() => simulate('Filtre sur 30 jours')}>30 j</button><button className="on">Depuis le début</button></div>
+              <div className="seg" style={{ minWidth: 0, width: 260, maxWidth: '100%' }}><button onClick={() => simulate('Chiffres sur 30 jours pas encore chargés.')}>30 j</button><button className="on">Depuis le début</button></div>
             </div>
             <div className="adm-kpis">
               <div className="card pad stat"><span className="l">Annonces publiées</span><span className="v">1 146</span></div>

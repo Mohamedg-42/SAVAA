@@ -49,7 +49,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
 
   return (
     <div className="app">
-      <Header back title="Fiche animale" actions={<button className="iconbtn" aria-label="Partager la fiche" onClick={() => simulate('Partage de la fiche')}><Icon name="share" /></button>} />
+      <Header back title="Fiche animale" actions={<button className="iconbtn" aria-label="Partager la fiche" onClick={() => simulate('Partage pas encore actif.')}><Icon name="share" /></button>} />
       <div className="body flush">
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="row top" style={{ gap: 14 }}>
@@ -183,7 +183,7 @@ function HealthRecordInner({ a }: { a: Animal }) {
 
   return (
     <div className="app">
-      <Header back title="Dossier sanitaire" sub={`${a.id}, ${a.name}`} actions={<button className="iconbtn" aria-label="Exporter en PDF" onClick={() => simulate('Export PDF du dossier')}><Icon name="download" /></button>} />
+      <Header back title="Dossier sanitaire" sub={`${a.id}, ${a.name}`} actions={<button className="iconbtn" aria-label="Exporter en PDF" onClick={() => simulate('Export PDF du dossier à venir.')}><Icon name="download" /></button>} />
       <div style={{ background: '#fff', borderBottom: '1px solid #E3E7E4', padding: '12px 16px', flex: 'none' }}>
         <div className="seg">
           {F.map(([k, t]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{t}</button>)}
@@ -289,7 +289,7 @@ function ObservationInner({ a }: { a: Animal }) {
               <span className="lbl">Photo ou vidéo</span>
               <div className="grid3">
                 <Photo label="IMG_0412" h={84} radius={8} />
-                <button className="addph" style={{ height: 84, cursor: 'pointer' }} onClick={() => simulate('Prise de photo ou vidéo')}><Icon name="camera" />Ajouter</button>
+                <button className="addph" style={{ height: 84, cursor: 'pointer' }} onClick={() => simulate('Photo et vidéo à brancher sur le téléphone.')}><Icon name="camera" />Ajouter</button>
               </div>
             </div>
             <div className="field">

@@ -24,8 +24,8 @@ export function clearToast() {
   emit();
 }
 
-/** Pour une action qui n'existe pas encore sans backend ou sans le téléphone (PDF, appel, photo, export…). */
-export const simulate = (what: string) => showToast(`${what} : simulé dans la démo.`);
+/** Action pas encore branchée (PDF, appel, photo, export) : message complet, à formuler au cas par cas. */
+export const simulate = (text: string) => showToast(text);
 
 export function useToast() {
   return useSyncExternalStore(

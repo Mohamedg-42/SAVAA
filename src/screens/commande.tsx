@@ -213,7 +213,7 @@ export function Receipt() {
           <div className="sum"><span className="muted">Frais de transaction</span><span className="num muted">0</span></div>
           <div className="sum t"><span>Total payé</span><span className="num">{fcfa(t.total)} FCFA</span></div>
         </div>
-        <button className="btn btn-s btn-block" onClick={() => simulate('Téléchargement du reçu PDF')}><Icon name="download" />Télécharger le reçu (PDF)</button>
+        <button className="btn btn-s btn-block" onClick={() => simulate('Le reçu PDF arrive dans la prochaine version.')}><Icon name="download" />Télécharger le reçu (PDF)</button>
       </div>
       <Foot><Link className="btn btn-p" to="/commande">Suivre la commande</Link></Foot>
     </div>
@@ -251,7 +251,7 @@ export function Tracking() {
         <div className="card pad row">
           <span className="av" style={{ background: '#EEF0EE', color: '#3E4943' }}>TO</span>
           <div className="col grow"><span className="b small">Transports Ouattara</span><span className="xs muted">Bétaillère AB 4512 CI, Issa O.</span></div>
-          <button className="iconbtn" aria-label="Appeler le transporteur" style={{ border: '1px solid #C5CDC7' }} onClick={() => simulate('Appel du transporteur, numéro masqué')}><Icon name="phone" /></button>
+          <button className="iconbtn" aria-label="Appeler le transporteur" style={{ border: '1px solid #C5CDC7' }} onClick={() => simulate('Appel indisponible dans cette version.')}><Icon name="phone" /></button>
         </div>
         <div className="card pad col" style={{ gap: 10 }}>
           <span className="b small">Code de remise</span>
@@ -323,7 +323,7 @@ export function Support() {
               {chat.map((m, i) => (
                 <div key={i} className="col" style={{ gap: 8 }}>
                   <div className="bubble me">{m}</div>
-                  <div className="bubble bot" ref={i === chat.length - 1 ? (el) => el?.scrollIntoView({ block: 'end' }) : undefined}>Assistant simulé dans la démo. Pour une vraie réponse, parlez à un conseiller.</div>
+                  <div className="bubble bot" ref={i === chat.length - 1 ? (el) => el?.scrollIntoView({ block: 'end' }) : undefined}>Bien reçu. Un conseiller reprend la conversation dès que possible. Si l’état de l’animal vous inquiète, appelez votre vétérinaire.</div>
                 </div>
               ))}
             </div>
@@ -346,7 +346,7 @@ export function Support() {
               <select id="cmd" className="input num"><option>SAV-2026-11-004812</option></select>
             </div>
             <div className="field"><label htmlFor="desc">Description</label><textarea id="desc" className="input" defaultValue="Le taurillon boite de l’antérieur droit à la descente de la bétaillère. Je n’ai pas encore donné le code de remise." /></div>
-            <div className="grid3"><Photo label="VID_0921" h={80} radius={8} /><button className="addph" style={{ height: 80 }} onClick={() => simulate('Ajout de photo ou vidéo')}>Ajouter</button></div>
+            <div className="grid3"><Photo label="VID_0921" h={80} radius={8} /><button className="addph" style={{ height: 80 }} onClick={() => simulate('Pièce jointe pas encore branchée.')}>Ajouter</button></div>
             <div className="field"><span className="lbl">Priorité</span>
               <div className="seg"><button className={!urgent ? 'on' : ''} onClick={() => setUrgent(false)}>Normale</button><button className={urgent ? 'on' : ''} onClick={() => setUrgent(true)}>Urgente</button></div>
             </div>

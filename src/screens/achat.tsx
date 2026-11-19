@@ -218,7 +218,7 @@ export function CatalogOffline() {
           <h2 style={{ fontSize: 19, fontWeight: 600 }}>Pas de connexion</h2>
           <p className="small muted" style={{ lineHeight: 1.5 }}>Impossible de charger les annonces. Vos favoris et les annonces déjà vues restent consultables.</p>
           <button className="btn btn-p btn-block" onClick={() => setSt('load')} style={{ marginTop: 8 }}>Réessayer</button>
-          <button className="btn btn-s btn-block" onClick={() => simulate('Favoris hors connexion')}>Voir mes favoris (3)</button>
+          <button className="btn btn-s btn-block" onClick={() => simulate('Favoris pas encore disponibles hors connexion.')}>Voir mes favoris (3)</button>
         </div>
       )}
       {st === 'load' && (

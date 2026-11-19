@@ -55,7 +55,7 @@ export function Dashboard() {
         </div>
 
         <div className="sec">
-          <SectionHead title="Échéances" link="Calendrier" onClick={() => simulate('Calendrier des échéances')} />
+          <SectionHead title="Échéances" link="Calendrier" onClick={() => simulate('Le calendrier n’est pas encore en ligne.')} />
           <div className="card list">
             {[
               ['20', 'nov.', 'Pesée mensuelle, 18 bovins', 'Parc 2'],
@@ -203,9 +203,9 @@ export function AddAnimal() {
           <div className="grid3">
             <Photo label="Profil gauche" h={96} radius={8} />
             <Photo label="Boucle" h={96} radius={8} />
-            <button className="addph" style={{ height: 96, cursor: 'pointer' }} onClick={() => simulate('Prise de photo')}><Icon name="camera" />Ajouter</button>
+            <button className="addph" style={{ height: 96, cursor: 'pointer' }} onClick={() => simulate('Appareil photo non relié pour l’instant.')}><Icon name="camera" />Ajouter</button>
           </div>
-          <button className="row card pad plain" style={{ width: '100%' }} onClick={() => simulate('Ajout de justificatif')}>
+          <button className="row card pad plain" style={{ width: '100%' }} onClick={() => simulate('Ajout de documents à venir.')}>
             <Icon name="file" />
             <span className="col grow"><span className="small b">Joindre un document</span><span className="xs muted">Certificat, carnet de vaccination, facture d’achat</span></span>
           </button>
