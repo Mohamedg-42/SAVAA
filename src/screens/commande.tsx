@@ -124,13 +124,13 @@ export function Cart() {
 }
 
 const MOMO = [
-  ['Orange Money', '/images/payments/orange-money.svg', 'Validation par code secret'],
-  ['MTN MoMo', '/images/payments/mtn-momo.svg', 'Validation par code secret'],
-  ['Moov Money', '/images/payments/moov-money.svg', 'Validation par code secret'],
+  ['Orange Money', '/images/payments/orange-money-real.svg', 'Validation par code secret'],
+  ['MTN MoMo', '/images/payments/mtn-momo-real.png', 'Validation par code secret'],
+  ['Moov Money', '/images/payments/moov-money-real.png', 'Validation par code secret'],
   ['Wave', '/images/payments/wave.svg', 'Validation dans l’application'],
 ];
 const OTHER = [
-  ['Carte bancaire', '/images/payments/carte-bancaire.svg', 'Visa, Mastercard, authentification 3-D Secure'],
+  ['Carte bancaire', '/images/payments/mastercard-real.svg', 'Visa, Mastercard, authentification 3-D Secure'],
   ['Virement bancaire', '/images/payments/virement.svg', 'Achats professionnels, 24 à 72 h'],
 ];
 const PAY_LOGO: Record<string, string> = Object.fromEntries([...MOMO, ...OTHER].map(([n, logo]) => [n, logo]));
@@ -171,7 +171,7 @@ export function Payment() {
 
   const methodRow = ([name, logo, sub]: string[]) => (
     <button key={name} className="li" onClick={() => s.setCart({ method: name })} style={{ background: c.method === name ? '#E8F3EA' : '#fff' }}>
-      <img src={logo} alt={name} width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, flex: 'none', objectFit: 'cover' }} />
+      <img src={logo} alt={name} width={44} height={44} style={{ width: 44, height: 44, borderRadius: 8, flex: 'none', objectFit: 'contain', background: '#fff', border: '1px solid #E3E7E4', padding: 3 }} />
       <span className="col grow"><span className="small b">{name}</span><span className="xs muted">{sub}</span></span>
       <span className={`radio${c.method === name ? ' on' : ''}`} />
     </button>
