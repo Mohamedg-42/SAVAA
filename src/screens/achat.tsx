@@ -239,10 +239,10 @@ export function Catalog() {
   const s = useStore();
   const [params, setParams] = useSearchParams();
   const favMode = params.get('favoris') === '1';
-  const demo = !!s.session().demo;
-  const q = params.get('q') ?? (demo ? 'taurillon' : '');
+  /* Explorer s'ouvre sur toutes les annonces en ligne, sans recherche ni filtre imposés. */
+  const q = params.get('q') ?? '';
   const [loading, setLoading] = useState(true);
-  const [verified, setVerified] = useState(!favMode && demo);
+  const [verified, setVerified] = useState(false);
   const [delivery, setDelivery] = useState(false);
   const [trace, setTrace] = useState(false);
   useEffect(() => {
@@ -272,7 +272,7 @@ export function Catalog() {
           <button className={`chip${delivery ? ' on' : ''}`} onClick={() => setDelivery(!delivery)}>Livraison</button>
           <button className={`chip${trace ? ' on' : ''}`} onClick={() => setTrace(!trace)}>Avec fiche animale</button>
         </div>
-        <div className="row between small"><span className="muted num">{loading ? '…' : items.length} résultat{items.length > 1 ? 's' : ''}{favMode ? ' en favoris' : ', Poro et Tchologo'}</span><span className="b">Tri : pertinence</span></div>
+        <div className="row between small"><span className="muted num">{loading ? '…' : items.length} résultat{items.length > 1 ? 's' : ''}{favMode ? ' en favoris' : ', partout en Côte d’Ivoire'}</span><span className="b">Tri : pertinence</span></div>
       </div>
       <div className="body" style={{ padding: '12px 16px', gap: 10 }}>
         {loading ? (
