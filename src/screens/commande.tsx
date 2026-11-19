@@ -229,7 +229,7 @@ export function Tracking() {
       <div className="body">
         <div className="card pad col" style={{ gap: 6 }}>
           <div className="row between"><Badge tone="blue">En route</Badge><span className="small muted">Arrivée estimée 10:30</span></div>
-          <span className="b" style={{ fontSize: 16 }}>{bags ? `Taurillon FK-0142 et ${bags} sac${bags > 1 ? 's' : ''} d’aliment` : 'Taurillon FK-0142'}</span>
+          <span className="b" style={{ fontSize: 16 }}>{bags ? `Taurillon FK-0142 + ${bags} sac${bags > 1 ? 's' : ''} d’aliment` : 'Taurillon FK-0142'}</span>
           <span className="small muted">Livraison à Ferme Ouattara, route de Dikodougou</span>
         </div>
         <div className="card pad">

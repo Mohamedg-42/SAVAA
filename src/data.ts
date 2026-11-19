@@ -35,6 +35,8 @@ export type HealthEvent = {
   file?: string;
   /** Saisi hors connexion, pas encore envoyé. */
   pending?: boolean;
+  /** Ligne courte de l'onglet Santé de la fiche (écran 07). `false` : n'y figure pas. Par défaut : titre + date. */
+  summary?: { title?: string; sub: string } | false;
 };
 
 let animals: Animal[] = [
@@ -57,12 +59,12 @@ let events: HealthEvent[] = [
     { kind: 'vac', date: '14/05/2026', title: 'Vaccination peste des petits ruminants (PPR)', text: 'Campagne départementale, Dr Y. Coulibaly.', proof: 'verified' },
   ]),
   ...forAnimal('FK-0142', [
-  { kind: 'vac', date: '02/10/2026', title: 'Vaccination péripneumonie (PPCB)', text: 'Dr Y. Coulibaly, vétérinaire mandaté. Voie sous-cutanée. Lot PB-2291.', proof: 'verified', file: 'Attestation_PPCB.pdf' },
-  { kind: 'trt', date: '15/08/2026', title: 'Déparasitage interne', text: 'Ivermectine 1 %, 1 ml / 50 kg. Administré par A. Koné.', proof: 'documented', file: 'Facture_pharmacie_vet.jpg' },
-  { kind: 'obs', date: '03/08/2026', title: 'Observation clôturée', text: 'Toux disparue après 6 jours. Appétit normal.', proof: 'declared' },
-  { kind: 'trt', date: '29/07/2026', title: 'Traitement prescrit', text: 'Oxytétracycline LA, 1 injection. Prescription du Dr Coulibaly après examen.', proof: 'verified', file: 'Ordonnance_0729.pdf' },
-  { kind: 'obs', date: '28/07/2026', title: 'Observation : toux légère', text: 'Toux sèche le matin, appétit conservé. Priorité faible.', proof: 'declared' },
-  { kind: 'vac', date: '10/03/2026', title: 'Vaccination dermatose nodulaire', text: 'Campagne départementale, Dr Y. Coulibaly.', proof: 'verified' },
+  { kind: 'vac', date: '02/10/2026', title: 'Vaccination péripneumonie (PPCB)', text: 'Dr Y. Coulibaly, vétérinaire mandaté. Voie sous-cutanée. Lot PB-2291.', proof: 'verified', file: 'Attestation_PPCB.pdf', summary: { title: 'Vaccin péripneumonie (PPCB)', sub: '02/10/2026, Dr Y. Coulibaly, lot n° PB-2291' } },
+  { kind: 'trt', date: '15/08/2026', title: 'Déparasitage interne', text: 'Ivermectine 1 %, 1 ml / 50 kg. Administré par A. Koné.', proof: 'documented', file: 'Facture_pharmacie_vet.jpg', summary: { sub: '15/08/2026, ivermectine, facture jointe' } },
+  { kind: 'obs', date: '03/08/2026', title: 'Observation clôturée', text: 'Toux disparue après 6 jours. Appétit normal.', proof: 'declared', summary: false },
+  { kind: 'trt', date: '29/07/2026', title: 'Traitement prescrit', text: 'Oxytétracycline LA, 1 injection. Prescription du Dr Coulibaly après examen.', proof: 'verified', file: 'Ordonnance_0729.pdf', summary: false },
+  { kind: 'obs', date: '28/07/2026', title: 'Observation : toux légère', text: 'Toux sèche le matin, appétit conservé. Priorité faible.', proof: 'declared', summary: { sub: '28/07/2026, A. Koné, clôturée le 03/08' } },
+  { kind: 'vac', date: '10/03/2026', title: 'Vaccination dermatose nodulaire', text: 'Campagne départementale, Dr Y. Coulibaly.', proof: 'verified', summary: { title: 'Vaccin dermatose nodulaire', sub: '10/03/2026, Dr Y. Coulibaly' } },
   ]),
 ];
 

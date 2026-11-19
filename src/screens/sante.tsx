@@ -43,7 +43,7 @@ export function AnimalSheet() {
 function AnimalSheetInner({ a }: { a: Animal }) {
   const s = useStore();
   const full = a.id === DEMO_ID;
-  const recent = s.eventsFor(a.id).slice(0, 4);
+  const recent = s.eventsFor(a.id).filter((e) => e.summary !== false).slice(0, 4);
   const [tab, setTab] = useState(0);
   const tabs = ['Identité', 'Santé', 'Ascendance', 'Mouvements', 'Historique'];
 
@@ -103,7 +103,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
                   <dt>Poids</dt><dd className="num">312 kg, pesé le 04/11/2026 <Badge tone="blue">Documenté</Badge></dd>
                   <dt>Exploitation</dt><dd>Ferme Koné &amp; Fils, Sinématiali</dd>
                   <dt>Détenteur</dt><dd>Adama Koné</dd>
-                  <dt>Élevage</dt><dd>Semi-intensif, pâturage et complément</dd>
+                  <dt>Élevage</dt><dd>Semi-intensif, pâturage + complément</dd>
                   <dt>Entrée</dt><dd className="num">12/09/2024, né sur place</dd>
                 </dl>
               </div>
@@ -119,8 +119,8 @@ function AnimalSheetInner({ a }: { a: Animal }) {
                 <Timeline>
                   {recent.map((e) => (
                     <TimelineItem key={e.date + e.title} dot={dotFor(e)}>
-                      <span className="row between" style={{ gap: 8 }}><span className="b small">{e.title}</span><Badge tone={PROOF[e.proof].tone}>{PROOF[e.proof].label}</Badge></span>
-                      <span className="xs muted num">{e.date}</span>
+                      <span className="row between" style={{ gap: 8 }}><span className="b small">{(e.summary && e.summary.title) || e.title}</span>{e.pending ? <Badge tone="amber">En attente d’envoi</Badge> : <Badge tone={PROOF[e.proof].tone}>{PROOF[e.proof].label}</Badge>}</span>
+                      <span className="xs muted num">{e.summary ? e.summary.sub : e.date}</span>
                     </TimelineItem>
                   ))}
                 </Timeline>

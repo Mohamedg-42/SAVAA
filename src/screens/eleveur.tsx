@@ -55,7 +55,7 @@ export function Dashboard() {
         </div>
 
         <div className="sec">
-          <SectionHead title="Échéances" link="Cheptel" to="/cheptel" />
+          <SectionHead title="Échéances" link="Calendrier" onClick={() => simulate('Calendrier des échéances')} />
           <div className="card list">
             {[
               ['20', 'nov.', 'Pesée mensuelle, 18 bovins', 'Parc 2'],
@@ -104,7 +104,7 @@ export function Herd() {
       <div style={{ background: '#fff', borderBottom: '1px solid #E3E7E4', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10, flex: 'none' }}>
         <label className="search">
           <Icon name="search" />
-          <input className="plain grow" placeholder="N° interne, identifiant, nom" value={q} onChange={(e) => setQ(e.target.value)} style={{ outline: 'none' }} />
+          <input className="plain grow" placeholder="N° interne, identifiant officiel, nom" value={q} onChange={(e) => setQ(e.target.value)} style={{ outline: 'none' }} />
         </label>
         <div className="chips">
           {chips.map(([id, t, n]) => (

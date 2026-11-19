@@ -17,6 +17,13 @@ export function showToast(text: string, ms = 2800) {
   emit();
 }
 
+export function clearToast() {
+  if (!message) return;
+  clearTimeout(timer);
+  message = '';
+  emit();
+}
+
 /** Pour une action qui n'existe pas encore sans backend ou sans le téléphone (PDF, appel, photo, export…). */
 export const simulate = (what: string) => showToast(`${what} : simulé dans la démo.`);
 

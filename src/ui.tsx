@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useToast } from './toast';
+import { useEffect, type ReactNode } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { clearToast, useToast } from './toast';
 
 /* Icônes au trait de la maquette (24 × 24, trait 1,75). */
 const ICONS = {
@@ -113,11 +113,17 @@ export function Foot({ children }: { children: ReactNode }) {
   return <div className="foot">{children}</div>;
 }
 
-export function SectionHead({ title, link, to }: { title: string; link?: string; to?: string }) {
+export function SectionHead({ title, link, to, onClick }: { title: string; link?: string; to?: string; onClick?: () => void }) {
   return (
     <div className="sech">
       <h2>{title}</h2>
-      {link && (to ? <Link className="link" to={to}>{link}</Link> : <span className="link">{link}</span>)}
+      {link && (to ? (
+        <Link className="link" to={to}>{link}</Link>
+      ) : onClick ? (
+        <button className="link" onClick={onClick} style={{ background: 'none', border: 0, padding: 0, font: 'inherit', cursor: 'pointer' }}>{link}</button>
+      ) : (
+        <span className="link">{link}</span>
+      ))}
     </div>
   );
 }
@@ -140,6 +146,9 @@ export function NotFound({ title, text, to, cta }: { title: string; text: string
 /** Affiche le message de `showToast` / `simulate` (monté une seule fois, dans App). */
 export function Toaster() {
   const msg = useToast();
+  /* Un message concerne l'écran où il est apparu : on l'efface quand on change d'écran. */
+  const { pathname, search } = useLocation();
+  useEffect(() => clearToast(), [pathname, search]);
   return msg ? <div className="toast" role="status">{msg}</div> : null;
 }
 

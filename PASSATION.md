@@ -55,4 +55,4 @@ npm run lint
 - Aucun bouton inerte : soit une vraie action, soit `simulate('…')`, soit `disabled`.
 - Les blocs directs de `.body` ne rétrécissent pas (`.body>*{flex-shrink:0}`) : sans cette règle, sur un téléphone de moins de 844 px de haut, la photo d'annonce ou les onglets de la fiche animale étaient écrasés. Tester aussi en 390 × 667.
 - Un identifiant d'URL inconnu (`/animal/:id`, `/annonce/:id`, `/prospect/:id`) affiche `NotFound`, jamais un autre élément à la place.
-- Chaque événement sanitaire porte son `animalId` ; lire un dossier avec `store.eventsFor(id)`. Seul FK-0142 a une fiche complète (race, ascendance, mouvements) et seule son annonce a une page de détail ; les autres cartes d'annonce ne sont pas cliquables.
+- Chaque événement sanitaire porte son `animalId` ; lire un dossier avec `store.eventsFor(id)`. Le champ `summary` règle la ligne courte de l'onglet Santé de la fiche (titre et sous-titre de la maquette, ou `false` pour l'en exclure). Seul FK-0142 a une fiche complète (race, ascendance, mouvements) et seule son annonce a une page de détail ; les autres cartes d'annonce ne sont pas cliquables.
