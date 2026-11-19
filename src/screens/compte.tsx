@@ -41,7 +41,7 @@ export function Splash() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 18, padding: 32 }}>
         <Logo rising width="min(280px, 76%)" />
         <div className="splash-after col" style={{ alignItems: 'center', gap: 14 }}>
-          <div style={{ fontSize: 17, fontWeight: 600, color: '#145C3A' }}>Ça va maintenant !</div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: '#145C3A' }}>Le marché agricole de confiance</div>
           <div
             role="progressbar"
             aria-label="Chargement"
