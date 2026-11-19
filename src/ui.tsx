@@ -1,0 +1,130 @@
+import type { ReactNode } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+
+/* Icônes au trait de la maquette (24 × 24, trait 1,75). */
+const ICONS = {
+  back: <path d="m15 5-7 7 7 7" />,
+  close: <path d="M6 6l12 12M18 6 6 18" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  home: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />,
+  search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
+  sell: <><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M12 8v8M8 12h8" /></>,
+  pulse: <path d="M3 12h4l3-8 4 16 3-8h4" />,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>,
+  bell: <><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z" /><path d="M10 20a2 2 0 0 0 4 0" /></>,
+  chevron: <path d="m9 5 7 7-7 7" />,
+  down: <path d="m6 9 6 6 6-6" />,
+  alert: <><path d="M12 3.5 2.5 20h19z" /><path d="M12 10v4.5M12 17.5v.01" /></>,
+  calendar: <><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
+  file: <><path d="M6 3h8l5 5v13H6z" /><path d="M14 3v5h5" /></>,
+  camera: <><path d="M4 7.5h3.5L9 5h6l1.5 2.5H20a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8.5a1 1 0 0 1 1-1z" /><circle cx="12" cy="13" r="3.5" /></>,
+  share: <><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6" /></>,
+  download: <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14" />,
+  offline: <path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0M12 19h.01M3 3l18 18" />,
+  check: <><circle cx="12" cy="12" r="9" /><path d="m8 12.5 2.8 2.8L16.5 9.5" /></>,
+  tick: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  scale: <><path d="M5 20h14M7 20V9l5-5 5 5v11" /><path d="M10 14h4" /></>,
+  megaphone: <><path d="M4 10v4h3l8 4V6L7 10z" /><path d="M18.5 9.5a3.5 3.5 0 0 1 0 5" /></>,
+  filter: <path d="M4 6h16M7 12h10M10 18h4" />,
+  cart: <><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /><path d="M2.5 3.5h3l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6.4" /></>,
+  pin: <><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></>,
+  truck: <><path d="M2.5 6h11v10h-11zM13.5 9.5h4l3 3.5V16h-7" /><circle cx="6.5" cy="17.5" r="1.8" /><circle cx="17" cy="17.5" r="1.8" /></>,
+  chat: <path d="M4 5h16v11H9l-5 4z" />,
+  phone: <path d="M5 4h3.5l1.5 4.5-2 1.5a12 12 0 0 0 6 6l1.5-2 4.5 1.5V19a1.5 1.5 0 0 1-1.5 1.5C10.5 20.5 3.5 13.5 3.5 5.5A1.5 1.5 0 0 1 5 4z" />,
+  heart: <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z" />,
+  flag: <path d="M5 21V4h11l-1.5 4L16 12H5" />,
+  send: <path d="M4 12 20 4l-6 16-3-7z" />,
+  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8v.01" /></>,
+  fail: <><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></>,
+} as const;
+
+export type IconName = keyof typeof ICONS;
+
+export function Icon({ name, size = 'md', style }: { name: IconName; size?: 'sm' | 'md' | 'lg'; style?: React.CSSProperties }) {
+  return (
+    <svg className={`ic ${size === 'md' ? '' : size}`} viewBox="0 0 24 24" aria-hidden="true" style={style}>
+      {ICONS[name]}
+    </svg>
+  );
+}
+
+/** En-tête vert de la maquette. `back` : retour arrière ; `close` : croix. */
+export function Header({ title, sub, back, close, actions }: { title: ReactNode; sub?: string; back?: boolean; close?: boolean; actions?: ReactNode }) {
+  const navigate = useNavigate();
+  return (
+    <header className="hdr" style={back || close ? undefined : { paddingLeft: 16 }}>
+      {(back || close) && (
+        <button className="iconbtn" aria-label={close ? 'Fermer' : 'Retour'} onClick={() => navigate(-1)}>
+          <Icon name={close ? 'close' : 'back'} />
+        </button>
+      )}
+      {sub ? (
+        <div className="col grow" style={{ gap: 0, padding: back || close ? '0 6px' : 0 }}>
+          <span className="b ell" style={{ fontSize: 17 }}>{title}</span>
+          <span className="xs muted ell">{sub}</span>
+        </div>
+      ) : (
+        <h1 style={back || close ? undefined : { padding: 0 }}>{title}</h1>
+      )}
+      {actions}
+    </header>
+  );
+}
+
+const TABS: { to: string; label: string; icon: IconName }[] = [
+  { to: '/accueil', label: 'Accueil', icon: 'home' },
+  { to: '/explorer', label: 'Explorer', icon: 'search' },
+  { to: '/vendre', label: 'Vendre', icon: 'sell' },
+  { to: '/suivi', label: 'Suivi', icon: 'pulse' },
+  { to: '/compte', label: 'Compte', icon: 'user' },
+];
+
+export function TabBar() {
+  return (
+    <nav className="tabbar">
+      {TABS.map((t) => (
+        <NavLink key={t.to} to={t.to} className={({ isActive }) => `tab${isActive ? ' on' : ''}`}>
+          <Icon name={t.icon} size="lg" />
+          {t.label}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+export type Tone = 'grey' | 'blue' | 'green' | 'cert' | 'sp' | 'red' | 'amber';
+
+export function Badge({ tone = 'grey', children, style }: { tone?: Tone; children: ReactNode; style?: React.CSSProperties }) {
+  return <span className={`badge bd-${tone}`} style={style}>{children}</span>;
+}
+
+/** Emplacement photo en attendant les vraies images. */
+export function Photo({ label = '', w, h, radius, tint }: { label?: string; w?: number | string; h?: number; radius?: number; tint?: 'w' | 's' }) {
+  return (
+    <div className={`ph${tint ? ' ' + tint : ''}`} style={{ width: w, height: h, borderRadius: radius, padding: label ? undefined : 0 }}>
+      {label && <span>{label}</span>}
+    </div>
+  );
+}
+
+/** Barre d'action fixe en bas d'écran. */
+export function Foot({ children }: { children: ReactNode }) {
+  return <div className="foot">{children}</div>;
+}
+
+export function SectionHead({ title, link, to }: { title: string; link?: string; to?: string }) {
+  return (
+    <div className="sech">
+      <h2>{title}</h2>
+      {link && (to ? <Link className="link" to={to}>{link}</Link> : <span className="link">{link}</span>)}
+    </div>
+  );
+}
+
+export function Check({ on }: { on: boolean }) {
+  return (
+    <span className={`check${on ? ' on' : ''}`}>
+      <Icon name="tick" size="sm" style={{ strokeWidth: 3 }} />
+    </span>
+  );
+}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Suivi de commande</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="02-Accueil.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <div class="col grow" style="gap: 0; padding: 0 6px">
+      <span class="b" style="font-size: 17px">Suivi de commande</span>
+      <span class="xs muted num">SAV-2026-11-004812</span>
+    </div>
+  </div>
+  <div class="body">
+    <div class="card pad col" style="gap: 6px">
+      <div class="row between"><span class="badge bd-blue">En route</span><span class="small muted">Arrivée estimée 10:30</span></div>
+      <span class="b" style="font-size: 16px">Taurillon FK-0142 + 4 sacs d’aliment</span>
+      <span class="small muted">Livraison à Ferme Ouattara, route de Dikodougou</span>
+    </div>
+
+    <div class="card pad">
+      <div class="tl">
+        <div class="tli"><span class="tld f"></span><div class="col"><span class="b small">Paiement confirmé</span><span class="xs muted num">18/11, 09:42, Orange Money</span></div></div>
+        <div class="tli"><span class="tld f"></span><div class="col"><span class="b small">Préparée par les vendeurs</span><span class="xs muted num">18/11, 10:05, laissez-passer joint</span></div></div>
+        <div class="tli"><span class="tld f"></span><div class="col"><span class="b small">Prise en charge par le transporteur</span><span class="xs muted num">20/11, 07:20, Sinématiali</span></div></div>
+        <div class="tli"><span class="tld a"></span><div class="col"><span class="b small">En route</span><span class="xs muted">Dernière position partagée il y a 6 min</span></div></div>
+        <div class="tli"><span class="tld o"></span><div class="col"><span class="small muted">Livrée et remise confirmée</span></div></div>
+      </div>
+    </div>
+
+    <div class="card pad row">
+      <span class="av" style="background: #EEF0EE; color: #3E4943">TO</span>
+      <div class="col grow"><span class="b small">Transports Ouattara</span><span class="xs muted">Bétaillère, AB 4512 CI, Issa O.</span></div>
+      <button class="iconbtn" aria-label="Appeler le transporteur" style="border: 1px solid #C5CDC7"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a12 12 0 0 0 6 6l1.5-2 4.5 1.5V19a1.5 1.5 0 0 1-1.5 1.5C10.5 20.5 3.5 13.5 3.5 5.5A1.5 1.5 0 0 1 5 4z"></path></svg></button>
+    </div>
+
+    <div class="card pad col" style="gap: 10px">
+      <span class="b small">Code de remise</span>
+      <div class="otp num" style="grid-template-columns: repeat(4, minmax(0, 1fr))"><div>4</div><div>8</div><div>2</div><div>7</div></div>
+      <span class="xs muted" style="line-height: 1.45">Donnez ce code au livreur uniquement après avoir vérifié l’animal et les sacs. La remise est alors horodatée.</span>
+    </div>
+  </div>
+  <div class="foot">
+    <a class="btn btn-danger" href="21-Assistance.dc.html">Signaler un problème</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

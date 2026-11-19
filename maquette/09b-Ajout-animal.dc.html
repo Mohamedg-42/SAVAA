@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Ajouter un animal</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="09-Cheptel.dc.html" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+    <h1>Nouvel animal</h1>
+    <span class="small muted" style="padding-right: 12px">Brouillon local</span>
+  </div>
+  <div class="body" style="gap: 20px">
+    <div class="field">
+      <span class="lbl">Espèce</span>
+      <div class="seg">
+        <sc-for list="{{species}}" as="s" hint-placeholder-count="5">
+          <button class="{{s.cls}}" onClick="{{s.pick}}">{{s.t}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div class="sec" style="gap: 12px">
+      <span class="eyebrow">Identification</span>
+      <div class="field">
+        <label>Identifiant officiel</label>
+        <div class="input" style="color: #5D6862">Ex. CI-BOV-2026-000000</div>
+        <span class="hint">Numéro de la boucle officielle, s’il existe. Il sera contrôlé par un agent.</span>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>N° interne</label><div class="input num">FK-0151</div></div>
+        <div class="field"><label>Race / type</label><div class="input sel"><span>N’Dama</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Sexe</span>
+        <div class="seg"><button class="on">Femelle</button><button>Mâle</button></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Naissance</label><div class="input num">14/08/2026</div><span class="hint">ou âge estimé</span></div>
+        <div class="field"><label>Robe</label><div class="input">Fauve</div></div>
+      </div>
+      <div class="field"><label>Signes distinctifs</label><textarea class="input">Tache blanche sur le front, encoche oreille droite.</textarea></div>
+    </div>
+
+    <div class="sec" style="gap: 12px">
+      <span class="eyebrow">Photos et justificatifs</span>
+      <div class="grid3">
+        <div class="ph" style="height: 96px; border-radius: 8px"><span>Profil gauche</span></div>
+        <div class="ph" style="height: 96px; border-radius: 8px"><span>Boucle</span></div>
+        <button class="addph" style="height: 96px; font-family: inherit; cursor: pointer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h3.5L9 5h6l1.5 2.5H20a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8.5a1 1 0 0 1 1-1z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>Ajouter</button>
+      </div>
+      <button class="row card pad" style="width: 100%; font-family: inherit; cursor: pointer; text-align: left; color: inherit">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg>
+        <span class="col grow"><span class="small b">Joindre un document</span><span class="xs muted">Certificat, carnet de vaccination, facture d’achat</span></span>
+      </button>
+    </div>
+
+    <div class="sec" style="gap: 12px">
+      <span class="eyebrow">Origine et ascendance</span>
+      <div class="field"><label>Date d’entrée sur l’exploitation</label><div class="input num">14/08/2026, née sur place</div></div>
+      <div class="grid2">
+        <div class="field"><label>Mère</label><div class="input sel"><span class="num">FK-0087</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+        <div class="field"><label>Père</label><div class="input sel" style="color: #5D6862"><span>Inconnu</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <a class="btn btn-s" href="09-Cheptel.dc.html" style="flex: 0 0 auto">Annuler</a>
+    <a class="btn btn-p" href="07-Fiche-animale.dc.html">Enregistrer la fiche</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { sp: 'Bovin' }; }
+  renderVals() {
+    const list = ['Bovin', 'Ovin', 'Caprin', 'Porcin', 'Volaille'];
+    return { species: list.map((t) => ({ t, cls: this.state.sp === t ? 'on' : '', pick: () => this.setState({ sp: t }) })) };
+  }
+}
+</script>
+</body>
+</html>

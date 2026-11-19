@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Créer ma boutique</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="04-Role.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Créer ma boutique</h1>
+    <span class="small muted" style="padding-right: 12px">Étape 3 sur 3</span>
+  </div>
+  <div class="body" style="gap: 20px">
+    <div class="row" style="gap: 14px">
+      <button class="addph" style="width: 76px; height: 76px; border-radius: 12px; font-family: inherit; cursor: pointer; flex: none"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h3.5L9 5h6l1.5 2.5H20a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8.5a1 1 0 0 1 1-1z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>Logo</button>
+      <div class="field grow"><label>Nom de la boutique</label><div class="input">Ferme Koné &amp; Fils</div></div>
+    </div>
+    <div class="field">
+      <span class="lbl">Ce que vous vendez</span>
+      <div class="wrap" style="gap: 8px">
+        <sc-for list="{{cats}}" as="c" hint-placeholder-count="6"><button class="{{c.cls}}" onClick="{{c.pick}}">{{c.t}}</button></sc-for>
+      </div>
+    </div>
+    <div class="field"><label>Présentation</label><textarea class="input">Élevage familial de bovins et d’ovins à Sinématiali depuis 2009. Animaux suivis par un vétérinaire, visite possible sur rendez-vous.</textarea></div>
+    <div class="grid2">
+      <div class="field"><label>Commune</label><div class="input sel"><span>Sinématiali</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+      <div class="field"><label>Rayon de vente</label><div class="input sel"><span>100 km</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+    </div>
+    <button class="row" onClick="{{tDel}}" style="border: 0; background: none; padding: 0; font-family: inherit; color: inherit; cursor: pointer; text-align: left">
+      <span class="col grow"><span class="small b">Proposer la livraison SAVAA</span><span class="xs muted">Un transporteur partenaire récupère chez vous</span></span><span class="{{del}}"></span>
+    </button>
+    <div class="field">
+      <label>Compte de versement des ventes</label>
+      <div class="input sel"><span>Orange Money, 07 48 12 33 90</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div>
+      <span class="hint">Vérifié par le prestataire de paiement avant le premier versement.</span>
+    </div>
+    <button class="row top" onClick="{{tCgv}}" style="border: 0; background: none; padding: 0; text-align: left; font-family: inherit; cursor: pointer; color: inherit">
+      <span class="{{cgv}}"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+      <span class="small" style="line-height: 1.45">J’accepte les <span class="link" style="font-size: inherit">conditions de vente SAVAA</span>, dont la commission par vente.</span>
+    </button>
+  </div>
+  <div class="foot">
+    <a class="btn btn-s" href="02-Accueil.dc.html" style="flex: 0 0 auto">Plus tard</a>
+    <a class="btn btn-p" href="13-Publier.dc.html">Créer et publier</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { sel: { Bovins: true, 'Ovins et caprins': true }, del: true, cgv: false }; }
+  renderVals() {
+    const s = this.state;
+    const L = ['Bovins', 'Ovins et caprins', 'Volailles', 'Récoltes', 'Aliments et intrants', 'Matériel'];
+    return {
+      cats: L.map((t) => ({ t, cls: s.sel[t] ? 'chip on' : 'chip', pick: () => this.setState({ sel: { ...s.sel, [t]: !s.sel[t] } }) })),
+      del: s.del ? 'toggle on' : 'toggle', tDel: () => this.setState({ del: !s.del }),
+      cgv: s.cgv ? 'check on' : 'check', tCgv: () => this.setState({ cgv: !s.cgv })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Prospection</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr" style="padding-left: 16px">
+    <div class="col grow" style="gap: 0">
+      <span class="xs muted">Équipe SAVAA, Korhogo</span>
+      <span class="b" style="font-size: 17px">Prospection</span>
+    </div>
+    <a class="iconbtn" href="16c-Nouveau-prospect.dc.html" aria-label="Nouveau prospect"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></a>
+  </div>
+  <div style="background: #fff; border-bottom: 1px solid #E3E7E4; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; flex: none">
+    <div class="search"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><span>Nom, téléphone pro, commune</span></div>
+    <div class="chips">
+      <sc-for list="{{types}}" as="t" hint-placeholder-count="4"><button class="{{t.cls}}" onClick="{{t.pick}}">{{t.t}}</button></sc-for>
+    </div>
+  </div>
+  <div class="body" style="gap: 14px">
+    <div class="sec" style="gap: 8px">
+      <div class="sech"><h2>Pipeline</h2><span class="xs muted">48 prospects</span></div>
+      <div style="display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none">
+        <sc-for list="{{stages}}" as="s" hint-placeholder-count="7">
+          <button onClick="{{s.pick}}" class="card col" style="flex: none; width: 96px; padding: 10px; gap: 2px; text-align: left; font-family: inherit; cursor: pointer; color: inherit; background: {{s.bg}}; border-color: {{s.bd}}">
+            <span class="b num" style="font-size: 20px">{{s.n}}</span>
+            <span class="xs muted" style="line-height: 1.25">{{s.t}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <div class="sec" style="gap: 8px">
+      <div class="sech"><h2>{{stageTitle}}</h2><span class="xs muted">relance la plus proche d’abord</span></div>
+      <div class="card list">
+        <sc-for list="{{rows}}" as="p" hint-placeholder-count="4">
+          <a class="li" href="16b-Fiche-prospect.dc.html" style="align-items: flex-start">
+            <span class="av" style="width: 36px; height: 36px; font-size: 12px; background: #EEF0EE; color: #3E4943">{{p.ini}}</span>
+            <span class="col grow" style="gap: 2px">
+              <span class="small b ell">{{p.n}}</span>
+              <span class="xs muted ell">{{p.d}}</span>
+              <span class="row xs" style="gap: 6px; margin-top: 2px"><span class="badge {{p.sc}}">{{p.s}}</span><span class="muted">{{p.next}}</span></span>
+            </span>
+          </a>
+        </sc-for>
+      </div>
+      <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}"><div class="card pad small muted" style="text-align: center">Aucun prospect à cette étape pour ce filtre.</div></sc-if>
+    </div>
+    <div class="grid2">
+      <div class="card stat" style="padding: 12px"><span class="v">62 %</span><span class="l">taux de contact (30 j)</span></div>
+      <div class="card stat" style="padding: 12px"><span class="v">11</span><span class="l">comptes activés en nov.</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { type: 'all', stage: 'int' }; }
+  renderVals() {
+    const s = this.state;
+    const S = [['new', 'Nouveau', 14], ['ct', 'Contacté', 9], ['int', 'Intérêt confirmé', 6], ['acc', 'Compte créé', 4], ['ver', 'Profil vérifié', 3], ['act', 'Actif', 7], ['rel', 'À relancer', 5]];
+    const B = { new: 'bd-grey', ct: 'bd-blue', int: 'bd-amber', acc: 'bd-blue', ver: 'bd-green', act: 'bd-green', rel: 'bd-red' };
+    const all = [
+      { st: 'int', ty: 'resto', ini: 'LB', n: 'Restaurant Le Baobab', d: 'Restaurant, Korhogo centre, poulets, mouton', next: 'Appel demain 10 h' },
+      { st: 'int', ty: 'elev', ini: 'TS', n: 'Ferme Tuo Siaka', d: 'Éleveur bovins, Ferkessédougou, 60 têtes', next: 'Visite le 21/11' },
+      { st: 'int', ty: 'fourn', ini: 'AN', n: 'Agro-Nord Intrants', d: 'Fournisseur aliments, Korhogo', next: 'Envoyer la grille le 22/11' },
+      { st: 'rel', ty: 'resto', ini: 'HM', n: 'Hôtel Mont Korhogo', d: 'Hôtel-restaurant, achats hebdomadaires', next: 'Sans réponse depuis 9 j' },
+      { st: 'new', ty: 'elev', ini: 'CO', n: 'GIE des éleveurs de Dikodougou', d: 'Groupement, 14 membres, ovins', next: 'À appeler' },
+      { st: 'ct', ty: 'resto', ini: 'MC', n: 'Maquis Le Carrefour', d: 'Maquis, Korhogo, quartier Soba', next: 'Rappel le 19/11' },
+      { st: 'act', ty: 'elev', ini: 'FK', n: 'Ferme Koné & Fils', d: 'Éleveur, 41 ventes', next: 'Client actif' }
+    ];
+    const T = [['all', 'Tous'], ['resto', 'Restaurants'], ['elev', 'Éleveurs'], ['fourn', 'Fournisseurs']];
+    const rows = all.filter((p) => p.st === s.stage && (s.type === 'all' || p.ty === s.type)).map((p) => ({ ...p, s: S.find((x) => x[0] === p.st)[1], sc: B[p.st] }));
+    return {
+      types: T.map(([id, t]) => ({ t, cls: s.type === id ? 'chip on' : 'chip', pick: () => this.setState({ type: id }) })),
+      stages: S.map(([id, t, n]) => ({ t, n, bg: s.stage === id ? '#E8F3EA' : '#fff', bd: s.stage === id ? '#145C3A' : '#E3E7E4', pick: () => this.setState({ stage: id }) })),
+      stageTitle: S.find((x) => x[0] === s.stage)[1], rows, empty: rows.length === 0
+    };
+  }
+}
+</script>
+</body>
+</html>

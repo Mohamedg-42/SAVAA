@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Confirmation et reçu</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="02-Accueil.dc.html" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+    <h1>Reçu</h1>
+  </div>
+  <div class="body">
+    <div class="col" style="align-items: center; text-align: center; gap: 8px; padding: 8px 0 4px">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 52px; height: 52px; color: #145C3A; stroke-width: 1.4"><circle cx="12" cy="12" r="9"></circle><path d="m8 12.5 2.8 2.8L16.5 9.5"></path></svg>
+      <h2 style="font-size: 20px; font-weight: 600">Paiement confirmé</h2>
+      <p class="small muted">Statut transmis par le prestataire le 18/11/2026 à 09:42</p>
+    </div>
+
+    <div class="card">
+      <div style="padding: 14px; border-bottom: 1px dashed #C5CDC7" class="col">
+        <span class="xs muted">Référence commande</span>
+        <span class="b num" style="font-size: 17px">SAV-2026-11-004812</span>
+      </div>
+      <div class="pad">
+        <dl class="kv">
+          <dt>Transaction</dt><dd class="num">TX-7Q4K-21983</dd>
+          <dt>Moyen</dt><dd>Orange Money, 07 •• •• 33 90</dd>
+          <dt>Statut</dt><dd><span class="badge bd-green">Confirmé</span></dd>
+          <dt>Date</dt><dd class="num">18/11/2026, 09:42</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card pad col" style="gap: 8px">
+      <span class="eyebrow" style="margin-bottom: 2px">Détail par vendeur</span>
+      <div class="sum"><span>Ferme Koné &amp; Fils, taurillon</span><span class="num">650 000</span></div>
+      <div class="sum"><span>Provenderie du Nord, 4 sacs</span><span class="num">58 000</span></div>
+      <div class="sum"><span>Livraison, Transports Ouattara</span><span class="num">25 000</span></div>
+      <div class="sum"><span class="muted">Frais de transaction</span><span class="num muted">0</span></div>
+      <div class="sum t"><span>Total payé</span><span class="num">733 000 FCFA</span></div>
+    </div>
+    <button class="btn btn-s btn-block"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"></path></svg>Télécharger le reçu (PDF)</button>
+  </div>
+  <div class="foot">
+    <a class="btn btn-p" href="20-Suivi.dc.html">Suivre la commande</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

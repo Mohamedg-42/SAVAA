@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Publier une annonce</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="12-Boutique.dc.html" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+    <h1>Nouvelle annonce</h1>
+    <span class="small muted" style="padding-right: 12px">1 / 2</span>
+  </div>
+  <div style="background: #fff; padding: 0 16px 12px; border-bottom: 1px solid #E3E7E4; flex: none">
+    <div class="steps"><i class="on"></i><i></i></div>
+  </div>
+  <div class="body" style="gap: 20px">
+    <div class="field">
+      <label>Catégorie</label>
+      <div class="input sel"><span>Animaux, Bovins</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div>
+    </div>
+    <div class="field">
+      <span class="lbl">Animaux concernés</span>
+      <div class="card row" style="padding: 10px 12px">
+        <span class="check on"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+        <div class="col grow"><span class="small b">FK-0091, Génisse métisse</span><span class="xs muted">Fiche liée automatiquement à l’annonce</span></div>
+        <span class="badge bd-green">Fiche à jour</span>
+      </div>
+      <span class="link">+ Choisir d’autres animaux du cheptel</span>
+    </div>
+    <div class="field">
+      <span class="lbl">Photos et vidéo</span>
+      <div class="grid4">
+        <div class="ph" style="height: 76px; border-radius: 8px"><span>1</span></div>
+        <div class="ph" style="height: 76px; border-radius: 8px"><span>2</span></div>
+        <div class="ph" style="height: 76px; border-radius: 8px"><span>Vidéo</span></div>
+        <button class="addph" style="height: 76px; font-family: inherit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+      </div>
+      <span class="hint">Prenez l’animal de profil, en plein jour. Au moins 3 photos.</span>
+    </div>
+    <div class="field"><label>Titre</label><div class="input">Génisse métisse Goudali × N’Dama, 19 mois</div></div>
+    <div class="grid2">
+      <div class="field"><label>Prix (FCFA)</label><div class="input num b">480 000</div></div>
+      <div class="field"><label>Quantité</label><div class="input num">1 tête</div></div>
+    </div>
+    <button class="row" onClick="{{tNeg}}" style="border: 0; background: none; padding: 0; font-family: inherit; color: inherit; cursor: pointer; text-align: left">
+      <span class="col grow"><span class="small b">Prix négociable</span><span class="xs muted">Les acheteurs peuvent faire une offre</span></span><span class="{{neg}}"></span>
+    </button>
+    <div class="field"><label>Localisation</label><div class="input sel"><span>Sinématiali, Poro</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg></div></div>
+    <button class="row" onClick="{{tDel}}" style="border: 0; background: none; padding: 0; font-family: inherit; color: inherit; cursor: pointer; text-align: left">
+      <span class="col grow"><span class="small b">Livraison par un transporteur SAVAA</span><span class="xs muted">Frais calculés et payés par l’acheteur</span></span><span class="{{del}}"></span>
+    </button>
+    <a class="card pad row" href="21-Assistance.dc.html" style="background: #E8F3EA; border-color: #CFE0D4">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: #145C3A"><path d="M5 4h3.5l1.5 4.5-2 1.5a12 12 0 0 0 6 6l1.5-2 4.5 1.5V19a1.5 1.5 0 0 1-1.5 1.5C10.5 20.5 3.5 13.5 3.5 5.5A1.5 1.5 0 0 1 5 4z"></path></svg>
+      <span class="col grow"><span class="small b">Besoin d’aide pour publier ?</span><span class="xs muted">Un conseiller vous rappelle et remplit l’annonce avec vous.</span></span>
+    </a>
+    <p class="hint">Chaque annonce est relue par l’équipe SAVAA avant sa mise en ligne, en général sous 24 h.</p>
+  </div>
+  <div class="foot">
+    <button class="btn btn-s" style="flex: 0 0 auto">Brouillon</button>
+    <a class="btn btn-p" href="14-Campagne.dc.html">Continuer</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { neg: true, del: true }; }
+  renderVals() {
+    const s = this.state;
+    return {
+      neg: s.neg ? 'toggle on' : 'toggle', del: s.del ? 'toggle on' : 'toggle',
+      tNeg: () => this.setState({ neg: !s.neg }), tDel: () => this.setState({ del: !s.del })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Paiement</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="17-Panier.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Paiement</h1>
+  </div>
+
+  <sc-if value="{{choose}}" hint-placeholder-val="{{ true }}">
+    <div style="background: #fff; padding: 10px 16px 12px; border-bottom: 1px solid #E3E7E4; flex: none">
+      <div class="steps"><i class="on"></i><i class="on"></i><i></i></div>
+      <div class="row between" style="margin-top: 8px"><span class="small muted">Montant à payer</span><span class="b num" style="font-size: 18px">733 000 FCFA</span></div>
+    </div>
+    <div class="body" style="gap: 14px">
+      <div class="sec" style="gap: 8px">
+        <span class="eyebrow">Mobile Money</span>
+        <div class="card list">
+          <sc-for list="{{momo}}" as="m" hint-placeholder-count="4">
+            <button class="li" onClick="{{m.pick}}" style="width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: {{m.bg}}; text-align: left; font-family: inherit; cursor: pointer; color: inherit">
+              <span class="mono">{{m.k}}</span>
+              <span class="col grow"><span class="small b">{{m.t}}</span><span class="xs muted">{{m.d}}</span></span>
+              <span class="{{m.r}}"></span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      <sc-if value="{{needPhone}}" hint-placeholder-val="{{ true }}">
+        <div class="field"><label>Numéro à débiter</label><div class="input num">+225 07 48 12 33 90</div><span class="hint">Vous validerez le paiement avec votre code secret sur votre téléphone. SAVAA ne le voit jamais.</span></div>
+      </sc-if>
+      <div class="sec" style="gap: 8px">
+        <span class="eyebrow">Autres moyens</span>
+        <div class="card list">
+          <sc-for list="{{other}}" as="m" hint-placeholder-count="2">
+            <button class="li" onClick="{{m.pick}}" style="width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: {{m.bg}}; text-align: left; font-family: inherit; cursor: pointer; color: inherit">
+              <span class="mono">{{m.k}}</span>
+              <span class="col grow"><span class="small b">{{m.t}}</span><span class="xs muted">{{m.d}}</span></span>
+              <span class="{{m.r}}"></span>
+            </button>
+          </sc-for>
+          <div class="li" style="opacity: .55"><span class="mono">LIV</span><span class="col grow"><span class="small b">Paiement à la livraison</span><span class="xs muted">Indisponible pour les animaux vivants</span></span></div>
+          <div class="li" style="opacity: .55"><span class="mono">SAV</span><span class="col grow"><span class="small b">Solde SAVAA</span><span class="xs muted">Fonction future, soumise à agrément</span></span><span class="badge bd-grey">Bientôt</span></div>
+        </div>
+      </div>
+      <p class="xs muted">Paiement opéré par un prestataire agréé. SAVAA ne conserve aucune donnée de carte.</p>
+    </div>
+    <div class="foot">
+      <button class="btn btn-p" onClick="{{pay}}">Payer 733 000 FCFA</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{pending}}" hint-placeholder-val="{{ false }}">
+    <div class="body" style="justify-content: center; align-items: center; text-align: center; gap: 14px; padding: 28px">
+      <div style="width: 64px; height: 64px; border-radius: 32px; border: 4px solid #E3E7E4; border-top-color: #145C3A"></div>
+      <h2 style="font-size: 20px; font-weight: 600">Validez sur votre téléphone</h2>
+      <p class="small muted" style="line-height: 1.5">Une demande de 733 000 FCFA a été envoyée via {{methodName}}. Composez votre code secret pour confirmer.</p>
+      <div class="card pad" style="width: 100%; text-align: left">
+        <dl class="kv"><dt>Transaction</dt><dd class="num">TX-7Q4K-21983</dd><dt>Statut</dt><dd><span class="badge bd-blue">Initié</span></dd><dt>Expire dans</dt><dd class="num">4 min 32 s</dd></dl>
+      </div>
+      <div class="col" style="width: 100%; gap: 8px; margin-top: 6px">
+        <span class="eyebrow">Démonstration : choisir la réponse du prestataire</span>
+        <a class="btn btn-p btn-block" href="19-Recu.dc.html">Confirmé</a>
+        <button class="btn btn-s btn-block" onClick="{{fail}}">Échec ou délai expiré</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{failed}}" hint-placeholder-val="{{ false }}">
+    <div class="body" style="justify-content: center; align-items: center; text-align: center; gap: 14px; padding: 28px">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 56px; height: 56px; color: #B42318; stroke-width: 1.4"><circle cx="12" cy="12" r="9"></circle><path d="M9 9l6 6M15 9l-6 6"></path></svg>
+      <h2 style="font-size: 20px; font-weight: 600">Paiement non abouti</h2>
+      <p class="small muted" style="line-height: 1.5">Le prestataire a renvoyé « échoué » : solde insuffisant ou délai de validation dépassé. Aucun montant n’a été débité.</p>
+      <div class="card pad" style="width: 100%; text-align: left">
+        <dl class="kv"><dt>Transaction</dt><dd class="num">TX-7Q4K-21983</dd><dt>Statut</dt><dd><span class="badge bd-red">Échoué</span></dd><dt>Commande</dt><dd>Conservée 24 h</dd></dl>
+      </div>
+      <button class="btn btn-p btn-block" onClick="{{retry}}">Réessayer ou changer de moyen</button>
+      <a class="btn btn-ghost btn-block" href="21-Assistance.dc.html">Contacter l’assistance</a>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { m: 'om', step: 'choose' }; }
+  renderVals() {
+    const s = this.state;
+    const mk = (x) => ({ ...x, bg: s.m === x.id ? '#E8F3EA' : '#fff', r: s.m === x.id ? 'radio on' : 'radio', pick: () => this.setState({ m: x.id }) });
+    const momo = [
+      { id: 'om', k: 'OM', t: 'Orange Money', d: 'Validation par code secret' },
+      { id: 'mtn', k: 'MTN', t: 'MTN MoMo', d: 'Validation par code secret' },
+      { id: 'moov', k: 'MV', t: 'Moov Money', d: 'Validation par code secret' },
+      { id: 'wave', k: 'WV', t: 'Wave', d: 'Validation dans l’application' }
+    ].map(mk);
+    const other = [
+      { id: 'card', k: 'CB', t: 'Carte bancaire', d: 'Visa, Mastercard, authentification 3-D Secure' },
+      { id: 'vir', k: 'VIR', t: 'Virement bancaire', d: 'Achats professionnels, 24 à 72 h' }
+    ].map(mk);
+    const names = { om: 'Orange Money', mtn: 'MTN MoMo', moov: 'Moov Money', wave: 'Wave', card: 'carte bancaire', vir: 'virement' };
+    return {
+      momo, other, needPhone: ['om', 'mtn', 'moov', 'wave'].includes(s.m), methodName: names[s.m],
+      choose: s.step === 'choose', pending: s.step === 'pending', failed: s.step === 'failed',
+      pay: () => this.setState({ step: 'pending' }), fail: () => this.setState({ step: 'failed' }), retry: () => this.setState({ step: 'choose' })
+    };
+  }
+}
+</script>
+</body>
+</html>

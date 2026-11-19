@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Nouveau prospect</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="16-Prospection.dc.html" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+    <h1>Nouveau prospect</h1>
+  </div>
+  <div class="body" style="gap: 18px">
+    <div class="field"><label>Nom ou entreprise</label><div class="input">Restaurant Le Baobab</div></div>
+    <div class="field">
+      <span class="lbl">Type d’acteur</span>
+      <div class="wrap" style="gap: 8px">
+        <sc-for list="{{types}}" as="t" hint-placeholder-count="6"><button class="{{t.cls}}" onClick="{{t.pick}}">{{t.t}}</button></sc-for>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Contact</label><div class="input">Mme Soro</div></div>
+      <div class="field"><label>Tél. professionnel</label><div class="input num">27 36 •• •• 18</div></div>
+    </div>
+    <div class="field"><label>Commune</label><div class="input sel"><span>Korhogo, centre</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+    <div class="field"><label>Besoins exprimés</label><textarea class="input" style="min-height: 64px">Poulets de chair 80 kg par semaine, 2 moutons par mois.</textarea></div>
+    <div class="field">
+      <span class="lbl">Source</span>
+      <div class="seg">
+        <sc-for list="{{sources}}" as="s" hint-placeholder-count="4"><button class="{{s.cls}}" onClick="{{s.pick}}">{{s.t}}</button></sc-for>
+      </div>
+    </div>
+    <button class="row top" onClick="{{tConsent}}" style="border: 0; background: none; padding: 0; text-align: left; font-family: inherit; cursor: pointer; color: inherit">
+      <span class="{{consent}}"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+      <span class="small" style="line-height: 1.45">Le contact accepte d’être recontacté par SAVAA.</span>
+    </button>
+    <div class="grid2">
+      <div class="field"><label>Prochaine action</label><div class="input">Appel</div></div>
+      <div class="field"><label>Le</label><div class="input num">19/11, 10 h</div></div>
+    </div>
+  </div>
+  <div class="foot">
+    <a class="btn btn-p" href="16b-Fiche-prospect.dc.html">Enregistrer le prospect</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { type: 'Restaurant', src: 'Visite', consent: true }; }
+  renderVals() {
+    const s = this.state;
+    return {
+      types: ['Éleveur', 'Producteur', 'Restaurant', 'Fournisseur', 'Grossiste', 'Transformateur'].map((t) => ({ t, cls: s.type === t ? 'chip on' : 'chip', pick: () => this.setState({ type: t }) })),
+      sources: ['Visite', 'Appel', 'Recomm.', 'Salon'].map((t) => ({ t, cls: s.src === t ? 'on' : '', pick: () => this.setState({ src: t }) })),
+      consent: s.consent ? 'check on' : 'check', tConsent: () => this.setState({ consent: !s.consent })
+    };
+  }
+}
+</script>
+</body>
+</html>

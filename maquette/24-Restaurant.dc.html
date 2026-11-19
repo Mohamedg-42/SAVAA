@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Espace restaurant</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr green" style="padding-left: 16px">
+    <div class="col grow" style="gap: 1px">
+      <span class="xs" style="color: #CFE0D4">Espace professionnel</span>
+      <span class="b ell" style="font-size: 17px">La Terrasse du Plateau</span>
+    </div>
+    <a class="iconbtn" href="21-Assistance.dc.html" aria-label="Assistance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg></a>
+  </div>
+  <div class="body">
+    <div class="search"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><span>Produit et volume, ex. tomate 200 kg</span></div>
+
+    <div class="sec">
+      <div class="sech"><h2>Demande de devis</h2><span class="badge bd-blue">3 offres</span></div>
+      <div class="card pad col" style="gap: 4px">
+        <span class="b small">Poulets de chair prêts à cuire, 120 kg / semaine</span>
+        <span class="xs muted">Livraison Abidjan-Plateau, lundi avant 8 h, réponse avant le 20/11</span>
+      </div>
+      <div class="card list">
+        <sc-for list="{{offers}}" as="o" hint-placeholder-count="3">
+          <button class="li" onClick="{{o.pick}}" style="width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: {{o.bg}}; text-align: left; font-family: inherit; cursor: pointer; color: inherit; align-items: flex-start">
+            <span class="{{o.r}}" style="margin-top: 2px"></span>
+            <span class="col grow" style="gap: 3px">
+              <span class="row between" style="gap: 8px"><span class="small b ell">{{o.n}}</span><span class="b num small" style="flex: none">{{o.p}}</span></span>
+              <span class="xs muted">{{o.d}}</span>
+              <span class="wrap" style="gap: 4px"><span class="badge {{o.vc}}">{{o.v}}</span><span class="badge bd-grey">{{o.note}}</span></span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+      <div class="sum" style="padding: 0 2px"><span class="muted">Coût hebdomadaire estimé</span><span class="b num">{{weekly}} FCFA</span></div>
+      <button class="btn btn-p btn-block">Commander chez {{chosen}}</button>
+    </div>
+
+    <div class="sec">
+      <div class="sech"><h2>Commandes récurrentes</h2><span class="link">Gérer</span></div>
+      <div class="card list">
+        <div class="li"><div class="col grow"><span class="small b">Tomates fraîches, 60 kg</span><span class="xs muted">Chaque lundi et jeudi, Coop. maraîchère d’Anyama</span></div><span class="small num muted">jeu. 20</span></div>
+        <div class="li"><div class="col grow"><span class="small b">Mouton entier, 2 têtes</span><span class="xs muted">Chaque vendredi, Bergerie Soro</span></div><span class="small num muted">ven. 21</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sech"><h2>Factures</h2><span class="link">Exporter</span></div>
+      <div class="card list">
+        <div class="li"><div class="col grow"><span class="small b num">FAC-2026-1104</span><span class="xs muted">Coop. d’Anyama, 186 000 FCFA</span></div><span class="badge bd-green">Payée</span></div>
+        <div class="li"><div class="col grow"><span class="small b num">FAC-2026-1098</span><span class="xs muted">Bergerie Soro, 240 000 FCFA</span></div><span class="badge bd-amber">À régler le 25/11</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { sel: 1 }; }
+  renderVals() {
+    const fmt = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    const O = [
+      { n: 'Avicole Bingerville', kg: 2350, d: 'Livraison lundi 6 h, chaîne du froid', v: 'Vérifié', vc: 'bd-green', note: '4,8, 61 avis' },
+      { n: 'Ferme Yao, Azaguié', kg: 2200, d: 'Livraison lundi 7 h 30, camion frigorifique', v: 'Vérifié', vc: 'bd-green', note: '4,5, 18 avis' },
+      { n: 'Volailles du Sud', kg: 1950, d: 'Retrait à Yopougon uniquement', v: 'Non vérifié', vc: 'bd-grey', note: 'Nouveau' }
+    ];
+    const sel = this.state.sel;
+    return {
+      offers: O.map((o, i) => ({ ...o, p: fmt(o.kg) + ' / kg', bg: sel === i ? '#E8F3EA' : '#fff', r: sel === i ? 'radio on' : 'radio', pick: () => this.setState({ sel: i }) })),
+      weekly: fmt(O[sel].kg * 120), chosen: O[sel].n
+    };
+  }
+}
+</script>
+</body>
+</html>

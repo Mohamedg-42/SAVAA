@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Fiche prospect</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="16-Prospection.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Fiche prospect</h1>
+    <button class="iconbtn" aria-label="Appeler"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a12 12 0 0 0 6 6l1.5-2 4.5 1.5V19a1.5 1.5 0 0 1-1.5 1.5C10.5 20.5 3.5 13.5 3.5 5.5A1.5 1.5 0 0 1 5 4z"></path></svg></button>
+  </div>
+  <div class="body">
+    <div class="card pad col" style="gap: 10px">
+      <div class="row"><span class="av" style="background: #EEF0EE; color: #3E4943">LB</span><div class="col grow"><span class="b">Restaurant Le Baobab</span><span class="xs muted">Restaurant, Korhogo centre</span></div><span class="badge {{stageCls}}">{{stage}}</span></div>
+      <dl class="kv">
+        <dt>Contact</dt><dd>Mme Soro, gérante</dd>
+        <dt>Tél. pro</dt><dd class="num">27 36 •• •• 18</dd>
+        <dt>Besoins</dt><dd>Poulets 80 kg / sem., 2 moutons / mois</dd>
+        <dt>Source</dt><dd>Visite terrain, 07/11/2026</dd>
+        <dt>Responsable</dt><dd>Koffi B. (SAVAA)</dd>
+        <dt>Consentement</dt><dd><span class="badge bd-green">Oral, noté le 07/11</span></dd>
+      </dl>
+    </div>
+
+    <div class="sec" style="gap: 8px">
+      <div class="sech"><h2>Prochaine action</h2></div>
+      <div class="card pad row">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: #F28C28"><rect x="3.5" y="5" width="17" height="15.5" rx="2"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>
+        <div class="col grow"><span class="small b">{{nextT}}</span><span class="xs muted">{{nextD}}</span></div>
+      </div>
+    </div>
+
+    <div class="sec" style="gap: 8px">
+      <div class="sech"><h2>Enregistrer une interaction</h2></div>
+      <div class="seg">
+        <sc-for list="{{kinds}}" as="k" hint-placeholder-count="4"><button class="{{k.cls}}" onClick="{{k.pick}}">{{k.t}}</button></sc-for>
+      </div>
+      <textarea class="input" style="min-height: 64px">Intéressée par un fournisseur de poulets vérifié avec livraison le lundi.</textarea>
+      <button class="btn btn-s btn-block" onClick="{{log}}">Ajouter au journal et planifier la relance</button>
+    </div>
+
+    <div class="sec" style="gap: 8px">
+      <div class="sech"><h2>Journal</h2></div>
+      <div class="card pad">
+        <div class="tl">
+          <sc-for list="{{journal}}" as="j" hint-placeholder-count="3">
+            <div class="tli"><span class="tld f"></span><div class="col"><span class="row between"><span class="b small">{{j.t}}</span><span class="xs muted num">{{j.d}}</span></span><span class="small muted">{{j.x}}</span></div></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <sc-if value="{{converted}}" hint-placeholder-val="{{ false }}">
+      <div class="notice n-info"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8 12.5 2.8 2.8L16.5 9.5"></path></svg><span><b>Invitation envoyée par SMS.</b> Le compte sera créé quand Mme Soro validera son numéro. Profil pré-rempli : Restaurant.</span></div>
+    </sc-if>
+  </div>
+  <div class="foot">
+    <button class="btn btn-p" onClick="{{convert}}">{{convertLabel}}</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { kind: 'Appel', logged: false, converted: false }; }
+  renderVals() {
+    const s = this.state;
+    const base = [
+      { t: 'Appel', d: '14/11', x: 'Demande un devis poulets de chair. Rappel prévu après réception des offres.' },
+      { t: 'Visite terrain', d: '07/11', x: 'Présentation de SAVAA à la gérante. Achats actuels au marché de Korhogo.' }
+    ];
+    const journal = s.logged ? [{ t: s.kind, d: '18/11', x: 'Intéressée par un fournisseur de poulets vérifié avec livraison le lundi.' }].concat(base) : base;
+    return {
+      kinds: ['Appel', 'Visite', 'Message', 'RDV'].map((t) => ({ t, cls: s.kind === t ? 'on' : '', pick: () => this.setState({ kind: t }) })),
+      journal,
+      nextT: s.logged ? 'Relance le 25/11 à 10 h' : 'Appel de suivi demain, 10 h',
+      nextD: s.logged ? 'Créée à l’instant, Koffi B.' : 'Présenter les 3 offres reçues',
+      stage: s.converted ? 'Invitation envoyée' : 'Intérêt confirmé',
+      stageCls: s.converted ? 'bd-blue' : 'bd-amber',
+      converted: s.converted, convertLabel: s.converted ? 'Invitation envoyée' : 'Convertir en compte',
+      log: () => this.setState({ logged: true }), convert: () => this.setState({ converted: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

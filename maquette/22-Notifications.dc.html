@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Notifications</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="02-Accueil.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Notifications</h1>
+    <span class="link" style="padding-right: 10px">Tout marquer lu</span>
+  </div>
+  <div style="background: #fff; border-bottom: 1px solid #E3E7E4; padding: 10px 16px; flex: none">
+    <div class="chips">
+      <sc-for list="{{filters}}" as="f" hint-placeholder-count="6">
+        <button class="{{f.cls}}" onClick="{{f.pick}}">{{f.t}} <span class="n">{{f.n}}</span></button>
+      </sc-for>
+    </div>
+  </div>
+  <div class="body" style="gap: 10px">
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+      <div class="sec" style="gap: 8px">
+        <span class="eyebrow">{{g.t}}</span>
+        <div class="card list">
+          <sc-for list="{{g.items}}" as="n" hint-placeholder-count="3">
+            <a class="li" href="{{n.href}}" style="align-items: flex-start; background: {{n.bg}}">
+              <span class="mono" style="background: {{n.tint}}; color: {{n.ink}}; border: 0">{{n.k}}</span>
+              <span class="col grow" style="gap: 2px">
+                <span class="row between" style="gap: 8px"><span class="b small ell">{{n.title}}</span><span class="xs muted num" style="flex: none">{{n.time}}</span></span>
+                <span class="small muted" style="line-height: 1.4">{{n.text}}</span>
+              </span>
+            </a>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+      <div class="card pad col" style="align-items: center; text-align: center; gap: 6px; padding: 32px 20px">
+        <span class="b">Rien dans cette rubrique</span>
+        <span class="small muted">Les nouvelles notifications apparaîtront ici.</span>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { f: 'all' }; }
+  renderVals() {
+    const T = {
+      cmd: ['CMD', '#E8F3EA', '#145C3A'], pay: ['PAY', '#E7EEF7', '#1D4E89'],
+      cmp: ['PUB', '#FCEBD9', '#7F430A'], pro: ['CRM', '#EEF0EE', '#3E4943'], alr: ['!', '#FDECEA', '#A0221A']
+    };
+    const all = [
+      { g: "Aujourd’hui", c: 'alr', title: 'Alerte sanitaire, FK-0119', text: 'Boiterie signalée sur la brebis FK-0119. Priorité moyenne. Contactez un vétérinaire si l’état persiste.', time: '09:58', href: '11-Observation.dc.html', unread: true },
+      { g: "Aujourd’hui", c: 'pay', title: 'Paiement confirmé (simulation)', text: 'SAV-2026-11-004812, 733 000 FCFA, statut transmis par le prestataire.', time: '09:42', href: '19-Recu.dc.html', unread: true },
+      { g: "Aujourd’hui", c: 'cmd', title: 'Commande prise en charge', text: 'Transports Ouattara a accepté la livraison du taurillon FK-0142.', time: '09:15', href: '20-Suivi.dc.html', unread: true },
+      { g: 'Hier', c: 'cmp', title: 'Campagne validée', text: '« Béliers Sahéliens, lot de 6 » est diffusée jusqu’au 24 novembre.', time: '17:20', href: '15-Stats-campagne.dc.html', unread: true },
+      { g: 'Hier', c: 'pro', title: 'Relance prévue demain', text: 'Restaurant Le Baobab, appel de suivi du devis poulets de chair.', time: '16:05', href: '16b-Fiche-prospect.dc.html' },
+      { g: 'Hier', c: 'alr', title: 'Rappel vaccinal PPR', text: '9 ovins arrivent à échéance le 22 novembre.', time: '07:00', href: '08-Tableau-eleveur.dc.html' }
+    ];
+    const F = [['all', 'Tout'], ['cmd', 'Commandes'], ['pay', 'Paiements'], ['cmp', 'Campagnes'], ['pro', 'Prospects'], ['alr', 'Alertes']];
+    const cur = this.state.f;
+    const filters = F.map(([id, t]) => ({
+      t, n: id === 'all' ? all.length : all.filter((x) => x.c === id).length,
+      cls: cur === id ? 'chip on' : 'chip', pick: () => this.setState({ f: id })
+    }));
+    const shown = all.filter((x) => cur === 'all' || x.c === cur).map((x) => ({
+      ...x, k: T[x.c][0], tint: T[x.c][1], ink: T[x.c][2], bg: x.unread ? '#E8F3EA' : '#fff'
+    }));
+    const groups = ["Aujourd’hui", 'Hier'].map((t) => ({ t, items: shown.filter((x) => x.g === t) })).filter((g) => g.items.length);
+    return { filters, groups, empty: groups.length === 0 };
+  }
+}
+</script>
+</body>
+</html>

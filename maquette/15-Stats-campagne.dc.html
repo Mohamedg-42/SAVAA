@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Résultats de campagne</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="12-Boutique.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Résultats de campagne</h1>
+  </div>
+  <div class="body">
+    <div class="card pad col" style="gap: 8px">
+      <div class="row between"><span class="b">Béliers Sahéliens, lot de 6</span><span class="badge bd-green">En cours</span></div>
+      <span class="xs muted">En tête des résultats, Poro, Tchologo, 10 au 24 nov.</span>
+      <div class="col" style="gap: 6px; margin-top: 4px">
+        <div class="row between small"><span class="muted">Budget dépensé</span><span class="b num">8 350 / 15 000 FCFA</span></div>
+        <div class="bar"><i style="width: 56%"></i></div>
+        <span class="xs muted">Reste 6 650 FCFA, environ 6 jours au rythme actuel</span>
+      </div>
+    </div>
+
+    <div class="grid3" style="gap: 8px">
+      <div class="card stat" style="padding: 12px"><span class="v">3 812</span><span class="l">Affichages</span></div>
+      <div class="card stat" style="padding: 12px"><span class="v">207</span><span class="l">Clics</span></div>
+      <div class="card stat" style="padding: 12px"><span class="v">19</span><span class="l">Contacts</span></div>
+      <div class="card stat" style="padding: 12px"><span class="v">7</span><span class="l">Ajouts panier</span></div>
+      <div class="card stat" style="padding: 12px"><span class="v">3</span><span class="l">Commandes</span></div>
+      <div class="card stat" style="padding: 12px"><span class="v">2 783</span><span class="l">FCFA / cmd</span></div>
+    </div>
+
+    <div class="card pad col" style="gap: 12px">
+      <div class="row between"><span class="b small">Clics par jour</span><span class="xs muted">10 → 18 nov.</span></div>
+      <div style="display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; align-items: end; height: 120px; border-bottom: 1px solid #E3E7E4">
+        <sc-for list="{{days}}" as="d" hint-placeholder-count="9">
+          <div class="col" style="align-items: center; gap: 4px; justify-content: flex-end; height: 100%">
+            <span class="xs num muted">{{d.v}}</span>
+            <div style="width: 100%; height: {{d.h}}; background: {{d.c}}; border-radius: 3px 3px 0 0"></div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{days}}" as="d" hint-placeholder-count="9"><span class="xs muted num" style="text-align: center">{{d.l}}</span></sc-for>
+      </div>
+      <span class="xs muted">Pic le 15/11 : marché hebdomadaire de Korhogo.</span>
+    </div>
+
+    <div class="card">
+      <table class="tbl num">
+        <thead><tr><th>Zone</th><th class="r">Clics</th><th class="r">Contacts</th><th class="r">Cmd</th></tr></thead>
+        <tbody>
+          <tr><td>Poro</td><td class="r">153</td><td class="r">15</td><td class="r b">3</td></tr>
+          <tr><td>Tchologo</td><td class="r">54</td><td class="r">4</td><td class="r b">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">Taux de conversion : 1,4 % des clics.</p>
+  </div>
+  <div class="foot">
+    <button class="btn btn-s">Mettre en pause</button>
+    <a class="btn btn-p" href="14-Campagne.dc.html">Modifier</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const v = [14, 19, 22, 18, 27, 41, 25, 23, 18];
+    const max = Math.max(...v);
+    return {
+      days: v.map((x, i) => ({ v: x, l: String(10 + i), h: Math.round((x / max) * 86) + 'px', c: x === max ? '#F28C28' : '#145C3A' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

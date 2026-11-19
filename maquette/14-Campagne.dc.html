@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Campagne de mise en avant</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="12-Boutique.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Mettre en avant</h1>
+  </div>
+  <div class="body" style="gap: 20px">
+    <div class="card row" style="padding: 10px 12px">
+      <div class="ph" style="width: 48px; height: 48px; border-radius: 6px; padding: 0"></div>
+      <div class="col grow"><span class="small b ell">Béliers Sahéliens, lot de 6</span><span class="xs muted num">117 500 FCFA / tête, en ligne</span></div>
+      <span class="link">Changer</span>
+    </div>
+
+    <div class="sec" style="gap: 8px">
+      <span class="lbl">Format</span>
+      <div class="card list">
+        <sc-for list="{{formats}}" as="f" hint-placeholder-count="4">
+          <button class="li" onClick="{{f.pick}}" style="width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: {{f.bg}}; text-align: left; font-family: inherit; cursor: pointer; color: inherit">
+            <span class="{{f.r}}"></span>
+            <span class="col grow"><span class="small b">{{f.t}}</span><span class="xs muted">{{f.d}}</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="lbl">Zones de diffusion</span>
+      <div class="wrap" style="gap: 8px">
+        <sc-for list="{{zones}}" as="z" hint-placeholder-count="5"><button class="{{z.cls}}" onClick="{{z.pick}}">{{z.t}}</button></sc-for>
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl">Acheteurs visés</span>
+      <div class="wrap" style="gap: 8px">
+        <sc-for list="{{buyers}}" as="z" hint-placeholder-count="4"><button class="{{z.cls}}" onClick="{{z.pick}}">{{z.t}}</button></sc-for>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field"><label>Début</label><div class="input num">10/11/2026</div></div>
+      <div class="field"><label>Fin</label><div class="input num">24/11/2026</div></div>
+    </div>
+
+    <div class="field">
+      <span class="lbl">Facturation</span>
+      <div class="seg">
+        <sc-for list="{{bill}}" as="b" hint-placeholder-count="3"><button class="{{b.cls}}" onClick="{{b.pick}}">{{b.t}}</button></sc-for>
+      </div>
+      <div class="grid2" style="margin-top: 4px">
+        <div class="field"><label>Budget total</label><div class="input num b">15 000 FCFA</div></div>
+        <div class="field"><label>Plafond / jour</label><div class="input num">1 500 FCFA</div></div>
+      </div>
+    </div>
+
+    <div class="sec" style="gap: 8px">
+      <span class="lbl">Aperçu dans les résultats</span>
+      <div class="hc" style="border-style: dashed">
+        <div class="ph" style="width: 84px; height: 84px"><span>Photo</span></div>
+        <div class="col grow" style="gap: 3px">
+          <span class="badge bd-sp" style="align-self: flex-start">Sponsorisé</span>
+          <span class="b small ell">Béliers Sahéliens, lot de 6</span>
+          <span class="price">117 500 FCFA</span>
+          <span class="xs muted ell">Sinématiali, Ferme Koné &amp; Fils</span>
+        </div>
+      </div>
+    </div>
+    <p class="hint">Relue par SAVAA avant diffusion.</p>
+  </div>
+  <div class="foot">
+    <a class="btn btn-p" href="15-Stats-campagne.dc.html">Soumettre à validation</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.state = { fmt: 'top', zones: { Poro: true, Tchologo: true }, buyers: { Particuliers: true, Restaurants: true }, bill: 'Forfait' };
+  }
+  renderVals() {
+    const s = this.state;
+    const F = [
+      ['top', 'En tête des résultats', 'Recherches « bélier », « mouton », « Tabaski »'],
+      ['cat', 'Bannière de catégorie', 'Haut de la page Ovins et caprins'],
+      ['day', 'Offre du jour', 'Accueil, une journée'],
+      ['loc', 'Campagne locale', 'Acheteurs à moins de 50 km']
+    ];
+    const tog = (key, t) => ({ t, cls: s[key][t] ? 'chip on' : 'chip', pick: () => this.setState({ [key]: { ...s[key], [t]: !s[key][t] } }) });
+    return {
+      formats: F.map(([id, t, d]) => ({ t, d, bg: s.fmt === id ? '#E8F3EA' : '#fff', r: s.fmt === id ? 'radio on' : 'radio', pick: () => this.setState({ fmt: id }) })),
+      zones: ['Poro', 'Tchologo', 'Hambol', 'Gbêkê', 'Abidjan'].map((t) => tog('zones', t)),
+      buyers: ['Particuliers', 'Restaurants', 'Grossistes', 'Éleveurs'].map((t) => tog('buyers', t)),
+      bill: ['Forfait', 'Par clic', 'Par 1 000 vues'].map((t) => ({ t, cls: s.bill === t ? 'on' : '', pick: () => this.setState({ bill: t }) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

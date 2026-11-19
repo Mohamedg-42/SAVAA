@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Panier</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="06-Annonce.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Panier, 2 vendeurs</h1>
+  </div>
+  <div style="background: #fff; padding: 10px 16px 12px; border-bottom: 1px solid #E3E7E4; flex: none">
+    <div class="steps"><i class="on"></i><i></i><i></i></div>
+    <div class="row between xs muted" style="margin-top: 6px"><span class="b" style="color: #17201B">Panier et livraison</span><span>Paiement</span><span>Reçu</span></div>
+  </div>
+  <div class="body">
+    <div class="card">
+      <div class="row between" style="padding: 10px 14px; border-bottom: 1px solid #EDF0EE"><span class="small b">Ferme Koné &amp; Fils</span><span class="badge bd-green">Vérifié</span></div>
+      <div class="row top" style="padding: 12px 14px; gap: 12px">
+        <div class="ph" style="width: 64px; height: 64px; border-radius: 6px; padding: 0"></div>
+        <div class="col grow" style="gap: 3px">
+          <span class="small b">Taurillon Zébu Goudali</span>
+          <span class="xs muted">FK-0142, 1 animal</span>
+          <span class="price">650 000 FCFA</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row between" style="padding: 10px 14px; border-bottom: 1px solid #EDF0EE"><span class="small b">Provenderie du Nord</span><span class="badge bd-green">Vérifié</span></div>
+      <div class="row top" style="padding: 12px 14px; gap: 12px">
+        <div class="ph w" style="width: 64px; height: 64px; border-radius: 6px; padding: 0"></div>
+        <div class="col grow" style="gap: 6px">
+          <span class="small b">Aliment bétail engraissement, sac de 50 kg</span>
+          <div class="row between">
+            <span class="price">{{feedTotal}} FCFA</span>
+            <div class="row" style="gap: 0; border: 1px solid #C5CDC7; border-radius: 8px">
+              <button class="iconbtn" onClick="{{minus}}" aria-label="Retirer un sac" style="width: 36px; height: 36px">−</button>
+              <span class="b num" style="width: 28px; text-align: center">{{qty}}</span>
+              <button class="iconbtn" onClick="{{plus}}" aria-label="Ajouter un sac" style="width: 36px; height: 36px">+</button>
+            </div>
+          </div>
+          <span class="xs muted num">14 500 FCFA le sac, stock 86</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sech"><h2>Réception</h2></div>
+      <div class="seg"><button class="{{dCls}}" onClick="{{toD}}">Livraison</button><button class="{{rCls}}" onClick="{{toR}}">Retrait sur place</button></div>
+      <sc-if value="{{isD}}" hint-placeholder-val="{{ true }}">
+        <div class="card list">
+          <div class="li" style="align-items: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg><div class="col grow"><span class="small b">Ferme Ouattara, route de Dikodougou</span><span class="xs muted">Korhogo, Fatou Ouattara, 05 •• •• 21 48</span></div><span class="link">Modifier</span></div>
+          <div class="li" style="align-items: flex-start"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg><div class="col grow"><span class="small b">Jeudi 20 novembre, 7 h – 11 h</span><span class="xs muted">Créneau proposé par le transporteur</span></div><span class="link">Changer</span></div>
+        </div>
+        <span class="hint">Transport en bétaillère par un transporteur partenaire.</span>
+      </sc-if>
+      <sc-if value="{{isR}}" hint-placeholder-val="{{ false }}">
+        <div class="card pad col" style="gap: 4px"><span class="small b">Retrait chez chaque vendeur</span><span class="xs muted">Sinématiali (taurillon) et Korhogo, zone industrielle (aliment). Code de retrait envoyé après paiement.</span></div>
+      </sc-if>
+    </div>
+
+    <div class="card pad col" style="gap: 8px">
+      <div class="sum"><span class="muted">Articles</span><span class="num">{{sub}} FCFA</span></div>
+      <div class="sum"><span class="muted">Livraison</span><span class="num">{{ship}}</span></div>
+      <div class="sum"><span class="muted">Frais de paiement</span><span>selon le moyen</span></div>
+      <div class="sum t"><span>Total estimé</span><span class="num">{{total}} FCFA</span></div>
+    </div>
+  </div>
+  <div class="foot">
+    <a class="btn btn-p" href="18-Paiement.dc.html">Choisir le paiement</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { qty: 4, mode: 'd' }; }
+  renderVals() {
+    const s = this.state;
+    const fmt = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    const feed = s.qty * 14500, sub = 650000 + feed, ship = s.mode === 'd' ? 25000 : 0;
+    return {
+      qty: s.qty, feedTotal: fmt(feed), sub: fmt(sub), ship: ship ? fmt(ship) + ' FCFA' : 'Gratuit', total: fmt(sub + ship),
+      minus: () => this.setState({ qty: Math.max(1, s.qty - 1) }), plus: () => this.setState({ qty: Math.min(86, s.qty + 1) }),
+      isD: s.mode === 'd', isR: s.mode === 'r', dCls: s.mode === 'd' ? 'on' : '', rCls: s.mode === 'r' ? 'on' : '',
+      toD: () => this.setState({ mode: 'd' }), toR: () => this.setState({ mode: 'r' })
+    };
+  }
+}
+</script>
+</body>
+</html>

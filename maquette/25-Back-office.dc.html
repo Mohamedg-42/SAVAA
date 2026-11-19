@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Back-office</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="adm">
+  <aside class="adm-side">
+    <div class="brand">SAVAA<small>Back-office, administration</small></div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+      <button class="{{n.cls}}" onClick="{{n.pick}}" style="border: 0; background-color: {{n.bg}}; color: inherit; font-family: inherit; cursor: pointer; text-align: left; width: 100%">{{n.t}}<sc-if value="{{n.c}}" hint-placeholder-val="{{ false }}"><span class="c">{{n.c}}</span></sc-if></button>
+    </sc-for>
+    <a class="adm-nav" href="16-Prospection.dc.html">Prospection</a>
+  </aside>
+  <main class="adm-main">
+
+    <sc-if value="{{isDash}}" hint-placeholder-val="{{ true }}">
+      <div class="adm-top">
+        <div style="display: flex; flex-direction: column; gap: 2px"><h1>Tableau de bord</h1><span class="small muted">Mardi 18 novembre 2026, zone pilote Poro et Tchologo</span></div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap"><button class="btn btn-s btn-sm">7 derniers jours</button><button class="btn btn-p btn-sm">Exporter</button></div>
+      </div>
+      <div class="adm-kpis">
+        <div class="card pad stat"><span class="l">Vendeurs actifs</span><span class="v">209</span><span class="xs" style="color: #145C3A">+14 sur 7 j</span></div>
+        <div class="card pad stat"><span class="l">Acheteurs actifs</span><span class="v">583</span><span class="xs" style="color: #145C3A">+41 sur 7 j</span></div>
+        <div class="card pad stat"><span class="l">Transactions</span><span class="v">96</span><span class="xs muted">dont 9 échouées</span></div>
+        <div class="card pad stat"><span class="l">Volume confirmé</span><span class="v">38,4 M</span><span class="xs muted">FCFA sur 7 j</span></div>
+        <div class="card pad stat"><span class="l">Fiches animales vérifiées</span><span class="v">61 %</span><span class="xs muted">sur 1 930 fiches</span></div>
+        <div class="card pad stat"><span class="l">1re réponse support</span><span class="v">1 h 40</span><span class="xs muted">objectif 2 h</span></div>
+      </div>
+      <div class="adm-grid">
+        <section class="card">
+          <div class="cardh"><h2>Annonces à modérer</h2><span class="small muted">{{pending}} en attente</span></div>
+          <div class="scroll"><table class="tbl">
+            <thead><tr><th>Annonce</th><th>Vendeur</th><th>Signal</th><th class="r">Action</th></tr></thead>
+            <tbody>
+              <sc-for list="{{queue}}" as="q" hint-placeholder-count="4">
+                <tr>
+                  <td><div style="display: flex; flex-direction: column"><span class="b">{{q.t}}</span><span class="xs muted">{{q.c}}</span></div></td>
+                  <td>{{q.v}}</td>
+                  <td><span class="badge {{q.sc}}">{{q.s}}</span></td>
+                  <td class="r" style="white-space: nowrap">
+                    <sc-if value="{{q.open}}" hint-placeholder-val="{{ true }}"><button class="btn btn-s btn-sm" onClick="{{q.reject}}">Refuser</button> <button class="btn btn-p btn-sm" onClick="{{q.ok}}">Valider</button></sc-if>
+                    <sc-if value="{{q.closed}}" hint-placeholder-val="{{ false }}"><span class="badge {{q.rc}}">{{q.r}}</span></sc-if>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table></div>
+        </section>
+        <section class="card">
+          <div class="cardh"><h2>Paiements récents</h2><span class="small muted">rapprochement prestataire</span></div>
+          <div class="scroll"><table class="tbl num">
+            <thead><tr><th>Transaction</th><th>Moyen</th><th class="r">Montant</th><th>Statut</th></tr></thead>
+            <tbody>
+              <tr><td>TX-7Q4K-21983</td><td>Orange Money</td><td class="r">733 000</td><td><span class="badge bd-green">Confirmé</span></td></tr>
+              <tr><td>TX-7Q4H-21977</td><td>Wave</td><td class="r">96 000</td><td><span class="badge bd-green">Confirmé</span></td></tr>
+              <tr><td>TX-7Q4F-21970</td><td>MTN MoMo</td><td class="r">240 000</td><td><span class="badge bd-red">Échoué</span></td></tr>
+              <tr><td>TX-7Q49-21962</td><td>Carte</td><td class="r">1 680 000</td><td><span class="badge bd-amber">Contesté</span></td></tr>
+              <tr><td>TX-7Q41-21955</td><td>Moov Money</td><td class="r">14 500</td><td><span class="badge bd-grey">Expiré</span></td></tr>
+            </tbody>
+          </table></div>
+        </section>
+        <section class="card">
+          <div class="cardh"><h2>Litiges et support</h2><span class="small muted">par priorité</span></div>
+          <table class="tbl"><tbody>
+            <tr><td><span class="b">TK-1093, animal blessé à la livraison</span><br><span class="xs muted">SAV-2026-11-004812, paiement vendeur suspendu</span></td><td class="r"><span class="badge bd-red">Urgent</span></td></tr>
+            <tr><td><span class="b">TK-1090, paiement contesté (carte)</span><br><span class="xs muted">Ranch Tuo, en attente du prestataire</span></td><td class="r"><span class="badge bd-amber">Haute</span></td></tr>
+            <tr><td><span class="b">TK-1088, faux vendeur signalé</span><br><span class="xs muted">3 signalements, compte suspendu à titre préventif</span></td><td class="r"><span class="badge bd-amber">Haute</span></td></tr>
+          </tbody></table>
+        </section>
+        <section class="card">
+          <div class="cardh"><h2>Vérifications en attente</h2></div>
+          <table class="tbl"><tbody>
+            <tr><td><span class="b">Ferme Koné &amp; Fils</span><br><span class="xs muted">Exploitation, visite agent le 25/11</span></td><td class="r"><span class="badge bd-blue">Documenté</span></td></tr>
+            <tr><td><span class="b">Dr Y. Coulibaly</span><br><span class="xs muted">Vétérinaire, numéro d’ordre à contrôler</span></td><td class="r"><span class="badge bd-grey">Déclaré</span></td></tr>
+            <tr><td><span class="b">Transports Ouattara</span><br><span class="xs muted">Coursier, agrément transport d’animaux</span></td><td class="r"><span class="badge bd-blue">Documenté</span></td></tr>
+          </tbody></table>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isUsers}}" hint-placeholder-val="{{ false }}">
+      <div class="adm-top">
+        <div style="display: flex; flex-direction: column; gap: 2px"><h1>Utilisateurs</h1><span class="small muted">1 284 comptes, dont 47 en attente de vérification</span></div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap"><div class="search" style="height: 36px; min-width: 240px">Nom, téléphone, n° de compte</div><button class="btn btn-s btn-sm">Exporter</button></div>
+      </div>
+      <div class="wrap" style="gap: 8px">
+        <sc-for list="{{roles}}" as="r" hint-placeholder-count="6"><button class="{{r.cls}}" onClick="{{r.pick}}">{{r.t}} <span class="n">{{r.n}}</span></button></sc-for>
+      </div>
+      <section class="card"><div class="scroll"><table class="tbl">
+        <thead><tr><th>Compte</th><th>Rôles</th><th>Zone</th><th>Vérification</th><th class="r">Ventes</th><th>Statut</th><th class="r">Inscrit le</th></tr></thead>
+        <tbody>
+          <sc-for list="{{users}}" as="u" hint-placeholder-count="7">
+            <tr><td><span class="b">{{u.n}}</span><br><span class="xs muted num">{{u.id}}</span></td><td>{{u.r}}</td><td>{{u.z}}</td><td><span class="badge {{u.vc}}">{{u.v}}</span></td><td class="r num">{{u.s}}</td><td><span class="badge {{u.sc}}">{{u.st}}</span></td><td class="r num">{{u.d}}</td></tr>
+          </sc-for>
+        </tbody>
+      </table></div></section>
+    </sc-if>
+
+    <sc-if value="{{isCamp}}" hint-placeholder-val="{{ false }}">
+      <div class="adm-top">
+        <div style="display: flex; flex-direction: column; gap: 2px"><h1>Campagnes sponsorisées</h1><span class="small muted">Validation avant diffusion et suivi des dépenses</span></div>
+      </div>
+      <div class="adm-kpis">
+        <div class="card pad stat"><span class="l">En cours</span><span class="v">11</span></div>
+        <div class="card pad stat"><span class="l">À valider</span><span class="v">{{campPending}}</span></div>
+        <div class="card pad stat"><span class="l">Dépenses sur 7 j</span><span class="v">94 350</span><span class="xs muted">FCFA</span></div>
+        <div class="card pad stat"><span class="l">Suspendues (rupture)</span><span class="v">2</span></div>
+      </div>
+      <section class="card"><div class="scroll"><table class="tbl">
+        <thead><tr><th>Campagne</th><th>Vendeur</th><th>Format</th><th>Période</th><th class="r">Budget</th><th>Statut</th><th class="r">Action</th></tr></thead>
+        <tbody>
+          <sc-for list="{{camps}}" as="c" hint-placeholder-count="5">
+            <tr><td><span class="b">{{c.t}}</span></td><td>{{c.v}}</td><td>{{c.f}}</td><td class="num">{{c.p}}</td><td class="r num">{{c.b}}</td><td><span class="badge {{c.sc}}">{{c.s}}</span></td>
+              <td class="r" style="white-space: nowrap"><sc-if value="{{c.canAct}}" hint-placeholder-val="{{ false }}"><button class="btn btn-s btn-sm" onClick="{{c.ko}}">Refuser</button> <button class="btn btn-p btn-sm" onClick="{{c.ok}}">Valider</button></sc-if></td></tr>
+          </sc-for>
+        </tbody>
+      </table></div></section>
+      <p class="small muted">Une campagne n’est jamais présentée comme une garantie de qualité. Elle est suspendue automatiquement si l’annonce passe en rupture.</p>
+    </sc-if>
+
+    <sc-if value="{{isStats}}" hint-placeholder-val="{{ false }}">
+      <div class="adm-top">
+        <div style="display: flex; flex-direction: column; gap: 2px"><h1>Statistiques du pilote</h1><span class="small muted">Depuis l’ouverture le 1er septembre 2026</span></div>
+        <div class="seg" style="min-width: 260px"><button>30 j</button><button class="on">Depuis le début</button></div>
+      </div>
+      <div class="adm-kpis">
+        <div class="card pad stat"><span class="l">Annonces publiées</span><span class="v">1 146</span></div>
+        <div class="card pad stat"><span class="l">Transactions confirmées</span><span class="v">412</span></div>
+        <div class="card pad stat"><span class="l">Volume de ventes</span><span class="v">163 M</span><span class="xs muted">FCFA</span></div>
+        <div class="card pad stat"><span class="l">Rétention vendeurs à 60 j</span><span class="v">58 %</span></div>
+        <div class="card pad stat"><span class="l">Tickets résolus</span><span class="v">91 %</span></div>
+      </div>
+      <div class="adm-grid">
+        <section class="card pad" style="display: flex; flex-direction: column; gap: 12px">
+          <h2 style="font-size: 15px; font-weight: 600">Transactions par semaine</h2>
+          <div style="display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 8px; align-items: end; height: 160px; border-bottom: 1px solid #E3E7E4">
+            <sc-for list="{{weeks}}" as="w" hint-placeholder-count="11"><div style="height: {{w.h}}; background: {{w.c}}; border-radius: 3px 3px 0 0"></div></sc-for>
+          </div>
+          <span class="xs muted">Semaines 36 à 46. Pic en semaine 41, avant la fête de fin d’année.</span>
+        </section>
+        <section class="card">
+          <div class="cardh"><h2>Ventes par filière</h2></div>
+          <table class="tbl num"><tbody>
+            <tr><td>Bovins</td><td style="width: 45%"><div class="bar"><i style="width: 100%"></i></div></td><td class="r">71 M</td></tr>
+            <tr><td>Ovins et caprins</td><td><div class="bar"><i style="width: 62%"></i></div></td><td class="r">44 M</td></tr>
+            <tr><td>Volailles</td><td><div class="bar"><i style="width: 38%"></i></div></td><td class="r">27 M</td></tr>
+            <tr><td>Aliments et intrants</td><td><div class="bar"><i style="width: 21%"></i></div></td><td class="r">15 M</td></tr>
+            <tr><td>Récoltes</td><td><div class="bar"><i style="width: 8%"></i></div></td><td class="r">6 M</td></tr>
+          </tbody></table>
+        </section>
+      </div>
+    </sc-if>
+    <p class="xs muted">Données de démonstration.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { sec: 'dash', res: {}, role: 'all', camp: {} }; }
+  renderVals() {
+    const s = this.state;
+    const nav = [['dash', 'Tableau de bord', 0], ['users', 'Utilisateurs', '1 284'], ['camp', 'Campagnes', 3], ['stats', 'Statistiques', 0]].map(([id, t, c]) => ({
+      t, c, cls: 'adm-nav' + (s.sec === id ? ' on' : ''), bg: s.sec === id ? 'rgba(255,255,255,.16)' : 'transparent', pick: () => this.setState({ sec: id })
+    }));
+    const Q = [
+      { id: 1, t: 'Génisse métisse, 19 mois', c: 'Animaux, Bovins, fiche liée', v: 'Ferme Koné & Fils', s: 'RAS', sc: 'bd-grey' },
+      { id: 2, t: 'Vaccin PPR, flacon 100 doses', c: 'Intrants, produit réglementé', v: 'Agro-Nord Intrants', s: 'Autorisation requise', sc: 'bd-red' },
+      { id: 3, t: 'Poussins chair J1, par 100', c: 'Animaux, Volailles', v: 'Couvoir du Nord', s: 'Prix inhabituel', sc: 'bd-amber' },
+      { id: 4, t: 'Couveuse 528 œufs', c: 'Matériel, Élevage', v: 'Équip’Agri CI', s: 'RAS', sc: 'bd-grey' }
+    ];
+    const queue = Q.map((q) => ({
+      ...q, open: !s.res[q.id], closed: !!s.res[q.id],
+      r: s.res[q.id] === 'ok' ? 'Validée' : 'Refusée', rc: s.res[q.id] === 'ok' ? 'bd-green' : 'bd-red',
+      ok: () => this.setState({ res: { ...s.res, [q.id]: 'ok' } }), reject: () => this.setState({ res: { ...s.res, [q.id]: 'ko' } })
+    }));
+    const U = [
+      { n: 'Ferme Koné & Fils', id: 'U-00412', r: 'Éleveur, vendeur', z: 'Sinématiali', v: 'Niveau 2', vc: 'bd-green', s: 41, st: 'Actif', sc: 'bd-green', d: '02/03/2025', k: 'elev' },
+      { n: 'La Terrasse du Plateau', id: 'U-00977', r: 'Restaurant', z: 'Abidjan', v: 'Niveau 2', vc: 'bd-green', s: 0, st: 'Actif', sc: 'bd-green', d: '14/09/2026', k: 'resto' },
+      { n: 'Dr Y. Coulibaly', id: 'U-01033', r: 'Vétérinaire', z: 'Korhogo', v: 'Déclaré', vc: 'bd-grey', s: 0, st: 'En attente', sc: 'bd-amber', d: '30/10/2026', k: 'veto' },
+      { n: 'Transports Ouattara', id: 'U-00861', r: 'Coursier', z: 'Korhogo', v: 'Documenté', vc: 'bd-blue', s: 0, st: 'Actif', sc: 'bd-green', d: '21/08/2026', k: 'cour' },
+      { n: 'Volailles du Sud', id: 'U-01190', r: 'Vendeur', z: 'Yopougon', v: 'Niveau 1', vc: 'bd-grey', s: 2, st: 'Actif', sc: 'bd-green', d: '09/11/2026', k: 'vend' },
+      { n: 'Compte « BoviPro225 »', id: 'U-01201', r: 'Vendeur', z: 'Bouaké', v: 'Niveau 1', vc: 'bd-grey', s: 0, st: 'Suspendu', sc: 'bd-red', d: '12/11/2026', k: 'vend' },
+      { n: 'Fatou Ouattara', id: 'U-01115', r: 'Acheteur', z: 'Korhogo', v: 'Niveau 1', vc: 'bd-grey', s: 0, st: 'Actif', sc: 'bd-green', d: '28/10/2026', k: 'ach' }
+    ];
+    const R = [['all', 'Tous', '1 284'], ['elev', 'Éleveurs', 318], ['vend', 'Vendeurs', 241], ['resto', 'Restaurants', 37], ['veto', 'Vétérinaires', 12], ['cour', 'Coursiers', 19], ['ach', 'Acheteurs', 657]];
+    const C = [
+      { id: 1, t: 'Béliers Sahéliens, lot de 6', v: 'Ferme Koné & Fils', f: 'En tête des résultats', p: '10/11 – 24/11', b: '15 000', st: 'run' },
+      { id: 2, t: 'Aliment engraissement 50 kg', v: 'Provenderie du Nord', f: 'Bannière catégorie', p: '20/11 – 04/12', b: '40 000', st: 'wait' },
+      { id: 3, t: 'Poussins chair J1', v: 'Couvoir du Nord', f: 'Offre du jour', p: '22/11', b: '5 000', st: 'wait' },
+      { id: 4, t: 'Taurillons Zébu, lot de 3', v: 'Ranch Tuo', f: 'Campagne locale', p: '01/11 – 30/11', b: '60 000', st: 'run' },
+      { id: 5, t: 'Fumier composté', v: 'Ferme Koné & Fils', f: 'En tête des résultats', p: '05/11 – 19/11', b: '8 000', st: 'stop' }
+    ];
+    const SL = { run: ['En cours', 'bd-green'], wait: ['À valider', 'bd-amber'], stop: ['Suspendue, rupture', 'bd-red'], ok: ['Validée', 'bd-green'], ko: ['Refusée', 'bd-red'] };
+    const camps = C.map((c) => { const st = s.camp[c.id] || c.st; return {
+      ...c, s: SL[st][0], sc: SL[st][1], canAct: st === 'wait',
+      ok: () => this.setState({ camp: { ...s.camp, [c.id]: 'ok' } }), ko: () => this.setState({ camp: { ...s.camp, [c.id]: 'ko' } })
+    }; });
+    const wv = [12, 19, 24, 31, 38, 56, 41, 44, 47, 49, 51];
+    return {
+      nav, queue, pending: 12 - Object.keys(s.res).length,
+      isDash: s.sec === 'dash', isUsers: s.sec === 'users', isCamp: s.sec === 'camp', isStats: s.sec === 'stats',
+      roles: R.map(([id, t, n]) => ({ t, n, cls: s.role === id ? 'chip on' : 'chip', pick: () => this.setState({ role: id }) })),
+      users: U.filter((u) => s.role === 'all' || u.k === s.role),
+      camps, campPending: camps.filter((c) => c.canAct).length,
+      weeks: wv.map((x) => ({ h: Math.round((x / 56) * 150) + 'px', c: x === 56 ? '#F28C28' : '#145C3A' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

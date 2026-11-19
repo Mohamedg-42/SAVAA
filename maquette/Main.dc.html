@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Démarrage</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app" style="background: #145C3A; color: #fff">
+  <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; padding: 32px">
+    <div style="font-size: 56px; font-weight: 700; letter-spacing: 0.06em; line-height: 1">SAVAA</div>
+    <div style="width: 64px; height: 3px; background: #F28C28"></div>
+    <div style="font-size: 16px; font-weight: 500; color: #CFE0D4">Ça va maintenant !</div>
+    <div style="width: 120px; height: 3px; background: rgba(255,255,255,.18); border-radius: 2px; overflow: hidden; margin-top: 28px"><div style="width: {{pct}}; height: 100%; background: #F28C28"></div></div>
+    <span class="xs" style="color: #CFE0D4">{{loadText}}</span>
+  </div>
+  <div style="padding: 0 24px 40px; display: flex; flex-direction: column; gap: 18px">
+    <p style="font-size: 14px; line-height: 1.5; color: #CFE0D4; text-align: center">Acheter et vendre des animaux, des récoltes et des intrants. Chaque animal avec son origine et son suivi sanitaire.</p>
+    <a class="btn btn-block" href="03-Connexion.dc.html" style="background: #fff; color: #145C3A">Commencer</a>
+    <a class="btn btn-block" href="02-Accueil.dc.html" style="background: transparent; color: #fff; border-color: rgba(255,255,255,.4)">Parcourir sans compte</a>
+    <p class="xs" style="text-align: center; color: #A9C2B1">Prototype de démonstration v2.0, données fictives</p>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { p: 8 }; }
+  componentDidMount() { this.t = setInterval(() => { if (this.state.p >= 100) { clearInterval(this.t); return; } this.setState({ p: Math.min(100, this.state.p + 23) }); }, 350); }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() { const p = this.state.p; return { pct: p + '%', loadText: p < 100 ? 'Chargement des annonces de votre zone…' : 'Prêt' }; }
+}
+</script>
+</body>
+</html>

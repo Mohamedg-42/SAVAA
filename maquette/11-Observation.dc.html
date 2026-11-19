@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Observation et alerte</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="10-Dossier-sanitaire.dc.html" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+    <h1>Nouvelle observation</h1>
+  </div>
+  <div style="background: #FCF1DC; color: #5E3904; padding: 8px 16px; flex: none" class="row small">
+    <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0M12 19h.01M3 3l18 18"></path></svg>
+    <span class="grow">Hors connexion. Envoi automatique au retour du réseau.</span>
+  </div>
+  <sc-if value="{{form}}" hint-placeholder-val="{{ true }}">
+    <div class="body" style="gap: 20px">
+      <div class="card row" style="padding: 10px 12px">
+        <div class="ph" style="width: 44px; height: 44px; border-radius: 6px; padding: 0"></div>
+        <div class="col grow"><span class="b small">FK-0142, Taurillon Zébu Goudali</span><span class="xs muted">Ferme Koné &amp; Fils</span></div>
+        <span class="link">Changer</span>
+      </div>
+      <div class="field">
+        <span class="lbl">Signes observés</span>
+        <div class="wrap" style="gap: 8px">
+          <sc-for list="{{signs}}" as="s" hint-placeholder-count="9">
+            <button class="{{s.cls}}" onClick="{{s.pick}}">{{s.t}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Date</label><div class="input num">18/11/2026</div></div>
+        <div class="field"><label>Heure</label><div class="input num">07:40</div></div>
+      </div>
+      <div class="field"><label>Description</label><textarea class="input">Mange peu depuis hier soir, reste couché à l’écart du troupeau. Pas de toux.</textarea></div>
+      <div class="field">
+        <span class="lbl">Photo ou vidéo</span>
+        <div class="grid3">
+          <div class="ph" style="height: 84px; border-radius: 8px"><span>IMG_0412</span></div>
+          <button class="addph" style="height: 84px; font-family: inherit; cursor: pointer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h3.5L9 5h6l1.5 2.5H20a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8.5a1 1 0 0 1 1-1z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>Ajouter</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl">Niveau d’urgence</span>
+        <div class="seg">
+          <sc-for list="{{levels}}" as="l" hint-placeholder-count="3">
+            <button class="{{l.cls}}" onClick="{{l.pick}}">{{l.t}}</button>
+          </sc-for>
+        </div>
+        <span class="hint">{{levelHint}}</span>
+      </div>
+      <div class="notice n-red">
+        <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 2.5 20h19z"></path><path d="M12 10v4.5M12 17.5v.01"></path></svg>
+        <span>Une alerte n’est pas un diagnostic. Si l’état s’aggrave, appelez un vétérinaire.</span>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn btn-p" onClick="{{save}}">Enregistrer et alerter</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+    <div class="body" style="justify-content: center; align-items: center; text-align: center; gap: 14px; padding: 32px">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 56px; height: 56px; color: #145C3A; stroke-width: 1.4"><circle cx="12" cy="12" r="9"></circle><path d="m8 12.5 2.8 2.8L16.5 9.5"></path></svg>
+      <h2 style="font-size: 20px; font-weight: 600">Observation enregistrée</h2>
+      <p class="muted small" style="line-height: 1.5">Enregistrée sur le téléphone. Elle sera ajoutée au dossier et transmise à votre vétérinaire référent dès le retour du réseau.</p>
+      <div class="card pad" style="width: 100%; text-align: left">
+        <dl class="kv">
+          <dt>Animal</dt><dd>FK-0142</dd>
+          <dt>Signes</dt><dd>{{signsText}}</dd>
+          <dt>Urgence</dt><dd>{{levelText}}</dd>
+          <dt>Statut</dt><dd><span class="badge bd-amber">En attente d’envoi</span></dd>
+        </dl>
+      </div>
+      <a class="btn btn-p btn-block" href="10-Dossier-sanitaire.dc.html">Voir le dossier</a>
+      <button class="btn btn-ghost btn-block" onClick="{{again}}">Nouvelle observation</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { sel: { 'Appétit réduit': true, 'Abattement': true }, lvl: 'Moyenne', done: false }; }
+  renderVals() {
+    const s = this.state;
+    const L = ['Appétit réduit', 'Abattement', 'Toux', 'Diarrhée', 'Boiterie', 'Écoulement', 'Comportement', 'Baisse de production', 'Autre'];
+    const H = { Faible: 'Suivi normal, rappel dans 48 h.', Moyenne: 'Votre vétérinaire référent est notifié.', 'Élevée': 'Vétérinaire notifié et appel recommandé immédiatement.' };
+    return {
+      form: !s.done, done: s.done,
+      signs: L.map((t) => ({ t, cls: s.sel[t] ? 'chip on' : 'chip', pick: () => this.setState({ sel: { ...s.sel, [t]: !s.sel[t] } }) })),
+      levels: ['Faible', 'Moyenne', 'Élevée'].map((t) => ({ t, cls: s.lvl === t ? 'on' : '', pick: () => this.setState({ lvl: t }) })),
+      levelHint: H[s.lvl], levelText: s.lvl,
+      signsText: L.filter((t) => s.sel[t]).join(', ') || 'Aucun',
+      save: () => this.setState({ done: true }), again: () => this.setState({ done: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

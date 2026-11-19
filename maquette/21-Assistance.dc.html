@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Assistance</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="20-Suivi.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Assistance</h1>
+  </div>
+  <div class="utabs">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+      <button class="{{t.cls}}" onClick="{{t.pick}}">{{t.t}}</button>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{isFaq}}" hint-placeholder-val="{{ true }}">
+    <div class="body">
+      <div class="search"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><span>Décrivez votre question</span></div>
+      <div class="grid2" style="gap: 8px">
+        <span class="card pad small b">Compte</span><span class="card pad small b">Publier une annonce</span>
+        <span class="card pad small b">Paiement</span><span class="card pad small b">Commande et livraison</span>
+        <span class="card pad small b">Traçabilité</span><span class="card pad small b">Santé animale</span>
+        <span class="card pad small b">Sécurité et fraude</span><span class="card pad small b">Réclamation</span>
+      </div>
+      <div class="sec">
+        <div class="sech"><h2>Questions fréquentes</h2></div>
+        <div class="card list">
+          <div class="li"><span class="grow small">Mon paiement est débité mais la commande indique « échoué »</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></div>
+          <div class="li"><span class="grow small">Que signifie « identifiant à vérifier » sur une fiche ?</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></div>
+          <div class="li"><span class="grow small">Comment me faire aider pour publier ma première annonce ?</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></div>
+        </div>
+      </div>
+      <div class="card pad col" style="gap: 10px">
+        <span class="b small">Contacter l’équipe</span>
+        <div class="row small"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg><span class="grow">Messagerie SAVAA</span><span class="muted">réponse sous 4 h ouvrées</span></div>
+        <div class="row small"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.5 4.5-2 1.5a12 12 0 0 0 6 6l1.5-2 4.5 1.5V19a1.5 1.5 0 0 1-1.5 1.5C10.5 20.5 3.5 13.5 3.5 5.5A1.5 1.5 0 0 1 5 4z"></path></svg><span class="grow">Téléphone et WhatsApp</span><span class="muted">[numéro à confirmer]</span></div>
+        <span class="xs muted">Horaires : lundi au samedi, [plages à confirmer]</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isBot}}" hint-placeholder-val="{{ false }}">
+    <div class="body" style="gap: 10px">
+      <p class="xs muted" style="text-align: center">Assistant automatique. Il ne remplace pas un vétérinaire.</p>
+      <div class="col" style="gap: 8px">
+        <div class="bubble bot">Bonjour Fatou. Votre commande SAV-2026-11-004812 est en route. Que puis-je faire pour vous ?</div>
+        <div class="bubble me">Le livreur aura du retard ?</div>
+        <div class="bubble bot">Le transporteur indique une arrivée vers 10 h 30, soit 30 min après le créneau. Vous pouvez l’appeler depuis le suivi, ou signaler un retard si le délai dépasse 2 h.</div>
+        <div class="bubble me">Le taurillon boite légèrement à la descente.</div>
+        <div class="bubble bot">Ne donnez pas encore le code de remise. Je vous mets en relation avec un conseiller pour ouvrir une réclamation. Pour l’état de l’animal, contactez un vétérinaire.</div>
+      </div>
+      <button class="btn btn-p btn-block" onClick="{{toTicket}}">Parler à un conseiller</button>
+    </div>
+    <div class="foot" style="padding: 10px 12px 14px"><div class="input grow" style="color: #5D6862">Écrire un message</div><button class="iconbtn" aria-label="Envoyer" style="background: #145C3A; color: #fff"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-6 16-3-7z"></path></svg></button></div>
+  </sc-if>
+
+  <sc-if value="{{isTicket}}" hint-placeholder-val="{{ false }}">
+    <div class="body">
+      <div class="field"><label>Motif</label><div class="input sel"><span>Litige livraison, animal</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+      <div class="field"><label>Commande concernée</label><div class="input sel num"><span>SAV-2026-11-004812</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+      <div class="field"><label>Description</label><textarea class="input">Le taurillon boite de l’antérieur droit à la descente de la bétaillère. Je n’ai pas encore donné le code de remise.</textarea></div>
+      <div class="grid3"><div class="ph" style="height: 80px; border-radius: 8px"><span>VID_0921</span></div><button class="addph" style="height: 80px; font-family: inherit">Ajouter</button></div>
+      <div class="field"><span class="lbl">Priorité</span><div class="seg"><button>Normale</button><button class="on">Urgente</button></div></div>
+      <sc-if value="{{sent}}" hint-placeholder-val="{{ false }}">
+        <div class="notice n-info"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8 12.5 2.8 2.8L16.5 9.5"></path></svg><span><b>Ticket TK-1093 créé.</b> Attribué à Mariam (support). Première réponse attendue sous 1 h. Le paiement au vendeur reste en attente pendant l’examen.</span></div>
+      </sc-if>
+      <div class="sec">
+        <span class="eyebrow">Mes tickets</span>
+        <div class="card list">
+          <div class="li"><div class="col grow"><span class="small b">TK-1071, Annonce trompeuse signalée</span><span class="xs muted num">12/11, clos après vérification</span></div><span class="badge bd-grey">Résolu</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><button class="btn btn-p" onClick="{{send}}">Envoyer la réclamation</button></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { tab: 'faq', sent: false }; }
+  renderVals() {
+    const cur = this.state.tab;
+    const T = [['faq', 'Centre d’aide'], ['bot', 'Assistant'], ['ticket', 'Réclamation']];
+    return {
+      tabs: T.map(([id, t]) => ({ t, cls: cur === id ? 'on' : '', pick: () => this.setState({ tab: id }) })),
+      isFaq: cur === 'faq', isBot: cur === 'bot', isTicket: cur === 'ticket', sent: this.state.sent,
+      toTicket: () => this.setState({ tab: 'ticket' }), send: () => this.setState({ sent: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

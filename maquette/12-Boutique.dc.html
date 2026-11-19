@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Boutique vendeur</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="23-Profil.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Ma boutique</h1>
+    <span class="link" style="padding-right: 12px">Vue acheteur</span>
+  </div>
+  <div class="body flush">
+    <div style="background: #fff; padding: 16px; display: flex; flex-direction: column; gap: 14px; border-bottom: 1px solid #E3E7E4">
+      <div class="row" style="gap: 14px">
+        <span class="av" style="width: 60px; height: 60px; font-size: 20px; border-radius: 10px">FK</span>
+        <div class="col grow" style="gap: 3px">
+          <span class="b" style="font-size: 17px">Ferme Koné &amp; Fils</span>
+          <span class="xs muted">Éleveur, bovins et ovins, Sinématiali</span>
+          <div class="wrap" style="margin-top: 2px"><span class="badge bd-green">Compte vérifié</span><span class="badge bd-amber">Exploitation : visite le 25/11</span></div>
+        </div>
+      </div>
+      <div class="grid4" style="gap: 0; border: 1px solid #E3E7E4; border-radius: 10px">
+        <div class="stat" style="padding: 10px; border-right: 1px solid #E3E7E4"><span class="v" style="font-size: 18px">41</span><span class="l">ventes</span></div>
+        <div class="stat" style="padding: 10px; border-right: 1px solid #E3E7E4"><span class="v" style="font-size: 18px">4,7</span><span class="l">23 avis</span></div>
+        <div class="stat" style="padding: 10px; border-right: 1px solid #E3E7E4"><span class="v" style="font-size: 18px">2 h</span><span class="l">réponse</span></div>
+        <div class="stat" style="padding: 10px"><span class="v" style="font-size: 18px">98 %</span><span class="l">livrées</span></div>
+      </div>
+      <div class="grid3" style="gap: 8px">
+        <a class="btn btn-s btn-sm" href="13-Publier.dc.html">Publier</a>
+        <a class="btn btn-s btn-sm" href="14-Campagne.dc.html">Mettre en avant</a>
+        <a class="btn btn-s btn-sm" href="15-Stats-campagne.dc.html">Statistiques</a>
+      </div>
+    </div>
+    <div class="utabs">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button class="{{t.cls}}" onClick="{{t.pick}}">{{t.t}}</button>
+      </sc-for>
+    </div>
+    <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <sc-if value="{{isAds}}" hint-placeholder-val="{{ true }}">
+        <div class="card list">
+          <a class="li" href="06-Annonce.dc.html"><div class="ph" style="width: 52px; height: 52px; border-radius: 6px; padding: 0"></div><div class="col grow"><span class="small b ell">Taurillon Zébu Goudali</span><span class="xs muted num">650 000 FCFA, 214 vues, 9 contacts</span></div><span class="badge bd-blue">Vendu</span></a>
+          <a class="li" href="15-Stats-campagne.dc.html"><div class="ph" style="width: 52px; height: 52px; border-radius: 6px; padding: 0"></div><div class="col grow"><span class="small b ell">Béliers Sahéliens, lot de 6</span><span class="xs muted num">117 500 / tête, stock 6</span></div><span class="badge bd-sp">Sponsorisé</span></a>
+          <div class="li"><div class="ph" style="width: 52px; height: 52px; border-radius: 6px; padding: 0"></div><div class="col grow"><span class="small b ell">Génisse métisse, 19 mois</span><span class="xs muted num">480 000 FCFA, en modération</span></div><span class="badge bd-amber">En revue</span></div>
+          <div class="li"><div class="ph w" style="width: 52px; height: 52px; border-radius: 6px; padding: 0"></div><div class="col grow"><span class="small b ell">Fumier composté, sac 40 kg</span><span class="xs muted num">2 000 FCFA, stock 0</span></div><span class="badge bd-red">Rupture</span></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{isOrders}}" hint-placeholder-val="{{ false }}">
+        <div class="card list">
+          <a class="li" href="20-Suivi.dc.html"><div class="col grow"><span class="small b">SAV-2026-11-004812</span><span class="xs muted">Fatou Ouattara, taurillon, 650 000 FCFA</span></div><span class="badge bd-blue">En livraison</span></a>
+          <div class="li"><div class="col grow"><span class="small b">SAV-2026-11-004655</span><span class="xs muted">Maquis Le Carrefour, 2 béliers</span></div><span class="badge bd-amber">À préparer</span></div>
+          <div class="li"><div class="col grow"><span class="small b">SAV-2026-10-003910</span><span class="xs muted">Boucherie Fofana, 1 bœuf</span></div><span class="badge bd-green">Livrée</span></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{isReviews}}" hint-placeholder-val="{{ false }}">
+        <div class="card pad col" style="gap: 6px"><span class="row between"><span class="small b">Boucherie Fofana</span><span class="small num">5 / 5</span></span><span class="small muted">Bœuf conforme à la fiche, poids annoncé exact. Livraison à l’heure.</span><span class="xs muted">Achat vérifié, 28/10/2026</span></div>
+        <div class="card pad col" style="gap: 6px"><span class="row between"><span class="small b">Kouassi A.</span><span class="small num">4 / 5</span></span><span class="small muted">Bon bélier, un jour de retard sur la livraison.</span><span class="xs muted">Achat vérifié, 14/10/2026</span></div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { tab: 'ads' }; }
+  renderVals() {
+    const cur = this.state.tab;
+    const T = [['ads', 'Annonces (4)'], ['orders', 'Commandes (3)'], ['reviews', 'Avis (23)']];
+    return {
+      tabs: T.map(([id, t]) => ({ t, cls: cur === id ? 'on' : '', pick: () => this.setState({ tab: id }) })),
+      isAds: cur === 'ads', isOrders: cur === 'orders', isReviews: cur === 'reviews'
+    };
+  }
+}
+</script>
+</body>
+</html>

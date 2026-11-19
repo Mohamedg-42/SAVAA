@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Choix du rôle</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app" style="background: #fff">
+  <div class="hdr" style="background: #fff; color: #17201B">
+    <a class="iconbtn" href="03-Connexion.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1></h1>
+    <span class="small muted" style="padding-right: 12px">Étape 2 sur 3</span>
+  </div>
+  <div class="body" style="background: #fff; padding: 4px 20px 20px; gap: 18px">
+    <div class="col" style="gap: 6px">
+      <h2 style="font-size: 24px; font-weight: 600; line-height: 1.25">Que faites-vous sur SAVAA ?</h2>
+      <p class="muted">Choisissez un ou plusieurs profils. Vous pourrez en ajouter plus tard depuis votre compte.</p>
+    </div>
+    <div class="card list">
+      <sc-for list="{{roles}}" as="r" hint-placeholder-count="8">
+        <button class="li" onClick="{{r.pick}}" style="width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: {{r.bg}}; text-align: left; font-family: inherit; cursor: pointer; color: inherit">
+          <span class="{{r.cls}}"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+          <span class="col grow" style="gap: 2px">
+            <span class="b" style="font-size: 14.5px">{{r.t}}</span>
+            <span class="small muted">{{r.d}}</span>
+          </span>
+          <sc-if value="{{r.v}}" hint-placeholder-val="{{ false }}"><span class="badge bd-amber">Vérification</span></sc-if>
+        </button>
+      </sc-for>
+    </div>
+    <p class="hint">Les profils marqués « Vérification » demandent un justificatif avant d’accéder aux fonctions réservées.</p>
+  </div>
+  <div class="foot" style="border-top: 0; padding-bottom: 24px">
+    <a class="btn btn-p" href="12b-Creer-boutique.dc.html">Continuer ({{count}})</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { sel: { eleveur: true, vendeur: true } }; }
+  renderVals() {
+    const base = [
+      { id: 'eleveur', t: 'Éleveur', d: 'Cheptel, fiches animales, santé, ventes' },
+      { id: 'agri', t: 'Producteur agricole', d: 'Récoltes, quantités, disponibilités' },
+      { id: 'vendeur', t: 'Vendeur / commerçant', d: 'Boutique, stock, mise en avant' },
+      { id: 'fourn', t: 'Fournisseur / entreprise', d: 'Aliments, intrants, équipements, devis' },
+      { id: 'resto', t: 'Restaurant / hôtel', d: 'Achats en volume, commandes récurrentes' },
+      { id: 'achat', t: 'Acheteur particulier', d: 'Rechercher, comparer, commander' },
+      { id: 'veto', t: 'Vétérinaire / agent habilité', d: 'Consultations et validations sanitaires', v: true },
+      { id: 'coursier', t: 'Coursier / transporteur', d: 'Missions de livraison', v: true }
+    ];
+    const sel = this.state.sel;
+    const roles = base.map((r) => ({
+      ...r,
+      cls: sel[r.id] ? 'check on' : 'check',
+      bg: sel[r.id] ? '#E8F3EA' : '#fff',
+      pick: () => this.setState({ sel: { ...sel, [r.id]: !sel[r.id] } })
+    }));
+    return { roles, count: Object.values(sel).filter(Boolean).length };
+  }
+}
+</script>
+</body>
+</html>

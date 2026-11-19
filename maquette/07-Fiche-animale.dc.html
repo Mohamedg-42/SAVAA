@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Fiche animale FK-0142</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="09-Cheptel.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1>Fiche animale</h1>
+    <button class="iconbtn" aria-label="Partager la fiche"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="6" r="2.5"></circle><circle cx="18" cy="18" r="2.5"></circle><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"></path></svg></button>
+  </div>
+  <div class="body flush">
+    <div style="background: #fff; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <div class="row top" style="gap: 14px">
+        <div class="ph" style="width: 96px; height: 96px; border-radius: 8px"><span>Photo</span></div>
+        <div class="col grow" style="gap: 3px">
+          <span class="small muted num">FK-0142, N° interne</span>
+          <span class="b" style="font-size: 17px; line-height: 1.25">Taurillon Zébu Goudali</span>
+          <span class="small muted">Mâle, né le 12/09/2024 (26 mois)</span>
+          <div class="wrap" style="margin-top: 4px"><span class="badge bd-sp">En vente</span><a class="badge bd-grey" href="06-Annonce.dc.html">Voir l’annonce</a></div>
+        </div>
+      </div>
+      <div class="card" style="padding: 12px; background: #F8FAF8">
+        <div class="row between" style="gap: 8px">
+          <span class="col" style="gap: 2px"><span class="xs muted">Identifiant officiel</span><span class="b num">CI-BOV-2024-•••4817</span></span>
+          <span class="badge bd-amber">À vérifier</span>
+        </div>
+        <p class="xs muted" style="margin-top: 8px; line-height: 1.45">Saisi par l’éleveur, en attente de contrôle par un agent.</p>
+      </div>
+      <div class="wrap" style="gap: 6px 10px">
+        <span class="xs muted" style="width: 100%">Niveaux de preuve</span>
+        <span class="badge bd-grey">Déclaré</span><span class="badge bd-blue">Documenté</span><span class="badge bd-green">Vérifié</span><span class="badge bd-cert">Certifié</span>
+      </div>
+    </div>
+    <div class="utabs">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+        <button class="{{t.cls}}" onClick="{{t.pick}}">{{t.t}}</button>
+      </sc-for>
+    </div>
+    <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px">
+      <sc-if value="{{isId}}" hint-placeholder-val="{{ true }}">
+        <div class="card pad">
+          <dl class="kv">
+            <dt>Espèce / race</dt><dd>Bovin, Zébu Goudali</dd>
+            <dt>Robe</dt><dd>Blanc pie, cornes en lyre</dd>
+            <dt>Signes</dt><dd>Cicatrice flanc droit</dd>
+            <dt>Poids</dt><dd class="num">312 kg, pesé le 04/11/2026 <span class="badge bd-blue">Documenté</span></dd>
+            <dt>Exploitation</dt><dd>Ferme Koné &amp; Fils, Sinématiali</dd>
+            <dt>Détenteur</dt><dd>Adama Koné</dd>
+            <dt>Élevage</dt><dd>Semi-intensif, pâturage + complément</dd>
+            <dt>Entrée</dt><dd class="num">12/09/2024, né sur place</dd>
+          </dl>
+        </div>
+        <div class="card pad col" style="gap: 8px">
+          <span class="b small">Alimentation déclarée</span>
+          <span class="small muted">Pâturage naturel, tourteau de coton 1,5 kg/j, pierre à lécher. <span class="badge bd-grey">Déclaré</span></span>
+        </div>
+      </sc-if>
+      <sc-if value="{{isSante}}" hint-placeholder-val="{{ false }}">
+        <div class="card pad">
+          <div class="tl">
+            <div class="tli"><span class="tld f"></span><div class="col"><span class="row between"><span class="b small">Vaccin péripneumonie (PPCB)</span><span class="badge bd-green">Vérifié</span></span><span class="xs muted num">02/10/2026, Dr Y. Coulibaly, lot n° PB-2291</span></div></div>
+            <div class="tli"><span class="tld f"></span><div class="col"><span class="row between"><span class="b small">Déparasitage interne</span><span class="badge bd-blue">Documenté</span></span><span class="xs muted num">15/08/2026, ivermectine, facture jointe</span></div></div>
+            <div class="tli"><span class="tld"></span><div class="col"><span class="row between"><span class="b small">Observation : toux légère</span><span class="badge bd-grey">Déclaré</span></span><span class="xs muted num">28/07/2026, A. Koné, clôturée le 03/08</span></div></div>
+            <div class="tli"><span class="tld f"></span><div class="col"><span class="row between"><span class="b small">Vaccin dermatose nodulaire</span><span class="badge bd-green">Vérifié</span></span><span class="xs muted num">10/03/2026, Dr Y. Coulibaly</span></div></div>
+          </div>
+        </div>
+        <a class="btn btn-s btn-block" href="10-Dossier-sanitaire.dc.html">Dossier sanitaire complet</a>
+      </sc-if>
+      <sc-if value="{{isAsc}}" hint-placeholder-val="{{ false }}">
+        <div class="grid2">
+          <div class="card pad col" style="gap: 4px"><span class="xs muted">Père</span><span class="b small">Taureau Goudali</span><span class="xs muted num">CI-BOV-2019-•••0233</span><span class="badge bd-blue" style="align-self: flex-start; margin-top: 4px">Documenté</span></div>
+          <div class="card pad col" style="gap: 4px"><span class="xs muted">Mère</span><span class="b small">FK-0041, Zébu</span><span class="xs muted">Née sur l’exploitation</span><span class="badge bd-grey" style="align-self: flex-start; margin-top: 4px">Déclaré</span></div>
+        </div>
+        <p class="hint">Saillie naturelle, géniteur loué à la Ferme Silué (Napiéolédougou), contrat joint.</p>
+      </sc-if>
+      <sc-if value="{{isMvt}}" hint-placeholder-val="{{ false }}">
+        <div class="card pad">
+          <div class="tl">
+            <div class="tli"><span class="tld o"></span><div class="col"><span class="b small">Mise en vente sur SAVAA</span><span class="xs muted num">06/11/2026, annonce n° A-20931</span></div></div>
+            <div class="tli"><span class="tld f"></span><div class="col"><span class="b small">Transhumance courte, parc de Kassoumbarga</span><span class="xs muted num">Juin à sept. 2026, retour le 21/09</span></div></div>
+            <div class="tli"><span class="tld f"></span><div class="col"><span class="b small">Naissance sur l’exploitation</span><span class="xs muted num">12/09/2024, Sinématiali</span></div></div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{isHist}}" hint-placeholder-val="{{ false }}">
+        <div class="card list">
+          <div class="li"><div class="col grow"><span class="small b">Poids modifié : 298 → 312 kg</span><span class="xs muted num">04/11/2026 15:22, A. Koné</span></div></div>
+          <div class="li"><div class="col grow"><span class="small b">Vaccin PPCB validé</span><span class="xs muted num">02/10/2026 11:05, Dr Y. Coulibaly</span></div></div>
+          <div class="li"><div class="col grow"><span class="small b">Identifiant officiel ajouté</span><span class="xs muted num">20/03/2025 09:40, A. Koné</span></div></div>
+        </div>
+      </sc-if>
+      <p class="xs muted" style="line-height: 1.45">Mise à jour le 14/11/2026. Ne remplace pas un certificat sanitaire officiel.</p>
+    </div>
+  </div>
+  <div class="foot">
+    <a class="btn btn-s" href="11-Observation.dc.html">Observation</a>
+    <a class="btn btn-p" href="10-Dossier-sanitaire.dc.html">Dossier sanitaire</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { tab: 'id' }; }
+  renderVals() {
+    const T = [['id', 'Identité'], ['sante', 'Santé'], ['asc', 'Ascendance'], ['mvt', 'Mouvements'], ['hist', 'Historique']];
+    const cur = this.state.tab;
+    return {
+      tabs: T.map(([id, t]) => ({ t, cls: cur === id ? 'on' : '', pick: () => this.setState({ tab: id }) })),
+      isId: cur === 'id', isSante: cur === 'sante', isAsc: cur === 'asc', isMvt: cur === 'mvt', isHist: cur === 'hist'
+    };
+  }
+}
+</script>
+</body>
+</html>

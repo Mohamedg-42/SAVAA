@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Design system</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}*{box-sizing:border-box}</style>
+</helmet>
+<div style="width: 1200px; height: 1180px; padding: 48px; background: #F8FAF8; color: #17201B; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; display: flex; flex-direction: column; gap: 32px">
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <span style="font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #145C3A">Mini design system</span>
+    <h1 style="margin: 0; font-size: 34px; font-weight: 700; color: #145C3A">SAVAA, composants de la maquette</h1>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px">
+    <section style="display: flex; flex-direction: column; gap: 14px">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600">Couleurs</h2>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+        <div class="card" style="overflow: hidden"><div style="height: 64px; background: #145C3A"></div><div style="padding: 8px 10px"><div class="b small">Vert profond</div><div class="xs muted">#145C3A</div></div></div>
+        <div class="card" style="overflow: hidden"><div style="height: 64px; background: #E8F3EA"></div><div style="padding: 8px 10px"><div class="b small">Vert clair</div><div class="xs muted">#E8F3EA</div></div></div>
+        <div class="card" style="overflow: hidden"><div style="height: 64px; background: #F28C28"></div><div style="padding: 8px 10px"><div class="b small">Orange</div><div class="xs muted">#F28C28</div></div></div>
+        <div class="card" style="overflow: hidden"><div style="height: 64px; background: #F8FAF8; border-bottom: 1px solid #E3E7E4"></div><div style="padding: 8px 10px"><div class="b small">Fond clair</div><div class="xs muted">#F8FAF8</div></div></div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px">
+        <div><div style="height: 28px; border-radius: 4px; background: #17201B"></div><div class="xs muted">Texte</div></div>
+        <div><div style="height: 28px; border-radius: 4px; background: #5D6862"></div><div class="xs muted">Secondaire</div></div>
+        <div><div style="height: 28px; border-radius: 4px; background: #E3E7E4"></div><div class="xs muted">Bordure</div></div>
+        <div><div style="height: 28px; border-radius: 4px; background: #B42318"></div><div class="xs muted">Alerte</div></div>
+        <div><div style="height: 28px; border-radius: 4px; background: #FCF1DC; border: 1px solid #E3E7E4"></div><div class="xs muted">En attente</div></div>
+        <div><div style="height: 28px; border-radius: 4px; background: #1D4E89"></div><div class="xs muted">Documenté</div></div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600">Typographie · IBM Plex Sans</h2>
+      <div class="card" style="padding: 18px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: baseline; gap: 16px"><span class="xs muted" style="width: 90px">Titre écran</span><span style="font-size: 24px; font-weight: 600">Fiche animale</span></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><span class="xs muted" style="width: 90px">En-tête</span><span style="font-size: 17px; font-weight: 600">Dossier sanitaire</span></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><span class="xs muted" style="width: 90px">Section</span><span style="font-size: 15px; font-weight: 600; color: #145C3A">Échéances</span></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><span class="xs muted" style="width: 90px">Prix</span><span style="font-size: 15px; font-weight: 700; color: #145C3A">650 000 FCFA</span></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><span class="xs muted" style="width: 90px">Corps</span><span>Taurillon né sur l’exploitation, élevé au pâturage.</span></div>
+        <div style="display: flex; align-items: baseline; gap: 16px"><span class="xs muted" style="width: 90px">Légende</span><span style="font-size: 12px; color: #5D6862">Pesé le 04/11/2026</span></div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 14px">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600">Boutons</h2>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <button class="btn btn-p">Commander via SAVAA</button>
+        <button class="btn btn-s">Contacter</button>
+        <button class="btn btn-o">Mettre en avant</button>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <button class="btn btn-danger">Signaler un problème</button>
+        <button class="btn btn-p" disabled="disabled">Désactivé</button>
+        <button class="btn btn-p btn-sm">Petit</button>
+        <button class="btn btn-ghost">Lien d’action</button>
+      </div>
+      <p class="xs muted" style="margin: 0">Hauteur 48 px (36 px en petit), cible tactile d’au moins 44 px.</p>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 14px">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600">Champs et contrôles</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+        <div class="field"><label>Prix (FCFA)</label><div class="input num b">480 000</div></div>
+        <div class="field"><label>Catégorie</label><div class="input sel"><span>Bovins</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></div></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 22px; flex-wrap: wrap">
+        <span style="display: flex; align-items: center; gap: 8px"><span class="toggle on"></span>Activé</span>
+        <span style="display: flex; align-items: center; gap: 8px"><span class="check on"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>Coché</span>
+        <span style="display: flex; align-items: center; gap: 8px"><span class="radio on"></span>Choisi</span>
+        <span class="chip on">Filtre actif</span><span class="chip">Filtre</span>
+      </div>
+      <div class="seg" style="max-width: 360px"><button class="on">Livraison</button><button>Retrait</button></div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 14px">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600">Badges</h2>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span class="xs muted" style="width: 120px">Niveaux de preuve</span><span class="badge bd-grey">Déclaré</span><span class="badge bd-blue">Documenté</span><span class="badge bd-green">Vérifié</span><span class="badge bd-cert">Certifié</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span class="xs muted" style="width: 120px">Commerce</span><span class="badge bd-sp">Sponsorisé</span><span class="badge bd-green">Disponible</span><span class="badge bd-red">Rupture</span><span class="badge bd-amber">En revue</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span class="xs muted" style="width: 120px">Paiement</span><span class="badge bd-blue">Initié</span><span class="badge bd-green">Confirmé</span><span class="badge bd-red">Échoué</span><span class="badge bd-grey">Expiré</span><span class="badge bd-amber">Contesté</span></div>
+      </div>
+      <p class="xs muted" style="margin: 0">« Sponsorisé » est toujours affiché sur une annonce payée, jamais caché.</p>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 14px">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 600">Cartes et navigation</h2>
+      <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px; align-items: start">
+        <div class="pc">
+          <div class="ph"><span>Photo</span></div>
+          <div class="in"><span class="small b">Taurillon Zébu</span><span class="price">650 000 FCFA</span><span class="xs muted">Sinématiali, 12 km</span><span class="badge bd-green" style="align-self: flex-start">Fiche vérifiée</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div class="card list">
+            <div class="li"><div class="col grow"><span class="small b">FK-0142, Taurillon</span><span class="xs muted">Mâle, 26 mois</span></div><span class="badge bd-sp">En vente</span></div>
+            <div class="li"><div class="col grow"><span class="small b">FK-0119, Brebis</span><span class="xs muted">Alerte ouverte</span></div><span class="badge bd-red">Alerte</span></div>
+          </div>
+          <nav class="tabbar card" style="border-radius: 10px; padding-top: 8px">
+            <span class="tab on"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Accueil</span>
+            <span class="tab"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Explorer</span>
+            <span class="tab"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"></rect><path d="M12 8v8M8 12h8"></path></svg>Vendre</span>
+            <span class="tab"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Suivi</span>
+            <span class="tab"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Compte</span>
+          </nav>
+        </div>
+      </div>
+    </section>
+  </div>
+  <p style="margin: 0; font-size: 12px; color: #5D6862">Rayons : 10 px pour les cartes, 8 px pour boutons et champs. Espacements par pas de 4 px. Icônes en trait de 1,75 px, 20 à 24 px.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

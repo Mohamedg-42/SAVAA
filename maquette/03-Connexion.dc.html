@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Connexion</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app" style="background: #fff">
+  <div class="hdr" style="background: #fff; color: #17201B">
+    <a class="iconbtn" href="Main.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <h1></h1>
+    <span class="b" style="font-size: 15px; letter-spacing: 0.06em; color: #145C3A; padding-right: 12px">SAVAA</span>
+  </div>
+  <div class="body" style="background: #fff; padding: 8px 20px 20px; gap: 22px">
+    <div class="col" style="gap: 6px">
+      <h2 style="font-size: 24px; font-weight: 600; line-height: 1.25">Connexion ou inscription</h2>
+      <p class="muted">Un seul compte pour acheter, vendre et suivre votre cheptel.</p>
+    </div>
+    <div class="seg">
+      <button class="{{telCls}}" onClick="{{toTel}}">Téléphone</button>
+      <button class="{{mailCls}}" onClick="{{toMail}}">E-mail</button>
+    </div>
+    <sc-if value="{{isTel}}" hint-placeholder-val="{{ true }}">
+      <div class="field">
+        <label>Numéro de téléphone</label>
+        <div class="row" style="gap: 8px">
+          <div class="input" style="width: 92px; flex: none; justify-content: center; font-weight: 500">+225</div>
+          <div class="input num" style="font-weight: 500">07 48 12 33 90</div>
+        </div>
+        <p class="hint">Nous envoyons un code à 6 chiffres par SMS.</p>
+      </div>
+    </sc-if>
+    <sc-if value="{{isMail}}" hint-placeholder-val="{{ false }}">
+      <div class="field">
+        <label>Adresse e-mail</label>
+        <div class="input">adama.kone@exemple.ci</div>
+        <p class="hint">Nous envoyons un code à 6 chiffres par e-mail.</p>
+      </div>
+    </sc-if>
+    <div class="field">
+      <div class="row between"><span class="lbl">Code reçu</span><span class="link">Renvoyer (0:42)</span></div>
+      <div class="otp num"><div>4</div><div>8</div><div>1</div><div class="on">2</div><div></div><div></div></div>
+    </div>
+    <div class="col" style="gap: 14px">
+      <button class="row top" onClick="{{toggleCgu}}" style="border: 0; background: none; padding: 0; text-align: left; font-family: inherit; cursor: pointer; color: inherit">
+        <span class="{{cguCls}}"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+        <span class="small" style="line-height: 1.45">J’accepte les <span class="link" style="font-size: inherit">conditions d’utilisation</span> et la <span class="link" style="font-size: inherit">politique de confidentialité</span>.</span>
+      </button>
+      <button class="row top" onClick="{{toggleMkt}}" style="border: 0; background: none; padding: 0; text-align: left; font-family: inherit; cursor: pointer; color: inherit">
+        <span class="{{mktCls}}"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width: 3"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>
+        <span class="small" style="line-height: 1.45">Recevoir les offres et informations de SAVAA par SMS ou WhatsApp. Facultatif, modifiable à tout moment.</span>
+      </button>
+    </div>
+  </div>
+  <div class="foot" style="border-top: 0; padding-bottom: 24px">
+    <a class="btn btn-p" href="04-Role.dc.html">Valider le code</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { mode: 'tel', cgu: true, mkt: false }; }
+  renderVals() {
+    const s = this.state;
+    return {
+      isTel: s.mode === 'tel', isMail: s.mode === 'mail',
+      telCls: s.mode === 'tel' ? 'on' : '', mailCls: s.mode === 'mail' ? 'on' : '',
+      toTel: () => this.setState({ mode: 'tel' }), toMail: () => this.setState({ mode: 'mail' }),
+      cguCls: s.cgu ? 'check on' : 'check', mktCls: s.mkt ? 'check on' : 'check',
+      toggleCgu: () => this.setState({ cgu: !s.cgu }), toggleMkt: () => this.setState({ mkt: !s.mkt })
+    };
+  }
+}
+</script>
+</body>
+</html>

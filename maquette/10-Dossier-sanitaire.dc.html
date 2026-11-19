@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Dossier sanitaire</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr">
+    <a class="iconbtn" href="07-Fiche-animale.dc.html" aria-label="Retour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+    <div class="col grow" style="gap: 0; padding: 0 6px">
+      <span class="b" style="font-size: 17px">Dossier sanitaire</span>
+      <span class="xs muted ell">FK-0142, Taurillon Zébu Goudali</span>
+    </div>
+    <button class="iconbtn" aria-label="Exporter en PDF"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"></path></svg></button>
+  </div>
+  <div style="background: #fff; border-bottom: 1px solid #E3E7E4; padding: 12px 16px; flex: none">
+    <div class="seg">
+      <sc-for list="{{filters}}" as="f" hint-placeholder-count="4">
+        <button class="{{f.cls}}" onClick="{{f.pick}}">{{f.t}}</button>
+      </sc-for>
+    </div>
+  </div>
+  <div class="body">
+    <div class="grid3">
+      <div class="card stat" style="padding: 12px"><span class="v">4</span><span class="l">Vaccins</span></div>
+      <div class="card stat" style="padding: 12px"><span class="v">2</span><span class="l">Traitements</span></div>
+      <div class="card stat" style="padding: 12px"><span class="v">0</span><span class="l">Alerte ouverte</span></div>
+    </div>
+    <div class="notice n-grey">
+      <svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></svg>
+      <span>Prochain rappel : <b>PPCB le 02/10/2027</b>. Rappel envoyé 15 jours avant.</span>
+    </div>
+    <div class="card pad">
+      <div class="tl">
+        <sc-for list="{{events}}" as="e" hint-placeholder-count="5">
+          <div class="tli">
+            <span class="{{e.dot}}"></span>
+            <div class="col" style="gap: 4px">
+              <span class="row between" style="gap: 8px"><span class="xs muted num">{{e.date}}</span><span class="badge {{e.pc}}">{{e.p}}</span></span>
+              <span class="b small">{{e.t}}</span>
+              <span class="small muted" style="line-height: 1.45">{{e.d}}</span>
+              <sc-if value="{{e.file}}" hint-placeholder-val="{{ false }}"><span class="row xs" style="gap: 6px; color: #145C3A; font-weight: 600"><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg>{{e.file}}</span></sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <a class="btn btn-p" href="11-Observation.dc.html">Ajouter une observation</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { f: 'all' }; }
+  renderVals() {
+    const P = { D: ['Déclaré', 'bd-grey'], Doc: ['Documenté', 'bd-blue'], V: ['Vérifié', 'bd-green'] };
+    const all = [
+      { k: 'vac', date: '02/10/2026', t: 'Vaccination péripneumonie (PPCB)', d: 'Dr Y. Coulibaly, vétérinaire mandaté. Voie sous-cutanée. Lot PB-2291.', p: 'V', file: 'Attestation_PPCB.pdf' },
+      { k: 'trt', date: '15/08/2026', t: 'Déparasitage interne', d: 'Ivermectine 1 %, 1 ml / 50 kg. Administré par A. Koné.', p: 'Doc', file: 'Facture_pharmacie_vet.jpg' },
+      { k: 'obs', date: '03/08/2026', t: 'Observation clôturée', d: 'Toux disparue après 6 jours. Appétit normal.', p: 'D' },
+      { k: 'trt', date: '29/07/2026', t: 'Traitement prescrit', d: 'Oxytétracycline LA, 1 injection. Prescription du Dr Coulibaly après examen.', p: 'V', file: 'Ordonnance_0729.pdf' },
+      { k: 'obs', date: '28/07/2026', t: 'Observation : toux légère', d: 'Toux sèche le matin, appétit conservé. Priorité faible.', p: 'D' },
+      { k: 'vac', date: '10/03/2026', t: 'Vaccination dermatose nodulaire', d: 'Campagne départementale, Dr Y. Coulibaly.', p: 'V' }
+    ];
+    const F = [['all', 'Tout'], ['obs', 'Observ.'], ['trt', 'Traitem.'], ['vac', 'Vaccins']];
+    const cur = this.state.f;
+    const events = all.filter((e) => cur === 'all' || e.k === cur).map((e) => ({
+      ...e, p: P[e.p][0], pc: P[e.p][1], file: e.file || '', dot: e.k === 'obs' ? 'tld' : 'tld f'
+    }));
+    return { filters: F.map(([id, t]) => ({ t, cls: cur === id ? 'on' : '', pick: () => this.setState({ f: id }) })), events };
+  }
+}
+</script>
+</body>
+</html>

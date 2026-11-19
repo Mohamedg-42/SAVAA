@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAVAA · Profil et vérification</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/d7691cb4d7e8633274c8d78741302bcf">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="app">
+  <div class="hdr" style="padding-left: 16px">
+    <h1 style="padding: 0">Mon compte</h1>
+    <a class="iconbtn" href="21-Assistance.dc.html" aria-label="Assistance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg></a>
+  </div>
+  <div class="body">
+    <div class="card pad row" style="gap: 14px">
+      <span class="av" style="width: 56px; height: 56px; font-size: 18px">AK</span>
+      <div class="col grow" style="gap: 3px">
+        <span class="b" style="font-size: 16px">Adama Koné</span>
+        <span class="small muted ell">Ferme Koné &amp; Fils, Sinématiali</span>
+        <div class="wrap" style="margin-top: 4px"><span class="badge bd-green">Éleveur</span><span class="badge bd-green">Vendeur</span><span class="badge bd-grey">+ Ajouter un rôle</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sech"><h2>Niveau de vérification</h2><span class="small b num">2 / 3</span></div>
+      <div class="card">
+        <div style="padding: 14px 14px 4px"><div class="bar"><i style="width: 66%"></i></div></div>
+        <div class="list">
+          <div class="li">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: #145C3A"><circle cx="12" cy="12" r="9"></circle><path d="m8 12.5 2.8 2.8L16.5 9.5"></path></svg>
+            <div class="col grow"><span class="b small">Téléphone confirmé</span><span class="xs muted">+225 07 48 •• •• 90, le 02/03/2025</span></div>
+            <span class="badge bd-green">Vérifié</span>
+          </div>
+          <div class="li">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: #145C3A"><circle cx="12" cy="12" r="9"></circle><path d="m8 12.5 2.8 2.8L16.5 9.5"></path></svg>
+            <div class="col grow"><span class="b small">Pièce d’identité</span><span class="xs muted">CNI contrôlée par l’équipe SAVAA</span></div>
+            <span class="badge bd-green">Vérifié</span>
+          </div>
+          <div class="li">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="color: #F28C28"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V12l3 2"></path></svg>
+            <div class="col grow"><span class="b small">Exploitation</span><span class="xs muted">Visite d’un agent prévue le 25/11/2026</span></div>
+            <span class="badge bd-amber">En attente</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sech"><h2>Justificatifs</h2><span class="link">Ajouter</span></div>
+      <div class="card list">
+        <div class="li"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg><div class="col grow"><span class="small b ell">CNI recto-verso.pdf</span><span class="xs muted">Ajouté le 03/03/2025</span></div><span class="badge bd-green">Vérifié</span></div>
+        <div class="li"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg><div class="col grow"><span class="small b ell">Attestation d’exploitation, mairie.jpg</span><span class="xs muted">Ajouté le 10/11/2026</span></div><span class="badge bd-blue">Documenté</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sech"><h2>Préférences</h2></div>
+      <div class="card list">
+        <button class="li" onClick="{{tPush}}" style="width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: #fff; text-align: left; font-family: inherit; cursor: pointer; color: inherit"><span class="grow small b">Alertes sanitaires et commandes</span><span class="{{push}}"></span></button>
+        <button class="li" onClick="{{tMkt}}" style="width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: #fff; text-align: left; font-family: inherit; cursor: pointer; color: inherit"><span class="col grow"><span class="small b">Offres et informations SAVAA</span><span class="xs muted">SMS ou WhatsApp, désinscription à tout moment</span></span><span class="{{mkt}}"></span></button>
+        <div class="li"><span class="grow small b">Langue</span><span class="small muted">Français</span></div>
+      </div>
+    </div>
+
+    <div class="card list">
+      <a class="li" href="19-Recu.dc.html"><span class="grow small b">Paiements et reçus</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></a>
+      <a class="li" href="12-Boutique.dc.html"><span class="grow small b">Ma boutique</span><svg class="ic sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></a>
+      <a class="li" href="Main.dc.html"><span class="grow small b" style="color: #A0221A">Se déconnecter</span></a>
+    </div>
+  </div>
+  <nav class="tabbar">
+    <a class="tab" href="02-Accueil.dc.html"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Accueil</a>
+    <a class="tab" href="05-Catalogue.dc.html"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Explorer</a>
+    <a class="tab" href="13-Publier.dc.html"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"></rect><path d="M12 8v8M8 12h8"></path></svg>Vendre</a>
+    <a class="tab" href="08-Tableau-eleveur.dc.html"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Suivi</a>
+    <a class="tab on" href="23-Profil.dc.html"><svg class="ic lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Compte</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { push: true, mkt: false }; }
+  renderVals() {
+    const s = this.state;
+    return {
+      push: s.push ? 'toggle on' : 'toggle', mkt: s.mkt ? 'toggle on' : 'toggle',
+      tPush: () => this.setState({ push: !s.push }), tMkt: () => this.setState({ mkt: !s.mkt })
+    };
+  }
+}
+</script>
+</body>
+</html>
