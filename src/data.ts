@@ -26,6 +26,7 @@ export type Animal = {
 export type EventKind = 'obs' | 'trt' | 'vac';
 
 export type HealthEvent = {
+  animalId: string;
   kind: EventKind;
   date: string;
   title: string;
@@ -47,14 +48,22 @@ let animals: Animal[] = [
   { id: 'FK-0150', species: 'bovin', name: 'Veau N’Dama', details: 'Mâle, 3 mois, ID à renseigner', status: 'ID manquant', tone: 'grey' },
 ];
 
-/* Dossier sanitaire du taurillon FK-0142 (modèle partagé par les autres animaux en démo). */
+const forAnimal = (animalId: string, list: Omit<HealthEvent, 'animalId'>[]): HealthEvent[] => list.map((e) => ({ animalId, ...e }));
+
+/* Dossiers sanitaires de démo : taurillon FK-0142 (complet) et brebis FK-0119 (alerte ouverte). Les autres animaux n'ont pas encore d'événement. */
 let events: HealthEvent[] = [
+  ...forAnimal('FK-0119', [
+    { kind: 'obs', date: '18/11/2026', title: 'Observation : boiterie', text: 'Boiterie antérieure gauche, signalée ce matin par A. Koné. Urgence moyenne.', proof: 'declared' },
+    { kind: 'vac', date: '14/05/2026', title: 'Vaccination peste des petits ruminants (PPR)', text: 'Campagne départementale, Dr Y. Coulibaly.', proof: 'verified' },
+  ]),
+  ...forAnimal('FK-0142', [
   { kind: 'vac', date: '02/10/2026', title: 'Vaccination péripneumonie (PPCB)', text: 'Dr Y. Coulibaly, vétérinaire mandaté. Voie sous-cutanée. Lot PB-2291.', proof: 'verified', file: 'Attestation_PPCB.pdf' },
   { kind: 'trt', date: '15/08/2026', title: 'Déparasitage interne', text: 'Ivermectine 1 %, 1 ml / 50 kg. Administré par A. Koné.', proof: 'documented', file: 'Facture_pharmacie_vet.jpg' },
   { kind: 'obs', date: '03/08/2026', title: 'Observation clôturée', text: 'Toux disparue après 6 jours. Appétit normal.', proof: 'declared' },
   { kind: 'trt', date: '29/07/2026', title: 'Traitement prescrit', text: 'Oxytétracycline LA, 1 injection. Prescription du Dr Coulibaly après examen.', proof: 'verified', file: 'Ordonnance_0729.pdf' },
   { kind: 'obs', date: '28/07/2026', title: 'Observation : toux légère', text: 'Toux sèche le matin, appétit conservé. Priorité faible.', proof: 'declared' },
   { kind: 'vac', date: '10/03/2026', title: 'Vaccination dermatose nodulaire', text: 'Campagne départementale, Dr Y. Coulibaly.', proof: 'verified' },
+  ]),
 ];
 
 /* Effectifs de la maquette (18, 22, 6) : animaux non listés + animaux listés. */
@@ -69,8 +78,9 @@ const emit = () => {
 
 export const store = {
   animals: () => animals,
-  events: () => events,
-  animal: (id: string) => animals.find((a) => a.id === id) ?? animals[0],
+  /** `undefined` si l'identifiant est inconnu : l'écran affiche alors « introuvable ». */
+  animal: (id: string): Animal | undefined => animals.find((a) => a.id === id),
+  eventsFor: (animalId: string) => events.filter((e) => e.animalId === animalId),
   count: (s: Species) => UNLISTED[s] + animals.filter((a) => a.species === s).length,
   total: () => (['bovin', 'ovin', 'caprin'] as Species[]).reduce((n, s) => n + store.count(s), 0),
   addAnimal(a: Animal) {

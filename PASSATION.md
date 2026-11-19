@@ -23,7 +23,7 @@ npm run lint
 | Fichier | Rôle |
 | --- | --- |
 | `src/index.css` | Feuille de style de la maquette, reprise telle quelle (classes `.app`, `.hdr`, `.card`, `.badge`, `.btn`, `.adm`…) |
-| `src/ui.tsx` | Icônes, `Header`, `TabBar`, `Badge`, `Photo`, `Foot`, `SectionHead`, `Check` |
+| `src/ui.tsx` | Icônes, `Header`, `TabBar`, `Badge`, `Photo`, `Foot`, `SectionHead`, `Check`, `NotFound` (écran « introuvable » pour un identifiant d'URL inconnu) |
 | `src/data.ts` | Données de démo + store réactif (`useStore`) : animaux, événements sanitaires, panier |
 | `src/App.tsx` | Toutes les routes de l'application (HashRouter) |
 | `src/screens/eleveur.tsx` | Lot 2 : tableau de bord (`/suivi`), cheptel (`/cheptel`), ajout d'animal (`/cheptel/ajout`) |
@@ -51,3 +51,5 @@ npm run lint
 - Paiements, MIRAH, capteurs = simulés ; « Sponsorisé » toujours affiché sur une annonce payée ; une alerte n'est jamais un diagnostic.
 - Photos : emplacements `<Photo>` en attendant les vraies images et le logo officiel.
 - Pas de « · » comme séparateur dans les textes (virgule à la place).
+- Un identifiant d'URL inconnu (`/animal/:id`, `/annonce/:id`, `/prospect/:id`) affiche `NotFound`, jamais un autre élément à la place.
+- Chaque événement sanitaire porte son `animalId` ; lire un dossier avec `store.eventsFor(id)`. Seul FK-0142 a une fiche complète (race, ascendance, mouvements) et seule son annonce a une page de détail ; les autres cartes d'annonce ne sont pas cliquables.

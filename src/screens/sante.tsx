@@ -1,7 +1,23 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { PROOF, useStore, type EventKind, type HealthEvent } from '../data';
-import { Badge, Foot, Header, Icon, Photo } from '../ui';
+import { PROOF, useStore, type Animal, type EventKind, type HealthEvent } from '../data';
+import { Badge, Foot, Header, Icon, NotFound, Photo } from '../ui';
+
+/* Seul le taurillon FK-0142 a une fiche complète dans la maquette (race, ascendance, mouvements…). */
+const DEMO_ID = 'FK-0142';
+const SPECIES_LABEL = { bovin: 'Bovin', ovin: 'Ovin', caprin: 'Caprin' } as const;
+
+/** Résout l'animal de l'URL, ou affiche « introuvable ». */
+function WithAnimal({ render }: { render: (a: Animal) => ReactNode }) {
+  const { id = '' } = useParams();
+  const a = useStore().animal(id);
+  if (!a) return <NotFound title="Fiche animale" text={`Aucun animal ne porte le numéro « ${id} » dans votre cheptel.`} to="/cheptel" cta="Voir mon cheptel" />;
+  return <>{render(a)}</>;
+}
+
+function Empty({ children }: { children: ReactNode }) {
+  return <div className="card pad"><span className="small muted">{children}</span></div>;
+}
 
 function Timeline({ children }: { children: ReactNode }) {
   return <div className="tl">{children}</div>;
@@ -20,9 +36,13 @@ const dotFor = (e: HealthEvent) => (e.pending ? 'tld a' : e.kind === 'obs' ? 'tl
 
 /* Écran 07 : fiche individuelle et traçabilité. */
 export function AnimalSheet() {
-  const { id = 'FK-0142' } = useParams();
+  return <WithAnimal render={(a) => <AnimalSheetInner key={a.id} a={a} />} />;
+}
+
+function AnimalSheetInner({ a }: { a: Animal }) {
   const s = useStore();
-  const a = s.animal(id);
+  const full = a.id === DEMO_ID;
+  const recent = s.eventsFor(a.id).slice(0, 4);
   const [tab, setTab] = useState(0);
   const tabs = ['Identité', 'Santé', 'Ascendance', 'Mouvements', 'Historique'];
 
@@ -48,7 +68,7 @@ export function AnimalSheet() {
               </span>
               <Badge tone={a.officialId ? 'amber' : 'grey'}>{a.officialId ? 'À vérifier' : 'À renseigner'}</Badge>
             </div>
-            <p className="xs muted" style={{ marginTop: 8, lineHeight: 1.45 }}>Saisi par l’éleveur, en attente de contrôle par un agent.</p>
+            <p className="xs muted" style={{ marginTop: 8, lineHeight: 1.45 }}>{a.officialId ? 'Saisi par l’éleveur, en attente de contrôle par un agent.' : 'Numéro de boucle officiel pas encore saisi.'}</p>
           </div>
           <div className="wrap" style={{ gap: '6px 10px' }}>
             <span className="xs muted" style={{ width: '100%' }}>Niveaux de preuve</span>
@@ -59,7 +79,17 @@ export function AnimalSheet() {
           {tabs.map((t, i) => <button key={t} className={tab === i ? 'on' : ''} onClick={() => setTab(i)}>{t}</button>)}
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {tab === 0 && (
+          {tab === 0 && !full && (
+            <div className="card pad">
+              <dl className="kv">
+                <dt>Espèce</dt><dd>{SPECIES_LABEL[a.species]}</dd>
+                <dt>Description</dt><dd>{a.details}</dd>
+                <dt>Exploitation</dt><dd>Ferme Koné &amp; Fils, Sinématiali</dd>
+                <dt>Détenteur</dt><dd>Adama Koné</dd>
+              </dl>
+            </div>
+          )}
+          {tab === 0 && full && (
             <>
               <div className="card pad">
                 <dl className="kv">
@@ -81,20 +111,21 @@ export function AnimalSheet() {
           )}
           {tab === 1 && (
             <>
-              <div className="card pad">
+              {recent.length === 0 ? <Empty>Aucun événement sanitaire enregistré pour cet animal.</Empty> : <div className="card pad">
                 <Timeline>
-                  {s.events().slice(0, 4).map((e) => (
+                  {recent.map((e) => (
                     <TimelineItem key={e.date + e.title} dot={dotFor(e)}>
                       <span className="row between" style={{ gap: 8 }}><span className="b small">{e.title}</span><Badge tone={PROOF[e.proof].tone}>{PROOF[e.proof].label}</Badge></span>
                       <span className="xs muted num">{e.date}</span>
                     </TimelineItem>
                   ))}
                 </Timeline>
-              </div>
+              </div>}
               <Link className="btn btn-s btn-block" to={`/animal/${a.id}/sante`}>Dossier sanitaire complet</Link>
             </>
           )}
-          {tab === 2 && (
+          {tab >= 2 && !full && <Empty>Rien n’a encore été saisi dans cet onglet pour cet animal.</Empty>}
+          {tab === 2 && full && (
             <>
               <div className="grid2">
                 <div className="card pad col" style={{ gap: 4 }}><span className="xs muted">Père</span><span className="b small">Taureau Goudali</span><span className="xs muted num">CI-BOV-2019-•••0233</span><Badge tone="blue" style={{ alignSelf: 'flex-start', marginTop: 4 }}>Documenté</Badge></div>
@@ -103,7 +134,7 @@ export function AnimalSheet() {
               <p className="hint">Saillie naturelle, géniteur loué à la Ferme Silué (Napiéolédougou), contrat joint.</p>
             </>
           )}
-          {tab === 3 && (
+          {tab === 3 && full && (
             <div className="card pad">
               <Timeline>
                 <TimelineItem dot="tld o"><span className="b small">Mise en vente sur SAVAA</span><span className="xs muted num">06/11/2026, annonce n° A-20931</span></TimelineItem>
@@ -112,7 +143,7 @@ export function AnimalSheet() {
               </Timeline>
             </div>
           )}
-          {tab === 4 && (
+          {tab === 4 && full && (
             <div className="card list">
               {[
                 ['Poids modifié : 298 → 312 kg', '04/11/2026 15:22, A. Koné'],
@@ -136,11 +167,13 @@ export function AnimalSheet() {
 
 /* Écran 10 : chronologie sanitaire filtrable. */
 export function HealthRecord() {
-  const { id = 'FK-0142' } = useParams();
+  return <WithAnimal render={(a) => <HealthRecordInner key={a.id} a={a} />} />;
+}
+
+function HealthRecordInner({ a }: { a: Animal }) {
   const s = useStore();
-  const a = s.animal(id);
   const [filter, setFilter] = useState<EventKind | 'all'>('all');
-  const all = s.events();
+  const all = s.eventsFor(a.id);
   const events = all.filter((e) => filter === 'all' || e.kind === filter);
   const F: [EventKind | 'all', string][] = [['all', 'Tout'], ['obs', 'Observ.'], ['trt', 'Traitem.'], ['vac', 'Vaccins']];
 
@@ -158,13 +191,15 @@ export function HealthRecord() {
           <div className="card stat" style={{ padding: 12 }}><span className="v">{all.filter((e) => e.kind === 'trt').length}</span><span className="l">Traitements</span></div>
           <div className="card stat" style={{ padding: 12 }}><span className="v">{all.filter((e) => e.pending).length}</span><span className="l">En attente d’envoi</span></div>
         </div>
-        <div className="notice n-grey">
-          <Icon name="calendar" size="sm" />
-          <span>Prochain rappel : <b>PPCB le 02/10/2027</b>. Rappel envoyé 15 jours avant.</span>
-        </div>
+        {a.id === DEMO_ID && (
+          <div className="notice n-grey">
+            <Icon name="calendar" size="sm" />
+            <span>Prochain rappel : <b>PPCB le 02/10/2027</b>. Rappel envoyé 15 jours avant.</span>
+          </div>
+        )}
         <div className="card pad">
           {events.length === 0 ? (
-            <span className="small muted">Aucun événement de ce type.</span>
+            <span className="small muted">{all.length ? 'Aucun événement de ce type.' : 'Aucun événement sanitaire enregistré pour cet animal.'}</span>
           ) : (
             <Timeline>
               {events.map((e) => (
@@ -196,9 +231,11 @@ const LEVELS: Record<string, string> = {
 
 /* Écran 11 : observation et alerte, saisie hors connexion. */
 export function Observation() {
-  const { id = 'FK-0142' } = useParams();
+  return <WithAnimal render={(a) => <ObservationInner key={a.id} a={a} />} />;
+}
+
+function ObservationInner({ a }: { a: Animal }) {
   const s = useStore();
-  const a = s.animal(id);
   const navigate = useNavigate();
   const [sel, setSel] = useState<string[]>(['Appétit réduit', 'Abattement']);
   const [level, setLevel] = useState('Moyenne');
@@ -208,6 +245,7 @@ export function Observation() {
   const toggle = (x: string) => setSel(sel.includes(x) ? sel.filter((y) => y !== x) : [...sel, x]);
   const save = () => {
     s.addEvent({
+      animalId: a.id,
       kind: 'obs',
       date: '18/11/2026',
       title: `Observation : ${sel.length ? sel.join(', ').toLowerCase() : 'signe non précisé'}`,

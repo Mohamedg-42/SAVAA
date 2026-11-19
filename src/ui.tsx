@@ -121,6 +121,21 @@ export function SectionHead({ title, link, to }: { title: string; link?: string;
   );
 }
 
+/** Écran affiché quand l'identifiant de l'URL ne correspond à rien (lien périmé, saisie manuelle). */
+export function NotFound({ title, text, to, cta }: { title: string; text: string; to: string; cta: string }) {
+  return (
+    <div className="app">
+      <Header back title={title} />
+      <div className="body" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12, padding: 32 }}>
+        <Icon name="info" style={{ width: 52, height: 52, color: '#5D6862', strokeWidth: 1.4 }} />
+        <h2 style={{ fontSize: 19, fontWeight: 600 }}>Introuvable</h2>
+        <p className="small muted" style={{ lineHeight: 1.5 }}>{text}</p>
+        <Link className="btn btn-p btn-block" to={to} replace style={{ marginTop: 8 }}>{cta}</Link>
+      </div>
+    </div>
+  );
+}
+
 export function Check({ on }: { on: boolean }) {
   return (
     <span className={`check${on ? ' on' : ''}`}>

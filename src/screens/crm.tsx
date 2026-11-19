@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Badge, Check, Foot, Header, Icon } from '../ui';
+import { Badge, Check, Foot, Header, Icon, NotFound } from '../ui';
 
 /* ------------------------------------------------------------------ */
 /* Données de démo (prospection)                                       */
@@ -153,7 +153,8 @@ const KINDS = ['Appel', 'Visite', 'Message', 'RDV'];
 
 export function ProspectSheet() {
   const { id } = useParams();
-  const p = PROSPECTS.find((x) => String(x.id) === id) ?? PROSPECTS[0];
+  const p = PROSPECTS.find((x) => String(x.id) === id);
+  if (!p) return <NotFound title="Fiche prospect" text="Ce prospect n’existe pas ou a été supprimé." to="/prospection" cta="Retour à la prospection" />;
   return <ProspectSheetInner key={p.id} p={p} />;
 }
 

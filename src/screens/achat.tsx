@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Badge, Foot, Icon, Photo, SectionHead, TabBar, type Tone } from '../ui';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Badge, Foot, Icon, NotFound, Photo, SectionHead, TabBar, type Tone } from '../ui';
+
+/* Seule annonce détaillée de la maquette (écran 06). */
+const DETAIL_ID = 'FK-0142';
 
 type Listing = {
+  /** Présent seulement si l'annonce a une page de détail. */
+  id?: string;
   sp?: boolean;
   title: string;
   details: string;
@@ -17,14 +22,14 @@ type Listing = {
 
 const LISTINGS: Listing[] = [
   { sp: true, title: 'Taurillons Zébu, lot de 3', details: '18 à 22 mois, 260 à 290 kg', price: '1 680 000 FCFA le lot', place: 'Ferkessédougou, 54 km, Ranch Tuo', photo: 'Photo, lot', account: ['Compte vérifié', 'green'], trace: ['3 fiches', 'blue'], verified: true, delivery: true },
-  { title: 'Taurillon Zébu Goudali', details: '26 mois, 312 kg, pesé le 04/11', price: '650 000 FCFA', place: 'Sinématiali, 12 km, Ferme Koné', photo: 'Photo, taurillon', account: ['Compte vérifié', 'green'], trace: ['Fiche vérifiée', 'green'], verified: true, delivery: true },
+  { id: DETAIL_ID, title: 'Taurillon Zébu Goudali', details: '26 mois, 312 kg, pesé le 04/11', price: '650 000 FCFA', place: 'Sinématiali, 12 km, Ferme Koné', photo: 'Photo, taurillon', account: ['Compte vérifié', 'green'], trace: ['Fiche vérifiée', 'green'], verified: true, delivery: true },
   { title: 'Taurillon N’Dama', details: '20 mois, poids non renseigné', price: '415 000 FCFA', place: 'Korhogo, 4 km, Bamba S.', photo: 'Photo, N’Dama', account: ['Non vérifié', 'grey'], trace: ['Fiche déclarée', 'grey'], verified: false, delivery: false },
   { title: 'Taurillon métis Goudali × N’Dama', details: '24 mois, 275 kg', price: '560 000 FCFA, négociable', place: 'Napiéolédougou, 22 km, Ferme Silué', photo: 'Photo, métis', account: ['Compte vérifié', 'green'], trace: ['Fiche documentée', 'blue'], verified: true, delivery: false },
 ];
 
 function ListingCard({ l }: { l: Listing }) {
-  return (
-    <Link className="hc" to="/annonce/FK-0142">
+  const body = (
+    <>
       <Photo label={l.photo} />
       <div className="col grow" style={{ gap: 3 }}>
         {l.sp && <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>}
@@ -34,8 +39,10 @@ function ListingCard({ l }: { l: Listing }) {
         <span className="xs muted ell">{l.place}</span>
         <span className="wrap" style={{ gap: 4, marginTop: 2 }}><Badge tone={l.account[1]}>{l.account[0]}</Badge><Badge tone={l.trace[1]}>{l.trace[0]}</Badge></span>
       </div>
-    </Link>
+    </>
   );
+  /* Sans page de détail en démo : carte non cliquable plutôt qu'un lien vers une autre annonce. */
+  return l.id ? <Link className="hc" to={`/annonce/${l.id}`}>{body}</Link> : <div className="hc">{body}</div>;
 }
 
 function Skeleton() {
@@ -110,7 +117,7 @@ export function Home() {
 
           <div className="sec">
             <SectionHead title="Mis en avant" link="Tout voir" to="/explorer" />
-            <Link className="pc" to="/annonce/FK-0142">
+            <Link className="pc" to="/explorer">
               <Photo label="Photo, béliers" h={170} />
               <div className="in" style={{ padding: 12, gap: 4 }}>
                 <div className="row between"><span className="b ell">Béliers Sahéliens, lot de 6</span><Badge tone="sp">Sponsorisé</Badge></div>
@@ -129,7 +136,7 @@ export function Home() {
                 ['Poussins chair, J1', '650 FCFA', 'Korhogo, par 100', 'Photo, poussins', 'Profil non vérifié', 'grey', 's'],
                 ['Igname Kponan', '425 FCFA / kg', 'Dikodougou, 38 km', 'Photo, igname', 'Min. 200 kg', 'grey', 'w'],
               ].map(([t, p, place, ph, b, tone, tint]) => (
-                <Link key={t} className="pc" to={t === 'Taurillon Zébu Goudali' ? '/annonce/FK-0142' : '/explorer'} style={{ flex: 'none', width: 152 }}>
+                <Link key={t} className="pc" to={t === 'Taurillon Zébu Goudali' ? `/annonce/${DETAIL_ID}` : '/explorer'} style={{ flex: 'none', width: 152 }}>
                   <Photo label={ph} tint={tint as 'w' | 's' | undefined} h={112} />
                   <div className="in">
                     <span className="small b ell">{t}</span>
@@ -233,6 +240,12 @@ export function CatalogOffline() {
 
 /* Écran 06 : détail de l'annonce. */
 export function ListingDetail() {
+  const { id } = useParams();
+  if (id !== DETAIL_ID) return <NotFound title="Annonce" text="Cette annonce n’existe pas ou n’est plus en ligne." to="/explorer" cta="Voir les annonces" />;
+  return <ListingDetailInner />;
+}
+
+function ListingDetailInner() {
   const navigate = useNavigate();
   const [fav, setFav] = useState(false);
   const round = { background: '#fff', width: 40, height: 40, borderRadius: 20 };
@@ -266,7 +279,7 @@ export function ListingDetail() {
 
           <div className="sec">
             <div className="sech"><h2>Traçabilité</h2><Badge tone="green">Fiche vérifiée</Badge></div>
-            <Link className="card pad col" to="/animal/FK-0142" style={{ gap: 10 }}>
+            <Link className="card pad col" to={`/animal/${DETAIL_ID}`} style={{ gap: 10 }}>
               <div className="row between"><span className="small muted">Identifiant officiel</span><Badge tone="amber">À vérifier</Badge></div>
               <div className="row between"><span className="small muted">Vaccinations</span><span className="small b">4 dont 3 vérifiées</span></div>
               <div className="row between"><span className="small muted">Dernier traitement</span><span className="small b num">15/08/2026</span></div>
