@@ -35,10 +35,12 @@ function TimelineItem({ dot = 'tld f', children }: { dot?: string; children: Rea
 
 const dotFor = (e: HealthEvent) => (e.pending ? 'tld a' : e.kind === 'obs' ? 'tld' : 'tld f');
 
-/* Écran 07 : fiche individuelle et traçabilité. */
+/* Écran 07 : fiche individuelle et traçabilité avec galerie photos. */
 export function AnimalSheet() {
   return <WithAnimal render={(a) => <AnimalSheetInner key={a.id} a={a} />} />;
 }
+
+const ANIMAL_PHOTO_LABELS = ['Profil', 'Trois-quarts', 'En parc', 'Boucle officielle', 'Pesée', 'Suivi sanitaire'];
 
 function AnimalSheetInner({ a }: { a: Animal }) {
   const s = useStore();
@@ -48,6 +50,9 @@ function AnimalSheetInner({ a }: { a: Animal }) {
   const owner = !!a.mine && s.isBreeder();
   const [tab, setTab] = useState(0);
   const tabs = ['Identité', 'Santé', 'Ascendance', 'Mouvements', 'Historique'];
+  const gallery = a.photos?.length ? a.photos : a.photo ? [a.photo] : ['/images/taurillon-goudali.jpg'];
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const activePhoto = gallery[photoIdx] ?? gallery[0];
 
   return (
     <div className="app">
@@ -55,7 +60,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
       <div className="body flush">
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="row top" style={{ gap: 14 }}>
-            <Photo label="Photo" w={96} h={96} radius={8} src={a.photo} />
+            <Photo label="Photo" w={96} h={96} radius={8} src={activePhoto} />
             <div className="col grow" style={{ gap: 3 }}>
               <span className="small muted num">{a.id}, n° interne</span>
               <span className="b" style={{ fontSize: 17, lineHeight: 1.25 }}>{a.name}</span>
@@ -66,6 +71,39 @@ function AnimalSheetInner({ a }: { a: Animal }) {
               </div>
             </div>
           </div>
+
+          {gallery.length > 1 && (
+            <div className="col" style={{ gap: 6 }}>
+              <span className="row between xs muted">
+                <span>Photos d’identification ({gallery.length})</span>
+                <span>{ANIMAL_PHOTO_LABELS[photoIdx] ?? `Photo ${photoIdx + 1}`}</span>
+              </span>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+                {gallery.map((src, i) => (
+                  <button
+                    key={src + i}
+                    onClick={() => setPhotoIdx(i)}
+                    aria-label={`Photo ${i + 1}`}
+                    aria-pressed={photoIdx === i}
+                    style={{
+                      flex: 'none',
+                      width: 64,
+                      height: 48,
+                      borderRadius: 6,
+                      padding: 0,
+                      cursor: 'pointer',
+                      border: photoIdx === i ? '2.5px solid #145C3A' : '1px solid #C5CDC7',
+                      opacity: photoIdx === i ? 1 : 0.72,
+                      backgroundImage: `url(${src})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="card" style={{ padding: 12, background: '#F8FAF8' }}>
             <div className="row between" style={{ gap: 8 }}>
               <span className="col" style={{ gap: 2 }}>
@@ -132,6 +170,11 @@ function AnimalSheetInner({ a }: { a: Animal }) {
                     <TimelineItem key={e.date + e.title} dot={dotFor(e)}>
                       <span className="row between" style={{ gap: 8 }}><span className="b small">{(e.summary && e.summary.title) || e.title}</span>{e.pending ? <Badge tone="amber">En attente d’envoi</Badge> : <Badge tone={PROOF[e.proof].tone}>{PROOF[e.proof].label}</Badge>}</span>
                       <span className="xs muted num">{e.summary ? e.summary.sub : e.date}</span>
+                      {!!e.photos?.length && (
+                        <span className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                          {e.photos.map((p, i) => <Photo key={i} src={p} label={`Photo ${i + 1}`} w={56} h={44} radius={6} />)}
+                        </span>
+                      )}
                     </TimelineItem>
                   ))}
                 </Timeline>
@@ -139,12 +182,42 @@ function AnimalSheetInner({ a }: { a: Animal }) {
               <Link className="btn btn-s btn-block" to={`/animal/${a.id}/sante`}>Dossier sanitaire complet</Link>
             </>
           )}
-          {tab >= 2 && !full && <Empty>Rien n’a encore été saisi dans cet onglet pour cet animal.</Empty>}
+          {tab === 2 && !full && (
+            a.info ? (
+              <div className="grid2">
+                <div className="card pad col" style={{ gap: 4 }}>
+                  <Photo w="100%" h={72} radius={6} src={a.photos?.[1] ?? a.photo} />
+                  <span className="xs muted">Père</span>
+                  <span className="b small">{a.info.father || 'Inconnu'}</span>
+                  <Badge style={{ alignSelf: 'flex-start', marginTop: 2 }}>Déclaré</Badge>
+                </div>
+                <div className="card pad col" style={{ gap: 4 }}>
+                  <Photo w="100%" h={72} radius={6} src={a.photos?.[0] ?? a.photo} />
+                  <span className="xs muted">Mère</span>
+                  <span className="b small">{a.info.mother || 'Inconnue'}</span>
+                  <Badge style={{ alignSelf: 'flex-start', marginTop: 2 }}>Déclaré</Badge>
+                </div>
+              </div>
+            ) : <Empty>Rien n’a encore été saisi dans cet onglet pour cet animal.</Empty>
+          )}
+          {tab > 2 && !full && <Empty>Rien n’a encore été saisi dans cet onglet pour cet animal.</Empty>}
           {tab === 2 && full && (
             <>
               <div className="grid2">
-                <div className="card pad col" style={{ gap: 4 }}><span className="xs muted">Père</span><span className="b small">Taureau Goudali</span><span className="xs muted num">CI-BOV-2019-•••0233</span><Badge tone="blue" style={{ alignSelf: 'flex-start', marginTop: 4 }}>Documenté</Badge></div>
-                <div className="card pad col" style={{ gap: 4 }}><span className="xs muted">Mère</span><span className="b small">FK-0041, Zébu</span><span className="xs muted">Née sur l’exploitation</span><Badge style={{ alignSelf: 'flex-start', marginTop: 4 }}>Déclaré</Badge></div>
+                <div className="card pad col" style={{ gap: 4 }}>
+                  <Photo w="100%" h={76} radius={6} src="/images/taureau-reproducteur.jpg" />
+                  <span className="xs muted">Père</span>
+                  <span className="b small">Taureau Goudali</span>
+                  <span className="xs muted num">CI-BOV-2019-•••0233</span>
+                  <Badge tone="blue" style={{ alignSelf: 'flex-start', marginTop: 4 }}>Documenté</Badge>
+                </div>
+                <div className="card pad col" style={{ gap: 4 }}>
+                  <Photo w="100%" h={76} radius={6} src="/images/taurillon-goudali-troupeau.jpg" />
+                  <span className="xs muted">Mère</span>
+                  <span className="b small">FK-0041, Zébu</span>
+                  <span className="xs muted">Née sur l’exploitation</span>
+                  <Badge style={{ alignSelf: 'flex-start', marginTop: 4 }}>Déclaré</Badge>
+                </div>
               </div>
               <p className="hint">Saillie naturelle, géniteur loué à la Ferme Silué (Napiéolédougou), contrat joint.</p>
             </>

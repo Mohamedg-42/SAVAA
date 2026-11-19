@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fcfa, today, useStore } from '../data';
 import { downloadCSV } from '../device';
@@ -466,6 +466,14 @@ const colStyle = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0
 
 export function BackOffice() {
   const s = useStore();
+  /* Sur téléphone, chaque cellule affiche le titre de sa colonne (voir index.css, tableaux en fiches). */
+  useEffect(() => {
+    document.querySelectorAll('.adm table').forEach((t) => {
+      const heads = [...t.querySelectorAll('thead th')].map((th) => th.textContent?.trim() ?? '');
+      if (!heads.length) return;
+      t.querySelectorAll('tbody tr').forEach((tr) => [...tr.children].forEach((td, i) => { if (heads[i]) td.setAttribute('data-label', heads[i]); }));
+    });
+  });
   /* Ce qui a été fait dans l'appli pendant la démo remonte ici. */
   const toModerate = s.myListings().filter((l) => l.status === 'review');
   const realOrders = s.orders().filter((o) => !o.demo);

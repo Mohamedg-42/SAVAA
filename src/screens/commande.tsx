@@ -302,11 +302,13 @@ export function Receipt() {
 
 /* Écran 20 : suivi de commande. */
 export function Tracking() {
+  const s = useStore();
   const o = useOrder();
   if (!o) return noOrder;
   const title = o.demo
     ? 'Taurillon FK-0142 + 4 sacs d’aliment'
     : o.lines.map((l) => (l.qty > 1 ? `${l.qty} × ${l.title}` : l.title)).join(' + ');
+  const orderPhotos = o.lines.map((l) => s.listing(l.listingId)?.photos?.[0]).filter(Boolean) as string[];
   const steps: [string, string, string][] = o.demo
     ? [
         ['tld f', 'Paiement confirmé', '18/11, 09:42, Orange Money'],
@@ -327,11 +329,16 @@ export function Tracking() {
     <div className="app">
       <Header back title="Suivi de commande" sub={o.ref} />
       <div className="body">
-        <div className="card pad col" style={{ gap: 6 }}>
+        <div className="card pad col" style={{ gap: 8 }}>
           <div className="row between">
             {o.demo ? <Badge tone="blue">En route</Badge> : <Badge tone="green">Payée</Badge>}
             <span className="small muted">{o.demo ? 'Arrivée estimée 10:30' : 'Créneau confirmé par le vendeur'}</span>
           </div>
+          {orderPhotos.length > 0 && (
+            <div className="row" style={{ gap: 8 }}>
+              {orderPhotos.map((src, i) => <Photo key={i} w={56} h={44} radius={6} src={src} />)}
+            </div>
+          )}
           <span className="b" style={{ fontSize: 16 }}>{title}</span>
           <span className="small muted">{o.delivery ? `Livraison à ${o.demo ? 'Ferme Ouattara, route de Dikodougou' : o.address ?? 'l’adresse indiquée'}` : 'Retrait sur place'}</span>
         </div>
@@ -516,7 +523,8 @@ export function Support() {
 
 /* Onglet Commandes (acheteurs) : toutes les commandes, la plus récente en premier. */
 export function Orders() {
-  const orders = useStore().orders();
+  const s = useStore();
+  const orders = s.orders();
   return (
     <div className="app">
       <header className="hdr" style={{ paddingLeft: 16 }}><h1>Mes commandes</h1></header>
@@ -531,17 +539,21 @@ export function Orders() {
         ) : (
           orders.map((o) => {
             const items = o.lines.map((l) => (l.qty > 1 ? `${l.qty} × ${l.title}` : l.title)).join(', ');
+            const thumb = s.listing(o.lines[0]?.listingId)?.photos?.[0];
             return (
-              <Link key={o.ref} className="card pad col" to={`/commande?ref=${o.ref}`} style={{ gap: 6 }}>
-                <span className="row between" style={{ gap: 8 }}>
-                  <span className="b small num">{o.ref}</span>
-                  {o.demo ? <Badge tone="blue">En route</Badge> : <Badge tone="green">Payée</Badge>}
-                </span>
-                <span className="small ell">{items}</span>
-                <span className="row between xs muted num">
-                  <span>{o.date}, {o.delivery ? 'livraison' : 'retrait sur place'}</span>
-                  <span className="b" style={{ color: '#17201B' }}>{fcfa(o.total)} FCFA</span>
-                </span>
+              <Link key={o.ref} className="card pad row" to={`/commande?ref=${o.ref}`} style={{ gap: 12 }}>
+                <Photo w={52} h={52} radius={6} src={thumb} />
+                <div className="col grow" style={{ gap: 4 }}>
+                  <span className="row between" style={{ gap: 8 }}>
+                    <span className="b small num">{o.ref}</span>
+                    {o.demo ? <Badge tone="blue">En route</Badge> : <Badge tone="green">Payée</Badge>}
+                  </span>
+                  <span className="small ell">{items}</span>
+                  <span className="row between xs muted num">
+                    <span>{o.date}, {o.delivery ? 'livraison' : 'retrait sur place'}</span>
+                    <span className="b" style={{ color: '#17201B' }}>{fcfa(o.total)} FCFA</span>
+                  </span>
+                </div>
               </Link>
             );
           })
