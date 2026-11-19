@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { fcfa, today, useStore } from '../data';
 import { downloadCSV } from '../device';
 import { LogoInline } from '../logo';
 import { showToast, simulate } from '../toast';
-import { Badge, Check, Foot, Header, Icon, NotFound } from '../ui';
+import { Badge, Check, Icon } from '../ui';
 
 /* Données de démo (prospection)                                       */
 
@@ -50,8 +50,6 @@ const PROSPECTS: Prospect[] = [
   { id: 7, st: 'act', ty: 'elev', ini: 'FK', n: 'Ferme Koné & Fils', d: 'Éleveur, 41 ventes', next: 'Client actif' },
 ];
 
-const avStyle = { background: '#EEF0EE', color: '#3E4943' };
-
 /** Prospects de la maquette + ceux créés pendant la démo (gardés dans le navigateur). */
 function useProspects(): Prospect[] {
   const s = useStore();
@@ -59,98 +57,7 @@ function useProspects(): Prospect[] {
 }
 const shortDate = () => today().slice(0, 5);
 
-/* Écran 16 : prospection (pipeline + filtres) */
-
-export function Prospection() {
-  const [type, setType] = useState<TypeId>('all');
-  const [stage, setStage] = useState<StageId>('int');
-  const [q, setQ] = useState('');
-  const all = useProspects();
-
-  const query = q.trim().toLowerCase();
-  const rows = all.filter(
-    (p) => p.st === stage && (type === 'all' || p.ty === type) && (!query || `${p.n} ${p.d}`.toLowerCase().includes(query)),
-  );
-  const stageTitle = STAGES.find((s) => s.id === stage)?.t ?? '';
-
-  return (
-    <div className="app">
-      <header className="hdr" style={{ paddingLeft: 16 }}>
-        <div className="col grow" style={{ gap: 0 }}>
-          <span className="xs muted ell">Équipe SAVAA, Korhogo</span>
-          <span className="b ell" style={{ fontSize: 17 }}>Prospection</span>
-        </div>
-        <Link className="iconbtn" to="/prospect/nouveau" aria-label="Nouveau prospect"><Icon name="plus" /></Link>
-      </header>
-      <div style={{ background: '#fff', borderBottom: '1px solid #E3E7E4', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10, flex: 'none' }}>
-        <label className="search">
-          <Icon name="search" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Nom, téléphone pro, commune"
-            aria-label="Rechercher un prospect"
-            style={{ border: 0, outline: 'none', background: 'transparent', font: 'inherit', color: '#17201B', flex: 1, minWidth: 0, height: '100%', padding: 0 }}
-          />
-        </label>
-        <div className="chips">
-          {TYPES.map((t) => (
-            <button key={t.id} className={type === t.id ? 'chip on' : 'chip'} onClick={() => setType(t.id)}>{t.t}</button>
-          ))}
-        </div>
-      </div>
-      <div className="body" style={{ gap: 14 }}>
-        <div className="sec" style={{ gap: 8 }}>
-          <div className="sech"><h2>Pipeline</h2><span className="xs muted">48 prospects</span></div>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {STAGES.map((s) => {
-              const on = s.id === stage;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => setStage(s.id)}
-                  className="card col"
-                  aria-pressed={on}
-                  style={{ flex: 'none', width: 96, padding: 10, gap: 2, textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: 'inherit', background: on ? '#E8F3EA' : '#fff', borderColor: on ? '#145C3A' : '#E3E7E4' }}
-                >
-                  <span className="b num" style={{ fontSize: 20 }}>{s.n}</span>
-                  <span className="xs muted" style={{ lineHeight: 1.25 }}>{s.t}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="sec" style={{ gap: 8 }}>
-          <div className="sech"><h2>{stageTitle}</h2><span className="xs muted">relance la plus proche d’abord</span></div>
-          {rows.length > 0 && (
-            <div className="card list">
-              {rows.map((p) => (
-                <Link key={p.id} className="li" to={`/prospect/${p.id}`} style={{ alignItems: 'flex-start' }}>
-                  <span className="av" style={{ width: 36, height: 36, fontSize: 12, ...avStyle }}>{p.ini}</span>
-                  <span className="col grow" style={{ gap: 2 }}>
-                    <span className="small b ell">{p.n}</span>
-                    <span className="xs muted ell">{p.d}</span>
-                    <span className="row xs" style={{ gap: 6, marginTop: 2, minWidth: 0 }}>
-                      <span className={`badge ${STAGE_CLS[p.st]}`}>{STAGES.find((s) => s.id === p.st)?.t}</span>
-                      <span className="muted ell">{p.next}</span>
-                    </span>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-          {rows.length === 0 && <div className="card pad small muted" style={{ textAlign: 'center' }}>Aucun prospect à cette étape pour ce filtre.</div>}
-        </div>
-        <div className="grid2">
-          <div className="card stat" style={{ padding: 12 }}><span className="v">62 %</span><span className="l">taux de contact (30 j)</span></div>
-          <div className="card stat" style={{ padding: 12 }}><span className="v">11</span><span className="l">comptes activés en nov.</span></div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Écran 16b : fiche prospect */
+/* Rubrique Prospection du back-office : pipeline, fiche, journal et ajout (anciens écrans 16, 16b et 16c). */
 
 type Entry = { t: string; d: string; x: string };
 
@@ -161,20 +68,89 @@ const BAOBAB_JOURNAL: Entry[] = [
 
 const KINDS = ['Appel', 'Visite', 'Message', 'RDV'];
 
-export function ProspectSheet() {
-  const { id } = useParams();
-  const p = useProspects().find((x) => String(x.id) === id);
-  if (!p) return <NotFound title="Fiche prospect" text="Ce prospect n’existe pas ou a été supprimé." to="/prospection" cta="Retour à la prospection" />;
-  return <ProspectSheetInner key={p.id} p={p} />;
-}
-
-/** Date de relance : dans 7 jours, à 10 h. */
+/** Date de relance : dans 7 jours. */
 const followUp = () => {
   const d = new Date(Date.now() + 7 * 86400000);
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
-function ProspectSheetInner({ p }: { p: Prospect }) {
+const ACTOR_TYPES = ['Éleveur', 'Producteur', 'Restaurant', 'Fournisseur', 'Grossiste', 'Transformateur'];
+const SOURCES = ['Visite', 'Appel', 'Recomm.', 'Salon'];
+/* Rattache chaque type d'acteur du formulaire à un filtre du pipeline. */
+const ACTOR_TYPE_ID: Record<string, Prospect['ty']> = { Éleveur: 'elev', Producteur: 'elev', Restaurant: 'resto', Fournisseur: 'fourn', Grossiste: 'fourn', Transformateur: 'fourn' };
+const COMMUNES = ['Abidjan', 'Bouaké', 'Yamoussoukro', 'Korhogo', 'San-Pédro', 'Daloa', 'Man', 'Ferkessédougou', 'Sinématiali'];
+
+/** Ce que montre la rubrique : la liste, une fiche (id) ou le formulaire d'ajout. */
+type ProspectView = number | 'new' | null;
+
+const stageLabel = (st: StageId) => STAGES.find((x) => x.id === st)?.t ?? '';
+
+function AdminProspects({ view, onView }: { view: ProspectView; onView: (v: ProspectView) => void }) {
+  const all = useProspects();
+  const [type, setType] = useState<TypeId>('all');
+  const [stage, setStage] = useState<StageId | 'all'>('all');
+  const [q, setQ] = useState('');
+
+  if (view === 'new') return <AdminNewProspect onDone={onView} />;
+  const open = typeof view === 'number' ? all.find((x) => x.id === view) : undefined;
+  if (open) return <AdminProspectSheet key={open.id} p={open} onBack={() => onView(null)} />;
+
+  const query = q.trim().toLowerCase();
+  const rows = all.filter((p) => (stage === 'all' || p.st === stage) && (type === 'all' || p.ty === type) && (!query || `${p.n} ${p.d}`.toLowerCase().includes(query)));
+  const count = (st: StageId) => all.filter((p) => p.st === st).length;
+
+  return (
+    <>
+      <div className="adm-top">
+        <div style={colStyle}><h1>Prospection</h1><span className="small muted">{all.length} prospects suivis par l’équipe terrain</span></div>
+        <button className="btn btn-p btn-sm" onClick={() => onView('new')}>Nouveau prospect</button>
+      </div>
+      <div className="adm-kpis">
+        {[{ id: 'all' as const, t: 'Tous', n: all.length }, ...STAGES.map((x) => ({ id: x.id, t: x.t, n: count(x.id) }))].map((x) => {
+          const on = stage === x.id;
+          return (
+            <button key={x.id} className="card pad stat" aria-pressed={on} onClick={() => setStage(x.id)}
+              style={{ textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: 'inherit', background: on ? '#E8F3EA' : '#fff', borderColor: on ? '#145C3A' : '#E3E7E4' }}>
+              <span className="l">{x.t}</span><span className="v">{x.n}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input className="search" style={{ height: 36, minWidth: 0, width: 260, maxWidth: '100%', font: 'inherit', color: '#17201B' }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, activité, commune" aria-label="Rechercher un prospect" />
+        {TYPES.map((t) => <button key={t.id} className={type === t.id ? 'chip on' : 'chip'} onClick={() => setType(t.id)}>{t.t}</button>)}
+      </div>
+      <section className="card" style={{ minWidth: 0 }}>
+        {rows.length === 0 ? (
+          <p className="small muted" style={{ padding: 16 }}>Aucun prospect pour ces filtres.</p>
+        ) : (
+          <div className="scroll">
+            <table className="tbl">
+              <thead><tr><th>Prospect</th><th>Type</th><th>Étape</th><th>Prochaine action</th></tr></thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <button className="plain" style={{ textAlign: 'left' }} onClick={() => onView(p.id)}>
+                        <span className="b link" style={{ display: 'block' }}>{p.n}</span>
+                        <span className="xs muted">{p.d}</span>
+                      </button>
+                    </td>
+                    <td>{TYPE_LABEL[p.ty]}</td>
+                    <td><span className={`badge ${STAGE_CLS[p.st]}`}>{stageLabel(p.st)}</span></td>
+                    <td>{p.next}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function AdminProspectSheet({ p, onBack }: { p: Prospect; onBack: () => void }) {
   const s = useStore();
   const isBaobab = p.id === 1;
   const [kind, setKind] = useState('Appel');
@@ -192,7 +168,7 @@ function ProspectSheetInner({ p }: { p: Prospect }) {
   };
   const convert = () => {
     s.put('crm.converted', [...s.get<number[]>('crm.converted', []), p.id]);
-    s.notify({ c: 'pro', title: 'Invitation envoyée', text: `${p.n} : compte en attente de validation du numéro.`, to: `/prospect/${p.id}` });
+    s.notify({ c: 'pro', title: 'Invitation envoyée', text: `${p.n} : compte en attente de validation du numéro.`, to: `/admin?sec=prospects&id=${p.id}` });
   };
   const tel = p.form?.tel.replace(/[^\d+]/g, '');
   const call = () => {
@@ -200,21 +176,34 @@ function ProspectSheetInner({ p }: { p: Prospect }) {
     else showToast('Numéro masqué en démo : appel depuis le téléphone de l’équipe.');
   };
 
-  const stage = converted ? 'Invitation envoyée' : STAGES.find((x) => x.id === p.st)?.t;
+  const stage = converted ? 'Invitation envoyée' : stageLabel(p.st);
   const stageCls = converted ? 'bd-blue' : STAGE_CLS[p.st];
   const nextT = next ? `Relance le ${next} à 10 h` : isBaobab ? 'Appel de suivi demain, 10 h' : p.next;
   const nextD = next ? 'Planifiée par Koffi B.' : isBaobab ? 'Présenter les 3 offres reçues' : 'Koffi B. (SAVAA)';
 
   return (
-    <div className="app">
-      <Header back title="Fiche prospect" actions={<button className="iconbtn" aria-label="Appeler" onClick={call}><Icon name="phone" /></button>} />
-      <div className="body">
-        <div className="card pad col" style={{ gap: 10 }}>
-          <div className="row">
-            <span className="av" style={avStyle}>{p.ini}</span>
-            <div className="col grow"><span className="b ell">{p.n}</span><span className="xs muted ell">{isBaobab ? 'Restaurant, Korhogo centre' : p.d}</span></div>
-            <span className={`badge ${stageCls}`}>{stage}</span>
-          </div>
+    <>
+      <div className="adm-top">
+        <div style={colStyle}>
+          <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={onBack}>← Prospection</button>
+          <h1>{p.n}</h1>
+          <span className="small muted">{isBaobab ? 'Restaurant, Korhogo centre' : p.d}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className={`badge ${stageCls}`}>{stage}</span>
+          <button className="btn btn-s btn-sm" onClick={call}>Appeler</button>
+          <button className="btn btn-p btn-sm" disabled={converted} onClick={convert}>{converted ? 'Invitation envoyée' : 'Convertir en compte'}</button>
+        </div>
+      </div>
+      {converted && (
+        <div className="notice n-info">
+          <Icon name="check" size="sm" />
+          <span><b>Invitation envoyée par SMS.</b> Le compte sera créé quand {isBaobab ? 'Mme Soro' : 'le contact'} validera son numéro. Profil pré-rempli : {TYPE_LABEL[p.ty]}.</span>
+        </div>
+      )}
+      <div className="adm-grid" style={gridStyle}>
+        <section className="card pad" style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600 }}>Coordonnées</h2>
           {isBaobab ? (
             <dl className="kv">
               <dt>Contact</dt><dd>Mme Soro, gérante</dd>
@@ -234,71 +223,43 @@ function ProspectSheetInner({ p }: { p: Prospect }) {
               <dt>Consentement</dt><dd>{p.form ? (p.form.consent ? <Badge tone="green">Accepte d’être recontacté</Badge> : <Badge tone="red">Refusé, ne pas relancer</Badge>) : <Badge>[à confirmer]</Badge>}</dd>
             </dl>
           )}
-        </div>
-
-        <div className="sec" style={{ gap: 8 }}>
-          <div className="sech"><h2>Prochaine action</h2></div>
-          <div className="card pad row">
+          <div className="row" style={{ gap: 10, paddingTop: 4 }}>
             <Icon name="calendar" style={{ color: '#F28C28' }} />
             <div className="col grow"><span className="small b">{nextT}</span><span className="xs muted">{nextD}</span></div>
           </div>
-        </div>
-
-        <div className="sec" style={{ gap: 8 }}>
-          <div className="sech"><h2>Enregistrer une interaction</h2></div>
-          <div className="seg">
-            {KINDS.map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{k}</button>)}
-          </div>
-          <textarea className="input" style={{ minHeight: 64 }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Résumé de l’échange" aria-label="Résumé de l’interaction" />
-          <button className="btn btn-s btn-block" onClick={log} disabled={!note.trim()} style={{ whiteSpace: 'normal', lineHeight: 1.25 }}>Ajouter au journal et planifier la relance</button>
-        </div>
-
-        <div className="sec" style={{ gap: 8 }}>
-          <div className="sech"><h2>Journal</h2></div>
-          <div className="card pad">
-            {journal.length === 0 ? (
-              <span className="small muted">Aucune interaction enregistrée.</span>
-            ) : (
-              <div className="tl">
-                {journal.map((j, i) => (
-                  <div key={`${j.d}-${i}`} className="tli">
-                    <span className="tld f" />
-                    <div className="col">
-                      <span className="row between"><span className="b small">{j.t}</span><span className="xs muted num">{j.d}</span></span>
-                      <span className="small muted">{j.x}</span>
-                    </div>
+        </section>
+        <section className="card pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600 }}>Enregistrer une interaction</h2>
+          <div className="seg">{KINDS.map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{k}</button>)}</div>
+          <textarea className="input" style={{ minHeight: 72 }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Résumé de l’échange" aria-label="Résumé de l’interaction" />
+          <button className="btn btn-s" onClick={log} disabled={!note.trim()}>Ajouter au journal et planifier la relance</button>
+        </section>
+        <section className="card pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600 }}>Journal</h2>
+          {journal.length === 0 ? (
+            <span className="small muted">Aucune interaction enregistrée.</span>
+          ) : (
+            <div className="tl">
+              {journal.map((j, i) => (
+                <div key={`${j.d}-${i}`} className="tli">
+                  <span className="tld f" />
+                  <div className="col">
+                    <span className="row between"><span className="b small">{j.t}</span><span className="xs muted num">{j.d}</span></span>
+                    <span className="small muted">{j.x}</span>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        {converted && (
-          <div className="notice n-info">
-            <Icon name="check" size="sm" />
-            <span><b>Invitation envoyée par SMS.</b> Le compte sera créé quand {isBaobab ? 'Mme Soro' : 'le contact'} validera son numéro. Profil pré-rempli : {TYPE_LABEL[p.ty]}.</span>
-          </div>
-        )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
-      <Foot>
-        <button className="btn btn-p" disabled={converted} onClick={convert}>{converted ? 'Invitation envoyée' : 'Convertir en compte'}</button>
-      </Foot>
-    </div>
+    </>
   );
 }
 
-/* Écran 16c : nouveau prospect */
-
-const ACTOR_TYPES = ['Éleveur', 'Producteur', 'Restaurant', 'Fournisseur', 'Grossiste', 'Transformateur'];
-const SOURCES = ['Visite', 'Appel', 'Recomm.', 'Salon'];
-/* Rattache chaque type d'acteur du formulaire à un filtre du pipeline. */
-const ACTOR_TYPE_ID: Record<string, Prospect['ty']> = { Éleveur: 'elev', Producteur: 'elev', Restaurant: 'resto', Fournisseur: 'fourn', Grossiste: 'fourn', Transformateur: 'fourn' };
-const COMMUNES = ['Korhogo, centre', 'Korhogo, Soba', 'Ferkessédougou', 'Sinématiali', 'Dikodougou', 'M’Bengué'];
-
-export function NewProspect() {
+function AdminNewProspect({ onDone }: { onDone: (v: ProspectView) => void }) {
   const s = useStore();
   const all = useProspects();
-  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [type, setType] = useState('');
   const [contact, setContact] = useState('');
@@ -309,14 +270,13 @@ export function NewProspect() {
   const [consent, setConsent] = useState(true);
   const [action, setAction] = useState('Appel');
   const [when, setWhen] = useState('');
-
   const valid = name.trim().length > 0 && type !== '';
 
-  /* Formulaire pré-rempli avec le Baobab (maquette) : on rouvre sa fiche au lieu de créer un doublon. */
+  /* Un nom déjà suivi rouvre sa fiche au lieu de créer un doublon. */
   const save = () => {
     const n = name.trim();
     const existing = all.find((p) => p.n.toLowerCase() === n.toLowerCase());
-    if (existing) return navigate(`/prospect/${existing.id}`, { replace: true });
+    if (existing) return onDone(existing.id);
     const id = Math.max(...all.map((p) => p.id)) + 1;
     const words = n.split(/\s+/).filter((w) => /^\p{L}/u.test(w));
     s.put('crm.prospects', [...s.get<Prospect[]>('crm.prospects', []), {
@@ -329,38 +289,33 @@ export function NewProspect() {
       next: when.trim() ? `${action} le ${when.trim()}` : `${action} à planifier`,
       form: { contact: contact.trim(), tel: tel.trim(), needs: needs.trim(), src, consent },
     } satisfies Prospect]);
-    navigate(`/prospect/${id}`, { replace: true });
+    onDone(id);
   };
 
   return (
-    <div className="app">
-      <Header close title="Nouveau prospect" />
-      <div className="body" style={{ gap: 18 }}>
+    <>
+      <div className="adm-top">
+        <div style={colStyle}>
+          <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => onDone(null)}>← Prospection</button>
+          <h1>Nouveau prospect</h1>
+        </div>
+      </div>
+      <section className="card pad" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 720 }}>
         <div className="field">
           <label htmlFor="np-name">Nom ou entreprise</label>
           <input id="np-name" className="input" placeholder="Ex. Maquis Chez Awa" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="field">
           <span className="lbl">Type d’acteur</span>
-          <div className="wrap" style={{ gap: 8 }}>
-            {ACTOR_TYPES.map((t) => <button key={t} className={type === t ? 'chip on' : 'chip'} onClick={() => setType(t)}>{t}</button>)}
-          </div>
+          <div className="wrap" style={{ gap: 8 }}>{ACTOR_TYPES.map((t) => <button key={t} className={type === t ? 'chip on' : 'chip'} onClick={() => setType(t)}>{t}</button>)}</div>
         </div>
         <div className="grid2">
-          <div className="field" style={{ minWidth: 0 }}>
-            <label htmlFor="np-contact">Contact</label>
-            <input id="np-contact" className="input" placeholder="Nom de la personne" value={contact} onChange={(e) => setContact(e.target.value)} />
-          </div>
-          <div className="field" style={{ minWidth: 0 }}>
-            <label htmlFor="np-tel">Tél. professionnel</label>
-            <input id="np-tel" className="input num" type="tel" inputMode="tel" value={tel} onChange={(e) => setTel(e.target.value)} placeholder="27 36 •• •• 18" />
-          </div>
+          <div className="field" style={{ minWidth: 0 }}><label htmlFor="np-contact">Contact</label><input id="np-contact" className="input" placeholder="Nom de la personne" value={contact} onChange={(e) => setContact(e.target.value)} /></div>
+          <div className="field" style={{ minWidth: 0 }}><label htmlFor="np-tel">Tél. professionnel</label><input id="np-tel" className="input num" type="tel" inputMode="tel" placeholder="07 00 00 00 00" value={tel} onChange={(e) => setTel(e.target.value)} /></div>
         </div>
         <div className="field">
           <label htmlFor="np-commune">Commune</label>
-          <select id="np-commune" className="input" value={commune} onChange={(e) => setCommune(e.target.value)}>
-            {COMMUNES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <select id="np-commune" className="input" value={commune} onChange={(e) => setCommune(e.target.value)}>{COMMUNES.map((c) => <option key={c} value={c}>{c}</option>)}</select>
         </div>
         <div className="field">
           <label htmlFor="np-needs">Besoins exprimés</label>
@@ -368,9 +323,7 @@ export function NewProspect() {
         </div>
         <div className="field">
           <span className="lbl">Source</span>
-          <div className="seg">
-            {SOURCES.map((s) => <button key={s} className={src === s ? 'on' : ''} onClick={() => setSrc(s)}>{s}</button>)}
-          </div>
+          <div className="seg">{SOURCES.map((x) => <button key={x} className={src === x ? 'on' : ''} onClick={() => setSrc(x)}>{x}</button>)}</div>
         </div>
         <button className="row top plain" onClick={() => setConsent((c) => !c)} aria-pressed={consent}>
           <Check on={consent} />
@@ -379,32 +332,40 @@ export function NewProspect() {
         <div className="grid2">
           <div className="field" style={{ minWidth: 0 }}>
             <label htmlFor="np-action">Prochaine action</label>
-            <select id="np-action" className="input" value={action} onChange={(e) => setAction(e.target.value)}>
-              {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-            </select>
+            <select id="np-action" className="input" value={action} onChange={(e) => setAction(e.target.value)}>{KINDS.map((k) => <option key={k} value={k}>{k}</option>)}</select>
           </div>
-          <div className="field" style={{ minWidth: 0 }}>
-            <label htmlFor="np-when">Le</label>
-            <input id="np-when" className="input num" placeholder="JJ/MM, heure" value={when} onChange={(e) => setWhen(e.target.value)} />
-          </div>
+          <div className="field" style={{ minWidth: 0 }}><label htmlFor="np-when">Le</label><input id="np-when" className="input num" placeholder="JJ/MM, heure" value={when} onChange={(e) => setWhen(e.target.value)} /></div>
         </div>
-      </div>
-      <Foot>
-        <button className="btn btn-p" disabled={!valid} onClick={save}>Enregistrer le prospect</button>
-      </Foot>
-    </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-s" onClick={() => onDone(null)}>Annuler</button>
+          <button className="btn btn-p" disabled={!valid} onClick={save}>Enregistrer le prospect</button>
+        </div>
+      </section>
+    </>
   );
 }
 
+/** Anciennes adresses de la prospection : renvoient vers la rubrique du back-office. */
+export function ProspectRedirect() {
+  const { id } = useParams();
+  const target = id === 'nouveau' ? '/admin?sec=prospects&new=1' : id ? `/admin?sec=prospects&id=${id}` : '/admin?sec=prospects';
+  return <Navigate to={target} replace />;
+}
+export const Prospection = ProspectRedirect;
+export const NewProspect = () => <Navigate to="/admin?sec=prospects&new=1" replace />;
+export const ProspectSheet = ProspectRedirect;
+
+
 /* Écran 25 : back-office (page large) */
 
-type Sec = 'dash' | 'users' | 'camp' | 'stats';
+type Sec = 'dash' | 'users' | 'camp' | 'stats' | 'prospects';
 type Res = 'ok' | 'ko';
 
 const NAV: { id: Sec; t: string; c: number | string }[] = [
   { id: 'dash', t: 'Tableau de bord', c: 0 },
   { id: 'users', t: 'Utilisateurs', c: '1 284' },
   { id: 'camp', t: 'Campagnes', c: 3 },
+  { id: 'prospects', t: 'Prospection', c: 48 },
   { id: 'stats', t: 'Statistiques', c: 0 },
 ];
 
@@ -466,6 +427,7 @@ const colStyle = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0
 
 export function BackOffice() {
   const s = useStore();
+  const allProspects = useProspects();
   /* Sur téléphone, chaque cellule affiche le titre de sa colonne (voir index.css, tableaux en fiches). */
   useEffect(() => {
     document.querySelectorAll('.adm table').forEach((t) => {
@@ -478,11 +440,29 @@ export function BackOffice() {
   const toModerate = s.myListings().filter((l) => l.status === 'review');
   const realOrders = s.orders().filter((o) => !o.demo);
   const openTickets = s.tickets().filter((t) => t.status === 'open');
-  const [sec, setSec] = useState<Sec>('dash');
+  const [params, setParams] = useSearchParams();
+  const [sec, setSec] = useState<Sec>((params.get('sec') as Sec) || 'dash');
+  const [pview, setPview] = useState<ProspectView>(params.get('new') ? 'new' : params.get('id') ? Number(params.get('id')) : null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [res, setRes] = useState<Record<number, Res>>({});
   const [role, setRole] = useState<RoleId>('all');
   const [camp, setCamp] = useState<Record<number, CampSt>>({});
   const [uq, setUq] = useState('');
+
+  useEffect(() => {
+    const urlSec = params.get('sec') as Sec | null;
+    if (urlSec && NAV.some((n) => n.id === urlSec)) {
+      setSec(urlSec);
+      setPview(params.get('new') ? 'new' : params.get('id') ? Number(params.get('id')) : null);
+    }
+  }, [params]);
+
+  const selectSec = (id: Sec) => {
+    setSec(id);
+    setPview(null);
+    setMenuOpen(false);
+    setParams(id === 'dash' ? {} : { sec: id }, { replace: true });
+  };
 
   const pending = 12 - Object.keys(res).length + toModerate.length;
   const exportDash = () => downloadCSV(`savaa-tableau-de-bord-${today().replace(/\//g, '-')}.csv`, [
@@ -497,30 +477,147 @@ export function BackOffice() {
   const users = USERS.filter((u) => (role === 'all' || u.k === role) && (!uquery || `${u.n} ${u.id}`.toLowerCase().includes(uquery)));
   const camps = CAMPS.map((c) => ({ ...c, cur: camp[c.id] ?? c.st }));
   const campPending = camps.filter((c) => c.cur === 'wait').length;
+  const currentTitle = NAV.find((n) => n.id === sec)?.t ?? 'Tableau de bord';
 
   return (
-    <div className="adm">
-      <aside className="adm-side">
-        <div className="brand"><LogoInline tone="white" height={40} name={false} /><small>Back-office, administration</small></div>
-        {NAV.map((n) => {
-          const on = sec === n.id;
-          return (
-            <button
-              key={n.id}
-              className={`adm-nav${on ? ' on' : ''}`}
-              onClick={(e) => { setSec(n.id); e.currentTarget.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' }); }}
-              aria-current={on ? 'page' : undefined}
-              style={{ border: 0, backgroundColor: on ? 'rgba(255,255,255,.16)' : 'transparent', color: 'inherit', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left', width: '100%' }}
-            >
-              {n.t}
-              {n.c ? <span className="c">{n.c}</span> : null}
-            </button>
-          );
-        })}
-        <Link className="adm-nav" to="/prospection">Prospection</Link>
-        <Link className="adm-nav" to="/accueil">Application mobile</Link>
-      </aside>
+    <div className="adm" style={{ flexDirection: 'column', flexWrap: 'nowrap' }}>
+      <header
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          background: '#145C3A',
+          color: '#fff',
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          boxShadow: '0 2px 8px rgba(0,0,0,.12)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <button
+            className="iconbtn"
+            aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(!menuOpen)}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 8,
+              background: menuOpen ? 'rgba(255,255,255,.2)' : 'rgba(255,255,255,.1)',
+              color: '#fff',
+            }}
+          >
+            <svg className="ic" viewBox="0 0 24 24" aria-hidden="true">
+              {menuOpen ? (
+                <path d="M6 6l12 12M18 6 6 18" />
+              ) : (
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+          <LogoInline tone="white" height={32} name={false} />
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span className="xs" style={{ color: '#A9C2B1', lineHeight: 1.1 }}>Back-office administration</span>
+            <span className="b ell" style={{ fontSize: 15 }}>{currentTitle}</span>
+          </div>
+        </div>
+        <Link
+          className="btn btn-sm"
+          to="/accueil"
+          style={{
+            background: 'rgba(255,255,255,.14)',
+            color: '#fff',
+            borderColor: 'rgba(255,255,255,.24)',
+            height: 34,
+            padding: '0 12px',
+            fontSize: 12.5,
+          }}
+        >
+          Application mobile
+        </Link>
+      </header>
+
+      {menuOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu du back-office"
+          onClick={() => setMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            top: 60,
+            background: 'rgba(23, 32, 27, 0.48)',
+            zIndex: 25,
+            display: 'flex',
+          }}
+        >
+          <aside
+            className="adm-side"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 280,
+              maxWidth: '82vw',
+              height: 'calc(100dvh - 60px)',
+              flex: 'none',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              padding: '16px 12px',
+              gap: 4,
+              boxShadow: '6px 0 24px rgba(0,0,0,.22)',
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{ padding: '4px 12px 12px', borderBottom: '1px solid rgba(255,255,255,.12)', marginBottom: 6 }}>
+              <span className="xs" style={{ color: '#A9C2B1', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+                Rubriques Back-office
+              </span>
+            </div>
+            {NAV.map((n) => {
+              const on = sec === n.id;
+              const badge = n.id === 'prospects' ? allProspects.length : n.id === 'camp' ? campPending : n.c;
+              return (
+                <button
+                  key={n.id}
+                  className={`adm-nav${on ? ' on' : ''}`}
+                  onClick={() => selectSec(n.id)}
+                  aria-current={on ? 'page' : undefined}
+                  style={{
+                    border: 0,
+                    backgroundColor: on ? 'rgba(255,255,255,.18)' : 'transparent',
+                    color: '#fff',
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                    height: 42,
+                    padding: '0 12px',
+                  }}
+                >
+                  <span>{n.t}</span>
+                  {badge ? <span className="c">{badge}</span> : null}
+                </button>
+              );
+            })}
+            <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.12)' }}>
+              <Link
+                className="adm-nav"
+                to="/accueil"
+                onClick={() => setMenuOpen(false)}
+                style={{ width: '100%', height: 42, padding: '0 12px', color: '#DDE8E0' }}
+              >
+                ← Retour à l’application mobile
+              </Link>
+            </div>
+          </aside>
+        </div>
+      )}
+
       <main className="adm-main">
+        {sec === 'prospects' && <AdminProspects view={pview} onView={setPview} />}
         {sec === 'dash' && (
           <>
             <div className="adm-top">

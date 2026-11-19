@@ -285,13 +285,15 @@ export function Profile() {
   };
   const idSent = session.docs.length > 0;
   const level = session.demo ? 2 : 1;
-  const logout = () => {
-    if (!window.confirm('Se déconnecter ? Sans serveur, les données de ce compte sont effacées de cet appareil.')) return;
+  const [confirmKind, setConfirmKind] = useState<'logout' | 'reset' | null>(null);
+  const doLogout = () => {
+    setConfirmKind(null);
     s.logout();
+    showToast('Vous êtes déconnecté.');
     navigate('/demarrage', { replace: true });
   };
-  const reset = () => {
-    if (!window.confirm('Effacer tout ce qui a été saisi dans la démo et revenir aux données de départ ?')) return;
+  const doReset = () => {
+    setConfirmKind(null);
     s.reset();
     showToast('Démo remise à zéro.');
     navigate('/demarrage', { replace: true });
@@ -398,12 +400,69 @@ export function Profile() {
           {s.canSell() && <Link className="li" to="/boutique"><span className="grow small b">{s.shop().created ? 'Ma boutique' : 'Créer ma boutique'}</span><Icon name="chevron" size="sm" /></Link>}
           {s.has('resto') && <Link className="li" to="/restaurant"><span className="grow small b">Espace restaurant (B2B)</span><Icon name="chevron" size="sm" /></Link>}
           {/* Outils internes : montrés seulement avec le compte de démonstration, pour la présentation. */}
-          {session.demo && <Link className="li" to="/prospection"><span className="grow small b">Prospection (équipe SAVAA)</span><Icon name="chevron" size="sm" /></Link>}
-          {session.demo && <Link className="li" to="/admin"><span className="grow small b">Back-office administration</span><Icon name="chevron" size="sm" /></Link>}
-          <button className="li" onClick={logout}><span className="grow small b" style={{ color: '#A0221A' }}>Se déconnecter</span></button>
+          {session.demo && <Link className="li" to="/admin"><span className="grow small b">Back-office et prospection (équipe SAVAA)</span><Icon name="chevron" size="sm" /></Link>}
+          <button className="li" onClick={() => setConfirmKind('logout')}><span className="grow small b" style={{ color: '#A0221A' }}>Se déconnecter</span></button>
         </div>
-        <button className="btn btn-ghost btn-block small" onClick={reset}>Remettre la démo à zéro</button>
+        <button className="btn btn-ghost btn-block small" onClick={() => setConfirmKind('reset')}>Remettre la démo à zéro</button>
       </div>
+      {confirmKind && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-title"
+          onClick={() => setConfirmKind(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(23, 32, 27, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            zIndex: 40,
+          }}
+        >
+          <div
+            className="card pad col"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 340, gap: 14, borderRadius: 14, boxShadow: '0 12px 32px rgba(0,0,0,.24)', textAlign: 'center' }}
+          >
+            <div className="col" style={{ gap: 6, alignItems: 'center' }}>
+              <span
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  background: confirmKind === 'logout' ? '#FDECEA' : '#E8F3EA',
+                  color: confirmKind === 'logout' ? '#A0221A' : '#145C3A',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Icon name={confirmKind === 'logout' ? 'alert' : 'info'} />
+              </span>
+              <span id="confirm-title" className="b" style={{ fontSize: 17 }}>
+                {confirmKind === 'logout' ? 'Se déconnecter ?' : 'Remettre la démo à zéro ?'}
+              </span>
+              <p className="small muted" style={{ lineHeight: 1.5 }}>
+                {confirmKind === 'logout'
+                  ? 'Vous allez quitter votre session sur cet appareil. Vous pourrez vous reconnecter à tout moment.'
+                  : 'Toutes les modifications saisies pendant votre essai seront effacées pour revenir aux données initiales de la démo.'}
+              </p>
+            </div>
+            <div className="row" style={{ gap: 10, marginTop: 2 }}>
+              <button className="btn btn-s grow" onClick={() => setConfirmKind(null)}>Annuler</button>
+              <button
+                className={confirmKind === 'logout' ? 'btn btn-danger grow' : 'btn btn-p grow'}
+                onClick={confirmKind === 'logout' ? doLogout : doReset}
+              >
+                {confirmKind === 'logout' ? 'Se déconnecter' : 'Réinitialiser'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <TabBar />
     </div>
   );
