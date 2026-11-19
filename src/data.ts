@@ -171,8 +171,44 @@ function initial() {
     town: 'Sinématiali',
   };
 
-  return { animals, events, listings, cart, orders, favorites: ['L-METIS', 'L-BELIERS', 'IGNAME'] as string[], tickets, chat: [] as string[], shop };
+  /* Notifications de la maquette (écran 22). */
+  const notifs: Notif[] = [
+    { id: 1, g: 'Aujourd’hui', c: 'alr', title: 'Alerte sanitaire, FK-0119', text: 'Boiterie signalée sur la brebis FK-0119. Priorité moyenne. Contactez un vétérinaire si l’état persiste.', time: '09:58', to: '/animal/FK-0119/observation', unread: true },
+    { id: 2, g: 'Aujourd’hui', c: 'pay', title: 'Paiement confirmé (simulation)', text: 'SAV-2026-11-004812, 733 000 FCFA, statut transmis par le prestataire.', time: '09:42', to: '/recu?ref=SAV-2026-11-004812', unread: true },
+    { id: 3, g: 'Aujourd’hui', c: 'cmd', title: 'Commande prise en charge', text: 'Transports Ouattara a accepté la livraison du taurillon FK-0142.', time: '09:15', to: '/commande?ref=SAV-2026-11-004812', unread: true },
+    { id: 4, g: 'Hier', c: 'cmp', title: 'Campagne validée', text: '« Béliers Sahéliens, lot de 6 » est diffusée jusqu’au 24 novembre.', time: '17:20', to: '/campagne/stats', unread: true },
+    { id: 5, g: 'Hier', c: 'pro', title: 'Relance prévue demain', text: 'Restaurant Le Baobab, appel de suivi du devis poulets de chair.', time: '16:05', to: '/prospect/1', unread: false },
+    { id: 6, g: 'Hier', c: 'alr', title: 'Rappel vaccinal PPR', text: '9 ovins arrivent à échéance le 22 novembre.', time: '07:00', to: '/suivi', unread: false },
+  ];
+
+  /* Compte de démonstration : Adama Koné, éleveur et vendeur. */
+  const session: Session = {
+    loggedIn: false,
+    name: 'Adama Koné',
+    phone: '07 48 12 33 90',
+    roles: ['eleveur', 'vendeur'],
+    prefs: { push: true, mkt: false },
+    docs: [
+      { name: 'CNI recto-verso.pdf', date: '03/03/2025', status: 'verified' },
+      { name: 'Attestation d’exploitation, mairie.jpg', date: '10/11/2026', status: 'documented' },
+    ],
+  };
+
+  return { animals, events, listings, cart, orders, favorites: ['L-METIS', 'L-BELIERS', 'IGNAME'] as string[], tickets, chat: [] as string[], shop, notifs, session };
 }
+
+export type NotifCat = 'cmd' | 'pay' | 'cmp' | 'pro' | 'alr';
+export type Notif = { id: number; c: NotifCat; title: string; text: string; time: string; to: string; unread: boolean; /** Groupe affiché ; sinon la date. */ g?: string; date?: string };
+
+export type Session = {
+  loggedIn: boolean;
+  name: string;
+  phone: string;
+  mail?: string;
+  roles: string[];
+  prefs: { push: boolean; mkt: boolean };
+  docs: { name: string; date: string; status: 'verified' | 'documented' | 'review' }[];
+};
 
 export type Shop = { name: string; desc: string; town: string; logo?: string };
 
@@ -265,6 +301,34 @@ export const store = {
   },
   addEvent(e: HealthEvent) {
     commit({ events: [e, ...state.events] });
+    if (e.kind === 'obs') store.notify({ c: 'alr', title: `Alerte sanitaire, ${e.animalId}`, text: `${e.title}. ${e.pending ? 'Envoi au vétérinaire dès le retour du réseau.' : ''}`.trim(), to: `/animal/${e.animalId}/sante` });
+  },
+
+  /* Compte */
+  session: () => state.session,
+  login(patch: Partial<Session>) {
+    commit({ session: { ...state.session, ...patch, loggedIn: true } });
+  },
+  logout() {
+    commit({ session: { ...state.session, loggedIn: false } });
+  },
+  setSession(patch: Partial<Session>) {
+    commit({ session: { ...state.session, ...patch } });
+  },
+
+  /* Notifications */
+  notifs: () => state.notifs,
+  unread: () => state.notifs.filter((n) => n.unread).length,
+  notify(n: Omit<Notif, 'id' | 'time' | 'unread' | 'date'>) {
+    const id = Math.max(0, ...state.notifs.map((x) => x.id)) + 1;
+    commit({ notifs: [{ ...n, id, time: nowTime(), date: today(), unread: true }, ...state.notifs] });
+  },
+  markRead(id: number) {
+    if (!state.notifs.some((n) => n.id === id && n.unread)) return;
+    commit({ notifs: state.notifs.map((n) => (n.id === id ? { ...n, unread: false } : n)) });
+  },
+  markAllRead() {
+    commit({ notifs: state.notifs.map((n) => ({ ...n, unread: false })) });
   },
 
   /* Annonces */
@@ -272,6 +336,7 @@ export const store = {
   listing: (id: string): Listing | undefined => findListing(id),
   addListing(l: Listing) {
     commit({ listings: [l, ...state.listings] });
+    if (l.mine) store.notify({ c: 'cmp', title: 'Annonce envoyée en relecture', text: `« ${l.title} » sera vérifiée par l’équipe SAVAA, en général sous 24 h.`, to: `/annonce/${l.id}` });
   },
   updateListing(id: string, patch: Partial<Listing>) {
     commit({ listings: state.listings.map((l) => (l.id === id ? { ...l, ...patch } : l)) });
@@ -334,6 +399,7 @@ export const store = {
     const d = new Date();
     const ticket: Ticket = { ...t, id: `TK-${num}`, date: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`, status: 'open' };
     commit({ tickets: [ticket, ...state.tickets] });
+    store.notify({ c: 'cmd', title: `Ticket ${ticket.id} ouvert`, text: `${ticket.motif}${ticket.order ? `, ${ticket.order}` : ''}. Première réponse sous ${ticket.urgent ? '1 h' : '4 h'}.`, to: '/assistance?onglet=reclamation' });
     return ticket;
   },
   chat: () => state.chat,
@@ -370,6 +436,7 @@ export const store = {
       return left > 0 ? { ...l, stock: l.stock === undefined ? undefined : left } : { ...l, stock: l.stock === undefined ? undefined : 0, status: l.stock === undefined ? 'sold' : 'out' } as Listing;
     });
     commit({ orders: [order, ...state.orders], listings, cart: { ...state.cart, items: [] } });
+    store.notify({ c: 'pay', title: 'Paiement confirmé (simulation)', text: `${order.ref}, ${fcfa(order.total)} FCFA, statut transmis par le prestataire.`, to: `/recu?ref=${order.ref}` });
     return order;
   },
 };
@@ -379,31 +446,6 @@ export const fcfa = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,
 
 /** Prix d'une annonce : « 117 500 FCFA la tête ». */
 export const priceLabel = (l: Listing) => `${fcfa(l.price)} FCFA${l.unit ? ` ${l.unit}` : ''}`;
-
-const PHOTO_BY_LABEL: Record<string, string> = {
-  'Photo, lot': '/images/lot-taurillons.jpg',
-  'Photo, taurillon': '/images/taurillon-goudali.jpg',
-  'Photo, taurillon de profil': '/images/taurillon-goudali.jpg',
-  'Photo, N’Dama': '/images/vache-ndama.jpg',
-  'Photo, métis': '/images/genisse-metisse.jpg',
-  'Photo, béliers': '/images/beliers-saheliens.jpg',
-  'Photo, sacs d’aliment': '/images/aliment-betail.jpg',
-  'Photo, poussins': '/images/poussins-chair.jpg',
-  'Photo, igname': '/images/igname-kponan.jpg',
-  'Profil gauche': '/images/vache-ndama.jpg',
-  'Boucle': '/images/boucle-oreille.jpg',
-  'IMG_0412': '/images/brebis-djallonke.jpg',
-  'VID_0921': '/images/taurillon-goudali.jpg',
-  '1': '/images/genisse-metisse.jpg',
-  '2': '/images/boucle-oreille.jpg',
-  'Vidéo': '/images/genisse-metisse.jpg',
-  'Photo 1': '/images/genisse-metisse.jpg',
-  'Photo': '/images/taurillon-goudali.jpg',
-};
-
-export function photoFor(label = '', tint?: 'w' | 's') {
-  return PHOTO_BY_LABEL[label] ?? (tint === 'w' ? '/images/aliment-betail.jpg' : tint === 's' ? '/images/poussins-chair.jpg' : '/images/taurillon-goudali.jpg');
-}
 
 /** Re-rend le composant quand les données de démo changent. */
 export function useStore() {

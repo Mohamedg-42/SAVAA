@@ -70,6 +70,7 @@ const CATEGORY_SEARCH: Record<string, string> = { 'Ovins et caprins': 'ovins', '
 export function Home() {
   const s = useStore();
   const cartCount = s.cartLines().length;
+  const unread = s.unread();
   return (
     <div className="app">
       <header className="hdr" style={{ padding: '10px 8px 10px 16px' }}>
@@ -77,7 +78,7 @@ export function Home() {
           <span className="b" style={{ fontSize: 18, letterSpacing: '0.06em' }}>SAVAA</span>
           <span className="row xs" style={{ gap: 4, color: '#CFE0D4' }}><Icon name="pin" size="sm" /><span className="ell">Korhogo, Poro</span></span>
         </div>
-        <Link className="iconbtn" to="/notifications" aria-label="Notifications, 4 non lues"><Icon name="bell" /><span className="dot">4</span></Link>
+        <Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}><Icon name="bell" />{unread > 0 && <span className="dot">{unread}</span>}</Link>
         <Link className="iconbtn" to="/panier" aria-label={`Panier, ${cartCount} article${cartCount > 1 ? 's' : ''}`}><Icon name="cart" />{cartCount > 0 && <span className="dot">{cartCount}</span>}</Link>
       </header>
       <div className="body flush">

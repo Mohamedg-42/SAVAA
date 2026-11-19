@@ -1,6 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { photoFor } from './data';
 import { readImage } from './device';
 import { photoFor } from './photos';
 import { clearToast, showToast, useToast } from './toast';

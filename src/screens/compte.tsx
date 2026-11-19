@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { today, useStore, type NotifCat, type Session } from '../data';
+import { showToast } from '../toast';
 import { Badge, Check, Header, Icon, TabBar } from '../ui';
 
 /* Bouton retour des en-têtes blancs (connexion, rôle). */
@@ -59,11 +61,31 @@ export function Splash() {
 
 /* Écran 03 : connexion ou inscription (code simulé). */
 export function Login() {
+  const s = useStore();
+  const session = s.session();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'tel' | 'mail'>('tel');
   const [cgu, setCgu] = useState(true);
-  const [mkt, setMkt] = useState(false);
+  const [mkt, setMkt] = useState(session.prefs.mkt);
   const [code, setCode] = useState('4812');
+  const [phone, setPhone] = useState(session.phone);
+  const [mail, setMail] = useState(session.mail ?? 'adama.kone@exemple.ci');
+  const [wait, setWait] = useState(42);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait(wait - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
+  const resend = () => {
+    setWait(60);
+    setCode('');
+    showToast(`Nouveau code envoyé ${mode === 'tel' ? 'par SMS' : 'par e-mail'}. En démo, tout code à 6 chiffres est accepté.`);
+  };
+  const contactOk = mode === 'tel' ? phone.replace(/\D/g, '').length === 10 : /^\S+@\S+\.\S+$/.test(mail);
+  const validate = () => {
+    s.login(mode === 'tel' ? { phone: phone.trim(), prefs: { ...session.prefs, mkt } } : { mail: mail.trim(), prefs: { ...session.prefs, mkt } });
+    navigate('/role');
+  };
 
   return (
     <div className="app" style={{ background: '#fff' }}>
@@ -82,19 +104,24 @@ export function Login() {
             <label htmlFor="login-tel">Numéro de téléphone</label>
             <div className="row" style={{ gap: 8 }}>
               <div className="input" style={{ width: 92, flex: 'none', justifyContent: 'center', fontWeight: 500 }}>+225</div>
-              <input id="login-tel" className="input num" type="tel" inputMode="tel" autoComplete="tel-national" defaultValue="07 48 12 33 90" style={{ fontWeight: 500, minWidth: 0 }} />
+              <input id="login-tel" className="input num" type="tel" inputMode="tel" autoComplete="tel-national" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 14))} style={{ fontWeight: 500, minWidth: 0 }} />
             </div>
             <p className="hint">Nous envoyons un code à 6 chiffres par SMS.</p>
           </div>
         ) : (
           <div className="field">
             <label htmlFor="login-mail">Adresse e-mail</label>
-            <input id="login-mail" className="input" type="email" autoComplete="email" defaultValue="adama.kone@exemple.ci" />
+            <input id="login-mail" className="input" type="email" autoComplete="email" value={mail} onChange={(e) => setMail(e.target.value)} />
             <p className="hint">Nous envoyons un code à 6 chiffres par e-mail.</p>
           </div>
         )}
         <div className="field">
-          <div className="row between"><label className="lbl" htmlFor="login-otp">Code reçu</label><span className="link">Renvoyer (0:42)</span></div>
+          <div className="row between">
+            <label className="lbl" htmlFor="login-otp">Code reçu</label>
+            {wait > 0
+              ? <span className="small muted num">Renvoyer (0:{String(wait).padStart(2, '0')})</span>
+              : <button className="link plain" onClick={resend}>Renvoyer le code</button>}
+          </div>
           <label className="otp num" style={{ position: 'relative' }}>
             {Array.from({ length: 6 }, (_, i) => (
               <div key={i} className={i === Math.min(code.length, 5) ? 'on' : ''}>{code[i] ?? ''}</div>
@@ -123,7 +150,7 @@ export function Login() {
         </div>
       </div>
       <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
-        <button className="btn btn-p" disabled={!cgu || code.length < 6} onClick={() => navigate('/role')}>Valider le code</button>
+        <button className="btn btn-p" disabled={!cgu || code.length < 6 || !contactOk} onClick={validate}>Valider le code</button>
       </div>
     </div>
   );
@@ -142,9 +169,14 @@ const ROLES: { id: string; t: string; d: string; v?: boolean }[] = [
 
 /* Écran 04 : choix du ou des rôles. */
 export function RolePicker() {
+  const s = useStore();
   const navigate = useNavigate();
-  const [sel, setSel] = useState<Record<string, boolean>>({ eleveur: true, vendeur: true });
+  const [sel, setSel] = useState<Record<string, boolean>>(() => Object.fromEntries(s.session().roles.map((r) => [r, true])));
   const count = Object.values(sel).filter(Boolean).length;
+  const next = () => {
+    s.setSession({ roles: ROLES.filter((r) => sel[r.id]).map((r) => r.id) });
+    navigate(sel.resto && !sel.eleveur && !sel.vendeur ? '/restaurant' : sel.vendeur ? '/boutique/creer' : sel.eleveur ? '/suivi' : '/accueil');
+  };
 
   return (
     <div className="app" style={{ background: '#fff' }}>
@@ -176,7 +208,7 @@ export function RolePicker() {
         <p className="hint">Les profils marqués « Vérification » demandent un justificatif avant d’accéder aux fonctions réservées.</p>
       </div>
       <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
-        <button className="btn btn-p" disabled={count === 0} onClick={() => navigate(sel.resto && !sel.eleveur && !sel.vendeur ? '/restaurant' : '/boutique/creer')}>Continuer ({count})</button>
+        <button className="btn btn-p" disabled={count === 0} onClick={next}>Continuer ({count})</button>
       </div>
     </div>
   );
@@ -193,9 +225,36 @@ function ClockIcon({ color }: { color: string }) {
 }
 
 /* Écran 23 : profil, vérification et préférences. */
+const DOC_BADGE: Record<Session['docs'][number]['status'], [string, 'green' | 'blue' | 'amber']> = {
+  verified: ['Vérifié', 'green'],
+  documented: ['Documenté', 'blue'],
+  review: ['En revue', 'amber'],
+};
+
 export function Profile() {
-  const [push, setPush] = useState(true);
-  const [mkt, setMkt] = useState(false);
+  const s = useStore();
+  const session = s.session();
+  const navigate = useNavigate();
+  const { push, mkt } = session.prefs;
+  const setPref = (k: 'push' | 'mkt') => s.setSession({ prefs: { ...session.prefs, [k]: !session.prefs[k] } });
+  const initials = session.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const roles = ROLES.filter((r) => session.roles.includes(r.id));
+  const addDoc = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    s.setSession({ docs: [...session.docs, { name: f.name, date: today(), status: 'review' }] });
+    showToast('Justificatif reçu, il sera contrôlé par l’équipe SAVAA.');
+  };
+  const logout = () => {
+    s.logout();
+    navigate('/demarrage', { replace: true });
+  };
+  const reset = () => {
+    if (!window.confirm('Effacer tout ce qui a été saisi dans la démo et revenir aux données de départ ?')) return;
+    s.reset();
+    showToast('Démo remise à zéro.');
+  };
 
   return (
     <div className="app">
@@ -205,13 +264,12 @@ export function Profile() {
       />
       <div className="body">
         <div className="card pad row" style={{ gap: 14 }}>
-          <span className="av" style={{ width: 56, height: 56, fontSize: 18 }}>AK</span>
+          <span className="av" style={{ width: 56, height: 56, fontSize: 18 }}>{initials}</span>
           <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
-            <span className="b" style={{ fontSize: 16 }}>Adama Koné</span>
-            <span className="small muted ell">Ferme Koné &amp; Fils, Sinématiali</span>
+            <span className="b" style={{ fontSize: 16 }}>{session.name}</span>
+            <span className="small muted ell">{s.shop().name}, {s.shop().town}</span>
             <div className="wrap" style={{ marginTop: 4 }}>
-              <Badge tone="green">Éleveur</Badge>
-              <Badge tone="green">Vendeur</Badge>
+              {roles.map((r) => <Badge key={r.id} tone={r.v ? 'amber' : 'green'}>{r.t.split(' / ')[0]}</Badge>)}
               <Link to="/role" className="badge bd-grey">+ Ajouter un rôle</Link>
             </div>
           </div>
@@ -224,7 +282,7 @@ export function Profile() {
             <div className="list">
               <div className="li">
                 <Icon name="check" style={{ color: '#145C3A' }} />
-                <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Téléphone confirmé</span><span className="xs muted">+225 07 48 •• •• 90, le 02/03/2025</span></div>
+                <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Téléphone confirmé</span><span className="xs muted">+225 {session.phone.replace(/\D/g, '').replace(/^(\d{2})\d{4}(\d{2})(\d{2})$/, '$1 •• •• $3')}, le 02/03/2025</span></div>
                 <Badge tone="green">Vérifié</Badge>
               </div>
               <div className="li">
@@ -242,21 +300,29 @@ export function Profile() {
         </div>
 
         <div className="sec">
-          <div className="sech"><h2>Justificatifs</h2><span className="link">Ajouter</span></div>
+          <div className="sech">
+            <h2>Justificatifs</h2>
+            <label className="link" style={{ cursor: 'pointer', position: 'relative' }}>
+              Ajouter
+              <input type="file" accept="image/*,application/pdf" onChange={addDoc} style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />
+            </label>
+          </div>
           <div className="card list">
-            <div className="li"><Icon name="file" /><div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">CNI recto-verso.pdf</span><span className="xs muted">Ajouté le 03/03/2025</span></div><Badge tone="green">Vérifié</Badge></div>
-            <div className="li"><Icon name="file" /><div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">Attestation d’exploitation, mairie.jpg</span><span className="xs muted">Ajouté le 10/11/2026</span></div><Badge tone="blue">Documenté</Badge></div>
+            {session.docs.map((d) => {
+              const [label, tone] = DOC_BADGE[d.status];
+              return <div className="li" key={d.name + d.date}><Icon name="file" /><div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">{d.name}</span><span className="xs muted">Ajouté le {d.date}</span></div><Badge tone={tone}>{label}</Badge></div>;
+            })}
           </div>
         </div>
 
         <div className="sec">
           <div className="sech"><h2>Préférences</h2></div>
           <div className="card list">
-            <button className="li" role="switch" aria-checked={push} onClick={() => setPush(!push)}>
+            <button className="li" role="switch" aria-checked={push} onClick={() => setPref('push')}>
               <span className="grow small b">Alertes sanitaires et commandes</span>
               <span className={`toggle${push ? ' on' : ''}`} />
             </button>
-            <button className="li" role="switch" aria-checked={mkt} onClick={() => setMkt(!mkt)}>
+            <button className="li" role="switch" aria-checked={mkt} onClick={() => setPref('mkt')}>
               <span className="col grow" style={{ minWidth: 0 }}><span className="small b">Offres et informations SAVAA</span><span className="xs muted">SMS ou WhatsApp, désinscription à tout moment</span></span>
               <span className={`toggle${mkt ? ' on' : ''}`} />
             </button>
@@ -270,15 +336,14 @@ export function Profile() {
           <Link className="li" to="/restaurant"><span className="grow small b">Espace restaurant (B2B)</span><Icon name="chevron" size="sm" /></Link>
           <Link className="li" to="/prospection"><span className="grow small b">Prospection (équipe SAVAA)</span><Icon name="chevron" size="sm" /></Link>
           <Link className="li" to="/admin"><span className="grow small b">Back-office administration</span><Icon name="chevron" size="sm" /></Link>
-          <Link className="li" to="/demarrage" replace><span className="grow small b" style={{ color: '#A0221A' }}>Se déconnecter</span></Link>
+          <button className="li" onClick={logout}><span className="grow small b" style={{ color: '#A0221A' }}>Se déconnecter</span></button>
         </div>
+        <button className="btn btn-ghost btn-block small" onClick={reset}>Remettre la démo à zéro</button>
       </div>
       <TabBar />
     </div>
   );
 }
-
-type NotifCat = 'cmd' | 'pay' | 'cmp' | 'pro' | 'alr';
 
 const CAT_STYLE: Record<NotifCat, [string, string, string]> = {
   cmd: ['CMD', '#E8F3EA', '#145C3A'],
@@ -288,31 +353,19 @@ const CAT_STYLE: Record<NotifCat, [string, string, string]> = {
   alr: ['!', '#FDECEA', '#A0221A'],
 };
 
-const NOTIFS: { id: number; g: string; c: NotifCat; title: string; text: string; time: string; to: string; unread: boolean }[] = [
-  { id: 1, g: 'Aujourd’hui', c: 'alr', title: 'Alerte sanitaire, FK-0119', text: 'Boiterie signalée sur la brebis FK-0119. Priorité moyenne. Contactez un vétérinaire si l’état persiste.', time: '09:58', to: '/animal/FK-0119/observation', unread: true },
-  { id: 2, g: 'Aujourd’hui', c: 'pay', title: 'Paiement confirmé (simulation)', text: 'SAV-2026-11-004812, 733 000 FCFA, statut transmis par le prestataire.', time: '09:42', to: '/recu', unread: true },
-  { id: 3, g: 'Aujourd’hui', c: 'cmd', title: 'Commande prise en charge', text: 'Transports Ouattara a accepté la livraison du taurillon FK-0142.', time: '09:15', to: '/commande', unread: true },
-  { id: 4, g: 'Hier', c: 'cmp', title: 'Campagne validée', text: '« Béliers Sahéliens, lot de 6 » est diffusée jusqu’au 24 novembre.', time: '17:20', to: '/campagne/stats', unread: true },
-  { id: 5, g: 'Hier', c: 'pro', title: 'Relance prévue demain', text: 'Restaurant Le Baobab, appel de suivi du devis poulets de chair.', time: '16:05', to: '/prospect/1', unread: false },
-  { id: 6, g: 'Hier', c: 'alr', title: 'Rappel vaccinal PPR', text: '9 ovins arrivent à échéance le 22 novembre.', time: '07:00', to: '/suivi', unread: false },
-];
-
 const FILTERS: [NotifCat | 'all', string][] = [['all', 'Tout'], ['cmd', 'Commandes'], ['pay', 'Paiements'], ['cmp', 'Campagnes'], ['pro', 'Prospects'], ['alr', 'Alertes']];
 
 /* Écran 22 : notifications (filtres, lecture). */
 export function Notifications() {
+  const s = useStore();
+  const all = s.notifs();
   const [filter, setFilter] = useState<NotifCat | 'all'>('all');
-  const [unread, setUnread] = useState<Set<number>>(() => new Set(NOTIFS.filter((n) => n.unread).map((n) => n.id)));
+  const unreadCount = s.unread();
 
-  const shown = NOTIFS.filter((n) => filter === 'all' || n.c === filter);
-  const groups = ['Aujourd’hui', 'Hier'].map((t) => ({ t, items: shown.filter((n) => n.g === t) })).filter((g) => g.items.length > 0);
-
-  const markRead = (id: number) => {
-    if (!unread.has(id)) return;
-    const next = new Set(unread);
-    next.delete(id);
-    setUnread(next);
-  };
+  const shown = all.filter((n) => filter === 'all' || n.c === filter);
+  /* Groupes dans l'ordre d'apparition : « Aujourd'hui » pour ce qui arrive pendant la démo. */
+  const label = (n: (typeof all)[number]) => n.g ?? (n.date === today() ? 'Aujourd’hui' : n.date ?? '');
+  const groups = [...new Set(shown.map(label))].map((t) => ({ t, items: shown.filter((n) => label(n) === t) }));
 
   return (
     <div className="app">
@@ -320,7 +373,7 @@ export function Notifications() {
         back
         title="Notifications"
         actions={
-          <button className="plain link" style={{ paddingRight: 10, opacity: unread.size ? 1 : 0.6 }} disabled={unread.size === 0} onClick={() => setUnread(new Set())}>
+          <button className="plain link" style={{ paddingRight: 10, opacity: unreadCount ? 1 : 0.6 }} disabled={unreadCount === 0} onClick={() => s.markAllRead()}>
             Tout marquer lu
           </button>
         }
@@ -329,7 +382,7 @@ export function Notifications() {
         <div className="chips">
           {FILTERS.map(([id, t]) => (
             <button key={id} className={`chip${filter === id ? ' on' : ''}`} onClick={() => setFilter(id)}>
-              {t} <span className="n">{id === 'all' ? NOTIFS.length : NOTIFS.filter((n) => n.c === id).length}</span>
+              {t} <span className="n">{id === 'all' ? all.length : all.filter((n) => n.c === id).length}</span>
             </button>
           ))}
         </div>
@@ -342,7 +395,7 @@ export function Notifications() {
               {g.items.map((n) => {
                 const [k, tint, ink] = CAT_STYLE[n.c];
                 return (
-                  <Link key={n.id} className="li" to={n.to} onClick={() => markRead(n.id)} style={{ alignItems: 'flex-start', background: unread.has(n.id) ? '#E8F3EA' : '#fff' }}>
+                  <Link key={n.id} className="li" to={n.to} onClick={() => s.markRead(n.id)} style={{ alignItems: 'flex-start', background: n.unread ? '#E8F3EA' : '#fff' }}>
                     <span className="mono" style={{ background: tint, color: ink, border: 0 }}>{k}</span>
                     <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
                       <span className="row between" style={{ gap: 8 }}><span className="b small ell">{n.title}</span><span className="xs muted num" style={{ flex: 'none' }}>{n.time}</span></span>
