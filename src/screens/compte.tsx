@@ -453,10 +453,16 @@ export function Notifications() {
               {g.items.map((n) => {
                 const [k, tint, ink] = CAT_STYLE[n.c];
                 return (
-                  <Link key={n.id} className="li" to={n.to} onClick={() => s.markRead(n.id)} style={{ alignItems: 'flex-start', background: n.unread ? '#E8F3EA' : '#fff' }}>
+                  <Link key={n.id} className="li" to={n.to} onClick={() => s.markRead(n.id)} style={{ alignItems: 'flex-start' }} aria-label={n.unread ? `Non lue : ${n.title}` : undefined}>
                     <span className="mono" style={{ color: ink, borderColor: tint }}>{k}</span>
                     <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
-                      <span className="row between" style={{ gap: 8 }}><span className="b small ell">{n.title}</span><span className="xs muted num" style={{ flex: 'none' }}>{n.time}</span></span>
+                      <span className="row between" style={{ gap: 8 }}>
+                        <span className="b small ell">{n.title}</span>
+                        <span className="row" style={{ gap: 6, flex: 'none' }}>
+                          <span className="xs muted num">{n.time}</span>
+                          {n.unread && <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 4, background: '#F28C28' }} />}
+                        </span>
+                      </span>
                       <span className="small muted" style={{ lineHeight: 1.4 }}>{n.text}</span>
                     </span>
                   </Link>
