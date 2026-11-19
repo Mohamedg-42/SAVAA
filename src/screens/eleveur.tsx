@@ -120,7 +120,7 @@ export function Herd() {
           <div className="card list">
             {rows.map((a) => (
               <Link className="li" key={a.id} to={a.status === 'Alerte' ? `/animal/${a.id}/sante` : `/animal/${a.id}`}>
-                <Photo w={48} h={48} radius={6} />
+                <Photo w={48} h={48} radius={6} src={a.photo} />
                 <div className="col grow" style={{ gap: 2 }}>
                   <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="b small num" style={{ whiteSpace: 'nowrap', flex: 'none' }}>{a.id}</span><span className="small ell">{a.name}</span></span>
                   <span className="xs muted ell">{a.details}</span>
@@ -149,6 +149,11 @@ export function AddAnimal() {
 
   const save = () => {
     const label = { bovin: 'Bovin', ovin: 'Ovin', caprin: 'Caprin' }[species];
+    const defaultPhoto: Record<Species, string> = {
+      bovin: '/images/vache-ndama.jpg',
+      ovin: '/images/brebis-djallonke.jpg',
+      caprin: '/images/chevre-djallonke.jpg',
+    };
     s.addAnimal({
       id,
       species,
@@ -157,6 +162,7 @@ export function AddAnimal() {
       status: f.officialId ? 'ID à vérifier' : 'ID manquant',
       tone: f.officialId ? 'amber' : 'grey',
       officialId: f.officialId || undefined,
+      photo: defaultPhoto[species],
     });
     navigate(`/animal/${id}`, { replace: true });
   };

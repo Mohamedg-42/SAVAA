@@ -53,7 +53,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
       <div className="body flush">
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="row top" style={{ gap: 14 }}>
-            <Photo label="Photo" w={96} h={96} radius={8} />
+            <Photo label="Photo" w={96} h={96} radius={8} src={a.photo} />
             <div className="col grow" style={{ gap: 3 }}>
               <span className="small muted num">{a.id}, n° interne</span>
               <span className="b" style={{ fontSize: 17, lineHeight: 1.25 }}>{a.name}</span>
@@ -271,7 +271,7 @@ function ObservationInner({ a }: { a: Animal }) {
         <>
           <div className="body" style={{ gap: 20 }}>
             <div className="card row" style={{ padding: '10px 12px' }}>
-              <Photo w={44} h={44} radius={6} />
+              <Photo w={44} h={44} radius={6} src={a.photo} />
               <div className="col grow"><span className="b small ell">{a.id}, {a.name}</span><span className="xs muted">Ferme Koné &amp; Fils</span></div>
             </div>
             <div className="field">

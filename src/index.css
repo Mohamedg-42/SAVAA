@@ -200,3 +200,5 @@ button.li{width:100%;border-left:0;border-right:0;border-bottom:0;background:#ff
 input.input,textarea.input,select.input{display:block}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#17201B;color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;max-width:calc(100% - 32px);z-index:10;font-family:'IBM Plex Sans',system-ui,sans-serif;line-height:1.4}
 .stat{display:flex;flex-direction:column;gap:2px}
+@media print{html,body,#root{height:auto;background:#fff}.app{height:auto;max-width:none;overflow:visible}.body{overflow:visible}.hdr,.foot,.tabbar,.toast,.utabs,.no-print{display:none!important}.card{break-inside:avoid}}
+.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.spin{animation:none}}

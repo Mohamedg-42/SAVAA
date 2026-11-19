@@ -1,49 +1,37 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { simulate } from '../toast';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { fcfa, priceLabel, useStore, type Listing } from '../data';
+import { photoFor } from '../photos';
 import { Badge, Foot, Icon, NotFound, Photo, SectionHead, TabBar, type Tone } from '../ui';
 
-/* Seule annonce détaillée de la maquette (écran 06). */
+/* Annonce détaillée de la maquette (écran 06) : son contenu est repris tel quel. */
 const DETAIL_ID = 'FK-0142';
 
-type Listing = {
-  /** Présent seulement si l'annonce a une page de détail. */
-  id?: string;
-  sp?: boolean;
-  title: string;
-  details: string;
-  price: string;
-  place: string;
-  photo: string;
-  account: [string, Tone];
-  trace: [string, Tone];
-  verified: boolean;
-  delivery: boolean;
+/** Minuscules sans accents, pour la recherche. */
+const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const matches = (l: Listing, q: string) => {
+  const hay = fold(`${l.title} ${l.category} ${l.details} ${l.place} ${l.seller}`);
+  return fold(q).split(/\s+/).filter(Boolean).every((w) => hay.includes(w.replace(/s$/, '')));
 };
-
-const LISTINGS: Listing[] = [
-  { sp: true, title: 'Taurillons Zébu, lot de 3', details: '18 à 22 mois, 260 à 290 kg', price: '1 680 000 FCFA le lot', place: 'Ferkessédougou, 54 km, Ranch Tuo', photo: 'Photo, lot', account: ['Compte vérifié', 'green'], trace: ['3 fiches', 'blue'], verified: true, delivery: true },
-  { id: DETAIL_ID, title: 'Taurillon Zébu Goudali', details: '26 mois, 312 kg, pesé le 04/11', price: '650 000 FCFA', place: 'Sinématiali, 12 km, Ferme Koné', photo: 'Photo, taurillon', account: ['Compte vérifié', 'green'], trace: ['Fiche vérifiée', 'green'], verified: true, delivery: true },
-  { title: 'Taurillon N’Dama', details: '20 mois, poids non renseigné', price: '415 000 FCFA', place: 'Korhogo, 4 km, Bamba S.', photo: 'Photo, N’Dama', account: ['Non vérifié', 'grey'], trace: ['Fiche déclarée', 'grey'], verified: false, delivery: false },
-  { title: 'Taurillon métis Goudali × N’Dama', details: '24 mois, 275 kg', price: '560 000 FCFA, négociable', place: 'Napiéolédougou, 22 km, Ferme Silué', photo: 'Photo, métis', account: ['Compte vérifié', 'green'], trace: ['Fiche documentée', 'blue'], verified: true, delivery: false },
-];
+const hasSheet = (l: Listing) => !!l.animalIds?.length || (/fiche/i.test(l.trace[0]) && !/déclarée/i.test(l.trace[0]));
 
 function ListingCard({ l }: { l: Listing }) {
-  const body = (
-    <>
-      <Photo label={l.photo} />
+  return (
+    <Link className="hc" to={`/annonce/${l.id}`}>
+      <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} />
       <div className="col grow" style={{ gap: 3 }}>
-        {l.sp && <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>}
+        {l.sponsored && <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>}
         <span className="b small" style={{ lineHeight: 1.3 }}>{l.title}</span>
         <span className="xs muted ell">{l.details}</span>
-        <span className="price">{l.price}</span>
-        <span className="xs muted ell">{l.place}</span>
-        <span className="wrap" style={{ gap: 4, marginTop: 2 }}><Badge tone={l.account[1]}>{l.account[0]}</Badge><Badge tone={l.trace[1]}>{l.trace[0]}</Badge></span>
+        <span className="price">{priceLabel(l)}{l.negotiable ? ', négociable' : ''}</span>
+        <span className="xs muted ell">{l.place}, {l.sellerShort ?? l.seller}</span>
+        <span className="wrap" style={{ gap: 4, marginTop: 2 }}>
+          {l.sellerVerified ? <Badge tone="green">Compte vérifié</Badge> : <Badge>Non vérifié</Badge>}
+          <Badge tone={l.trace[1]}>{l.trace[0]}</Badge>
+        </span>
       </div>
-    </>
+    </Link>
   );
-  /* Sans page de détail en démo : carte non cliquable plutôt qu'un lien vers une autre annonce. */
-  return l.id ? <Link className="hc" to={`/annonce/${l.id}`}>{body}</Link> : <div className="hc">{body}</div>;
 }
 
 function Skeleton() {
@@ -56,21 +44,32 @@ function Skeleton() {
   );
 }
 
-function SearchHeader() {
+function SearchHeader({ q, onQ }: { q: string; onQ?: (v: string) => void }) {
   const navigate = useNavigate();
   return (
     <header className="hdr" style={{ gap: 2, paddingRight: 12 }}>
       <button className="iconbtn" aria-label="Retour" onClick={() => navigate('/accueil')}><Icon name="back" /></button>
       <label className="search grow" style={{ height: 42 }}>
         <Icon name="search" />
-        <input className="plain grow" defaultValue="taurillon" aria-label="Rechercher" style={{ outline: 'none', color: '#17201B' }} />
+        <input className="plain grow" type="search" value={q} onChange={(e) => onQ?.(e.target.value)} readOnly={!onQ} placeholder="Animal, récolte, aliment…" aria-label="Rechercher" style={{ outline: 'none', color: '#17201B' }} />
       </label>
     </header>
   );
 }
 
+/* Les 4 vignettes « Près de vous » de la maquette, reliées à leurs annonces. */
+const NEAR: [string, string, string, string, string, string, Tone, 'w' | 's' | undefined][] = [
+  ['FK-0142', 'Taurillon Zébu Goudali', '650 000 FCFA', 'Sinématiali, 12 km', 'Photo, taurillon', 'Fiche vérifiée', 'green', undefined],
+  ['ALIM-50', 'Aliment bétail 50 kg', '14 500 FCFA', 'Korhogo, 3 km', 'Photo, sacs d’aliment', 'Livraison', 'grey', 'w'],
+  ['POUSSINS', 'Poussins chair, J1', '650 FCFA', 'Korhogo, par 100', 'Photo, poussins', 'Profil non vérifié', 'grey', 's'],
+  ['IGNAME', 'Igname Kponan', '425 FCFA / kg', 'Dikodougou, 38 km', 'Photo, igname', 'Min. 200 kg', 'grey', 'w'],
+];
+const CATEGORY_SEARCH: Record<string, string> = { 'Ovins et caprins': 'ovins', 'Volailles et poussins': 'volailles', 'Aliments et intrants': 'aliment', Reproducteurs: 'reproducteur' };
+
 /* Écran 02 : accueil. */
 export function Home() {
+  const s = useStore();
+  const cartCount = s.cartLines().length;
   return (
     <div className="app">
       <header className="hdr" style={{ padding: '10px 8px 10px 16px' }}>
@@ -79,11 +78,11 @@ export function Home() {
           <span className="row xs" style={{ gap: 4, color: '#CFE0D4' }}><Icon name="pin" size="sm" /><span className="ell">Korhogo, Poro</span></span>
         </div>
         <Link className="iconbtn" to="/notifications" aria-label="Notifications, 4 non lues"><Icon name="bell" /><span className="dot">4</span></Link>
-        <Link className="iconbtn" to="/panier" aria-label="Panier, 2 articles"><Icon name="cart" /><span className="dot">2</span></Link>
+        <Link className="iconbtn" to="/panier" aria-label={`Panier, ${cartCount} article${cartCount > 1 ? 's' : ''}`}><Icon name="cart" />{cartCount > 0 && <span className="dot">{cartCount}</span>}</Link>
       </header>
       <div className="body flush">
         <div style={{ background: '#145C3A', padding: '4px 16px 16px' }}>
-          <Link className="search" to="/explorer" style={{ borderColor: '#fff' }}><Icon name="search" /><span>Animal, récolte, aliment, matériel…</span></Link>
+          <Link className="search" to="/explorer?q=" style={{ borderColor: '#fff' }}><Icon name="search" /><span>Animal, récolte, aliment, matériel…</span></Link>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="grid4">
@@ -97,7 +96,7 @@ export function Home() {
             <SectionHead title="Catégories" />
             <div className="chips">
               {['Bovins', 'Ovins et caprins', 'Volailles et poussins', 'Reproducteurs', 'Récoltes', 'Aliments et intrants', 'Matériel', 'Services'].map((c) => (
-                <Link key={c} className="chip" to="/explorer">{c}</Link>
+                <Link key={c} className="chip" to={`/explorer?q=${encodeURIComponent(CATEGORY_SEARCH[c] ?? c)}`}>{c}</Link>
               ))}
             </div>
           </div>
@@ -117,8 +116,8 @@ export function Home() {
           </div>
 
           <div className="sec">
-            <SectionHead title="Mis en avant" link="Tout voir" to="/explorer" />
-            <Link className="pc" to="/explorer">
+            <SectionHead title="Mis en avant" link="Tout voir" to="/explorer?q=" />
+            <Link className="pc" to="/annonce/L-BELIERS">
               <Photo label="Photo, béliers" h={170} />
               <div className="in" style={{ padding: 12, gap: 4 }}>
                 <div className="row between"><span className="b ell">Béliers Sahéliens, lot de 6</span><Badge tone="sp">Sponsorisé</Badge></div>
@@ -129,21 +128,16 @@ export function Home() {
           </div>
 
           <div className="sec">
-            <SectionHead title="Près de vous" link="Tout voir" to="/explorer" />
+            <SectionHead title="Près de vous" link="Tout voir" to="/explorer?q=" />
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px', scrollbarWidth: 'none' }}>
-              {[
-                ['Taurillon Zébu Goudali', '650 000 FCFA', 'Sinématiali, 12 km', 'Photo, taurillon', 'Fiche vérifiée', 'green', undefined],
-                ['Aliment bétail 50 kg', '14 500 FCFA', 'Korhogo, 3 km', 'Photo, sacs d’aliment', 'Livraison', 'grey', 'w'],
-                ['Poussins chair, J1', '650 FCFA', 'Korhogo, par 100', 'Photo, poussins', 'Profil non vérifié', 'grey', 's'],
-                ['Igname Kponan', '425 FCFA / kg', 'Dikodougou, 38 km', 'Photo, igname', 'Min. 200 kg', 'grey', 'w'],
-              ].map(([t, p, place, ph, b, tone, tint]) => (
-                <Link key={t} className="pc" to={t === 'Taurillon Zébu Goudali' ? `/annonce/${DETAIL_ID}` : '/explorer'} style={{ flex: 'none', width: 152 }}>
-                  <Photo label={ph} tint={tint as 'w' | 's' | undefined} h={112} />
+              {NEAR.map(([id, t, p, place, ph, b, tone, tint]) => (
+                <Link key={id} className="pc" to={`/annonce/${id}`} style={{ flex: 'none', width: 152 }}>
+                  <Photo label={ph} tint={tint} h={112} />
                   <div className="in">
                     <span className="small b ell">{t}</span>
                     <span className="price">{p}</span>
                     <span className="xs muted ell">{place}</span>
-                    <Badge tone={tone as Tone} style={{ alignSelf: 'flex-start' }}>{b}</Badge>
+                    <Badge tone={tone} style={{ alignSelf: 'flex-start' }}>{b}</Badge>
                   </div>
                 </Link>
               ))}
@@ -156,44 +150,59 @@ export function Home() {
   );
 }
 
-/* Écran 05 : résultats de recherche (chargement simulé à l'ouverture). */
+/* Écran 05 : résultats de recherche (chargement simulé à l'ouverture). Avec `?favoris=1` : mes favoris. */
 export function Catalog() {
+  const s = useStore();
+  const [params, setParams] = useSearchParams();
+  const favMode = params.get('favoris') === '1';
+  const q = params.get('q') ?? 'taurillon';
   const [loading, setLoading] = useState(true);
-  const [verified, setVerified] = useState(true);
+  const [verified, setVerified] = useState(!favMode);
   const [delivery, setDelivery] = useState(false);
   const [trace, setTrace] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 900);
     return () => clearTimeout(t);
   }, []);
-  const items = LISTINGS.filter((l) => (!verified || l.verified) && (!delivery || l.delivery));
+
+  const pool = favMode ? s.listings().filter((l) => s.isFavorite(l.id)) : s.listings().filter((l) => l.status === 'online' && matches(l, q));
+  const items = pool.filter((l) => (!verified || l.sellerVerified) && (!delivery || l.delivery) && (!trace || hasSheet(l)));
+  const active = [verified, delivery, trace].filter(Boolean).length;
 
   return (
     <div className="app">
-      <SearchHeader />
+      {favMode ? (
+        <header className="hdr">
+          <Link className="iconbtn" to="/explorer" aria-label="Retour"><Icon name="back" /></Link>
+          <h1>Mes favoris</h1>
+        </header>
+      ) : (
+        <SearchHeader q={q} onQ={(v) => setParams({ q: v }, { replace: true })} />
+      )}
       <div style={{ background: '#fff', borderBottom: '1px solid #E3E7E4', padding: '10px 16px', flex: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div className="chips">
-          <span className="chip"><Icon name="filter" size="sm" />Filtres (3)</span>
-          <span className="chip on">Bovins</span>
+          <span className="chip"><Icon name="filter" size="sm" />Filtres ({active})</span>
+          {!favMode && <span className="chip on">{q.trim() ? q.trim()[0].toUpperCase() + q.trim().slice(1) : 'Tout'}</span>}
           <button className={`chip${verified ? ' on' : ''}`} onClick={() => setVerified(!verified)}>Vendeur vérifié</button>
           <button className={`chip${delivery ? ' on' : ''}`} onClick={() => setDelivery(!delivery)}>Livraison</button>
           <button className={`chip${trace ? ' on' : ''}`} onClick={() => setTrace(!trace)}>Avec fiche animale</button>
         </div>
-        <div className="row between small"><span className="muted num">{loading ? '…' : items.length} résultats, Poro et Tchologo</span><span className="b">Tri : pertinence</span></div>
+        <div className="row between small"><span className="muted num">{loading ? '…' : items.length} résultat{items.length > 1 ? 's' : ''}{favMode ? ' en favoris' : ', Poro et Tchologo'}</span><span className="b">Tri : pertinence</span></div>
       </div>
       <div className="body" style={{ padding: '12px 16px', gap: 10 }}>
         {loading ? (
           <>{[1, 2, 3].map((k) => <Skeleton key={k} />)}</>
         ) : items.length ? (
-          items.map((l) => <ListingCard key={l.title} l={l} />)
+          items.map((l) => <ListingCard key={l.id} l={l} />)
         ) : (
           <div className="card pad col" style={{ alignItems: 'center', textAlign: 'center', gap: 8, padding: '28px 20px' }}>
-            <span className="b">Aucune annonce avec ces filtres</span>
-            <span className="small muted">Élargissez la zone ou retirez un filtre.</span>
-            <button className="btn btn-s btn-sm" onClick={() => { setVerified(false); setDelivery(false); setTrace(false); }}>Réinitialiser les filtres</button>
+            <span className="b">{favMode && !pool.length ? 'Aucun favori pour l’instant' : 'Aucune annonce avec ces filtres'}</span>
+            <span className="small muted">{favMode && !pool.length ? 'Touchez le cœur sur une annonce pour la garder ici.' : 'Élargissez la zone ou retirez un filtre.'}</span>
+            {active > 0 && <button className="btn btn-s btn-sm" onClick={() => { setVerified(false); setDelivery(false); setTrace(false); }}>Réinitialiser les filtres</button>}
           </div>
         )}
-        <Link to="/explorer/hors-ligne" className="xs muted" style={{ textAlign: 'center', textDecoration: 'underline' }}>Voir l’état « pas de connexion »</Link>
+        {!favMode && <Link to="/explorer?favoris=1" className="xs muted" style={{ textAlign: 'center', textDecoration: 'underline' }}>Mes favoris ({s.favorites().length})</Link>}
+        {!favMode && <Link to="/explorer/hors-ligne" className="xs muted" style={{ textAlign: 'center', textDecoration: 'underline' }}>Voir l’état « pas de connexion »</Link>}
       </div>
       <TabBar />
     </div>
@@ -202,23 +211,26 @@ export function Catalog() {
 
 /* Écran 05b : erreur réseau, puis chargement au nouvel essai. */
 export function CatalogOffline() {
+  const s = useStore();
+  const navigate = useNavigate();
   const [st, setSt] = useState<'err' | 'load' | 'ok'>('err');
   useEffect(() => {
     if (st !== 'load') return;
     const t = setTimeout(() => setSt('ok'), 1200);
     return () => clearTimeout(t);
   }, [st]);
+  const found = s.listings().filter((l) => l.status === 'online' && matches(l, 'taurillon')).length;
 
   return (
     <div className="app">
-      <SearchHeader />
+      <SearchHeader q="taurillon" />
       {st === 'err' && (
         <div className="body" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12, padding: 32 }}>
           <Icon name="offline" style={{ width: 52, height: 52, color: '#5D6862', strokeWidth: 1.4 }} />
           <h2 style={{ fontSize: 19, fontWeight: 600 }}>Pas de connexion</h2>
           <p className="small muted" style={{ lineHeight: 1.5 }}>Impossible de charger les annonces. Vos favoris et les annonces déjà vues restent consultables.</p>
           <button className="btn btn-p btn-block" onClick={() => setSt('load')} style={{ marginTop: 8 }}>Réessayer</button>
-          <button className="btn btn-s btn-block" onClick={() => simulate('Favoris pas encore disponibles hors connexion.')}>Voir mes favoris (3)</button>
+          <button className="btn btn-s btn-block" onClick={() => navigate('/explorer?favoris=1')}>Voir mes favoris ({s.favorites().length})</button>
         </div>
       )}
       {st === 'load' && (
@@ -230,8 +242,8 @@ export function CatalogOffline() {
       {st === 'ok' && (
         <div className="body" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12, padding: 32 }}>
           <h2 style={{ fontSize: 19, fontWeight: 600 }}>Connexion rétablie</h2>
-          <p className="small muted">4 annonces trouvées pour « taurillon ».</p>
-          <Link className="btn btn-p btn-block" to="/explorer" replace>Afficher les résultats</Link>
+          <p className="small muted">{found} annonce{found > 1 ? 's' : ''} trouvée{found > 1 ? 's' : ''} pour « taurillon ».</p>
+          <Link className="btn btn-p btn-block" to="/explorer?q=taurillon" replace>Afficher les résultats</Link>
         </div>
       )}
       <TabBar />
@@ -239,79 +251,153 @@ export function CatalogOffline() {
   );
 }
 
+const STATUS: Record<Listing['status'], [string, Tone]> = {
+  online: ['Disponible', 'green'],
+  review: ['En revue', 'amber'],
+  sold: ['Vendu', 'blue'],
+  out: ['Rupture', 'red'],
+};
+
 /* Écran 06 : détail de l'annonce. */
 export function ListingDetail() {
-  const { id } = useParams();
-  if (id !== DETAIL_ID) return <NotFound title="Annonce" text="Cette annonce n’existe pas ou n’est plus en ligne." to="/explorer" cta="Voir les annonces" />;
-  return <ListingDetailInner />;
+  const { id = '' } = useParams();
+  const l = useStore().listing(id);
+  if (!l) return <NotFound title="Annonce" text="Cette annonce n’existe pas ou n’est plus en ligne." to="/explorer" cta="Voir les annonces" />;
+  return <ListingDetailInner key={l.id} l={l} />;
 }
 
-function ListingDetailInner() {
+function ListingDetailInner({ l }: { l: Listing }) {
+  const s = useStore();
   const navigate = useNavigate();
-  const [fav, setFav] = useState(false);
+  const fav = s.isFavorite(l.id);
+  const full = l.id === DETAIL_ID;
   const round = { background: '#fff', width: 40, height: 40, borderRadius: 20 };
+  const buyable = l.status === 'online' && !l.mine;
+  const inCart = s.cart().items.some((i) => i.listingId === l.id);
+  const animals = (l.animalIds ?? []).map((a) => s.animal(a)).filter(Boolean);
+  const [status, statusTone] = STATUS[l.status];
+  const order = () => {
+    if (!inCart) s.addToCart(l.id);
+    navigate('/panier');
+  };
+  const photo = l.photos?.[0] ?? photoFor(l.photo, l.tint);
+
   return (
     <div className="app">
       <div className="body flush">
-        <div className="ph" style={{ height: 270, alignItems: 'stretch', flexDirection: 'column', justifyContent: 'space-between', padding: 10 }}>
+        <div className="ph" style={{ height: 270, alignItems: 'stretch', flexDirection: 'column', justifyContent: 'space-between', padding: 10, backgroundImage: `url(${photo})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
           <div className="row between">
             <button className="iconbtn" aria-label="Retour" style={round} onClick={() => navigate(-1)}><Icon name="back" /></button>
-            <button className="iconbtn" aria-label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'} style={{ ...round, color: fav ? '#F28C28' : '#17201B' }} onClick={() => setFav(!fav)}>
+            <button className="iconbtn" aria-label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={fav} style={{ ...round, color: fav ? '#F28C28' : '#17201B' }} onClick={() => s.toggleFavorite(l.id)}>
               <Icon name="heart" style={{ fill: fav ? '#F28C28' : 'none' }} />
             </button>
           </div>
-          <div className="row between"><span>Photo, taurillon de profil</span><span className="num">1 / 6</span></div>
+          <div className="row between"><span /><span className="num">1 / {full ? 6 : l.photos?.length || 1}</span></div>
         </div>
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid #E3E7E4' }}>
-          <span className="xs muted">Animaux, Bovins, publiée le 06/11/2026</span>
-          <h1 style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>Taurillon Zébu Goudali, 26 mois</h1>
-          <div className="row" style={{ gap: 8, alignItems: 'baseline' }}><span className="num" style={{ fontSize: 24, fontWeight: 700, color: '#145C3A' }}>650 000 FCFA</span><span className="small muted">négociable</span></div>
-          <div className="wrap"><Badge tone="green">Disponible</Badge><Badge>Livraison possible</Badge><Badge>1 animal</Badge></div>
+          <span className="xs muted">{l.category}, publiée le {l.date}</span>
+          <h1 style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{full ? 'Taurillon Zébu Goudali, 26 mois' : l.title}</h1>
+          <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <span className="num" style={{ fontSize: 24, fontWeight: 700, color: '#145C3A' }}>{fcfa(l.price)} FCFA</span>
+            {l.unit && <span className="small muted">{l.unit}</span>}
+            {(full || l.negotiable) && <span className="small muted">négociable</span>}
+          </div>
+          <div className="wrap">
+            {l.sponsored && <Badge tone="sp">Sponsorisé</Badge>}
+            <Badge tone={statusTone}>{status}</Badge>
+            <Badge>{l.delivery ? 'Livraison possible' : 'Retrait sur place'}</Badge>
+            <Badge>{l.stock ? `Stock ${l.stock}` : animals.length > 1 ? `${animals.length} animaux` : l.category.startsWith('Animaux') ? '1 animal' : '1 lot'}</Badge>
+          </div>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card pad">
-            <dl className="kv">
-              <dt>Poids</dt><dd className="num">312 kg, pesé le 04/11</dd>
-              <dt>Sexe / âge</dt><dd>Mâle, 26 mois</dd>
-              <dt>Localisation</dt><dd>Sinématiali, Poro</dd>
-              <dt>Livraison</dt><dd>Transporteur partenaire, à partir de 25 000 FCFA</dd>
-            </dl>
+            {full ? (
+              <dl className="kv">
+                <dt>Poids</dt><dd className="num">312 kg, pesé le 04/11</dd>
+                <dt>Sexe / âge</dt><dd>Mâle, 26 mois</dd>
+                <dt>Localisation</dt><dd>Sinématiali, Poro</dd>
+                <dt>Livraison</dt><dd>Transporteur partenaire, à partir de 25 000 FCFA</dd>
+              </dl>
+            ) : (
+              <dl className="kv">
+                <dt>Détails</dt><dd>{l.details}</dd>
+                <dt>Localisation</dt><dd>{l.place}</dd>
+                <dt>Livraison</dt><dd>{l.delivery ? 'Transporteur partenaire, à partir de 25 000 FCFA' : 'Retrait chez le vendeur'}</dd>
+              </dl>
+            )}
           </div>
 
-          <div className="sec">
-            <div className="sech"><h2>Traçabilité</h2><Badge tone="green">Fiche vérifiée</Badge></div>
-            <Link className="card pad col" to={`/animal/${DETAIL_ID}`} style={{ gap: 10 }}>
-              <div className="row between"><span className="small muted">Identifiant officiel</span><Badge tone="amber">À vérifier</Badge></div>
-              <div className="row between"><span className="small muted">Vaccinations</span><span className="small b">4 dont 3 vérifiées</span></div>
-              <div className="row between"><span className="small muted">Dernier traitement</span><span className="small b num">15/08/2026</span></div>
-              <div className="row between"><span className="small muted">Ascendance</span><span className="small b">Père documenté</span></div>
-              <div className="divider" />
-              <span className="link row between">Consulter la fiche animale et les preuves<Icon name="chevron" size="sm" /></span>
-            </Link>
-          </div>
+          {full ? (
+            <div className="sec">
+              <div className="sech"><h2>Traçabilité</h2><Badge tone="green">Fiche vérifiée</Badge></div>
+              <Link className="card pad col" to={`/animal/${DETAIL_ID}`} style={{ gap: 10 }}>
+                <div className="row between"><span className="small muted">Identifiant officiel</span><Badge tone="amber">À vérifier</Badge></div>
+                <div className="row between"><span className="small muted">Vaccinations</span><span className="small b">4 dont 3 vérifiées</span></div>
+                <div className="row between"><span className="small muted">Dernier traitement</span><span className="small b num">15/08/2026</span></div>
+                <div className="row between"><span className="small muted">Ascendance</span><span className="small b">Père documenté</span></div>
+                <div className="divider" />
+                <span className="link row between">Consulter la fiche animale et les preuves<Icon name="chevron" size="sm" /></span>
+              </Link>
+            </div>
+          ) : l.category.startsWith('Animaux') && (
+            <div className="sec">
+              <div className="sech"><h2>Traçabilité</h2><Badge tone={l.trace[1]}>{l.trace[0]}</Badge></div>
+              {animals.length ? (
+                <div className="card list">
+                  {animals.map((a) => a && (
+                    <Link key={a.id} className="li" to={`/animal/${a.id}`}>
+                      <div className="col grow"><span className="small b ell">{a.id}, {a.name}</span><span className="xs muted ell">{a.details}</span></div>
+                      <Icon name="chevron" size="sm" />
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="small muted">Les fiches de ces animaux sont tenues par le vendeur. Demandez-les avant d’acheter.</p>
+              )}
+            </div>
+          )}
 
           <div className="sec">
             <SectionHead title="Vendeur" />
             <div className="card pad col" style={{ gap: 12 }}>
-              <div className="row"><span className="av">FK</span><div className="col grow"><span className="b small">Ferme Koné &amp; Fils</span><span className="xs muted">Sur SAVAA depuis mars 2025, répond en 2 h environ</span></div></div>
-              <div className="grid3" style={{ gap: 8 }}>
-                <div className="col" style={{ gap: 2 }}><span className="xs muted">Compte</span><Badge tone="green" style={{ alignSelf: 'flex-start' }}>Vérifié</Badge></div>
-                <div className="col" style={{ gap: 2 }}><span className="xs muted">Ventes</span><span className="small b num">41</span></div>
-                <div className="col" style={{ gap: 2 }}><span className="xs muted">Avis</span><span className="small b num">4,7 / 5 (23)</span></div>
+              <div className="row">
+                <span className="av">{l.seller.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
+                <div className="col grow"><span className="b small">{l.seller}</span><span className="xs muted">{full ? 'Sur SAVAA depuis mars 2025, répond en 2 h environ' : l.place.split(',')[0]}</span></div>
               </div>
+              {full ? (
+                <div className="grid3" style={{ gap: 8 }}>
+                  <div className="col" style={{ gap: 2 }}><span className="xs muted">Compte</span><Badge tone="green" style={{ alignSelf: 'flex-start' }}>Vérifié</Badge></div>
+                  <div className="col" style={{ gap: 2 }}><span className="xs muted">Ventes</span><span className="small b num">41</span></div>
+                  <div className="col" style={{ gap: 2 }}><span className="xs muted">Avis</span><span className="small b num">4,7 / 5 (23)</span></div>
+                </div>
+              ) : (
+                <div className="col" style={{ gap: 2 }}><span className="xs muted">Compte</span>{l.sellerVerified ? <Badge tone="green" style={{ alignSelf: 'flex-start' }}>Vérifié</Badge> : <Badge style={{ alignSelf: 'flex-start' }}>Non vérifié</Badge>}</div>
+              )}
             </div>
           </div>
 
-          <div className="sec">
-            <SectionHead title="Description" />
-            <p className="small" style={{ lineHeight: 1.55 }}>Taurillon né sur l’exploitation, élevé au pâturage avec complément au tourteau de coton. Bon état général, calme à la manipulation. Visite possible sur rendez-vous à Sinématiali.</p>
-          </div>
-          <Link className="row small" to="/assistance?onglet=reclamation" style={{ color: '#A0221A', gap: 6 }}><Icon name="flag" size="sm" />Signaler cette annonce</Link>
+          {(full || l.description) && (
+            <div className="sec">
+              <SectionHead title="Description" />
+              <p className="small" style={{ lineHeight: 1.55 }}>{full ? 'Taurillon né sur l’exploitation, élevé au pâturage avec complément au tourteau de coton. Bon état général, calme à la manipulation. Visite possible sur rendez-vous à Sinématiali.' : l.description}</p>
+            </div>
+          )}
+          {!l.mine && <Link className="row small" to="/assistance?onglet=reclamation" style={{ color: '#A0221A', gap: 6 }}><Icon name="flag" size="sm" />Signaler cette annonce</Link>}
         </div>
       </div>
       <Foot>
-        <Link className="btn btn-s" to="/assistance?onglet=assistant" style={{ flex: '0 0 auto' }}><Icon name="chat" />Contacter</Link>
-        <Link className="btn btn-p" to="/panier">Commander via SAVAA</Link>
+        {l.mine ? (
+          <Link className="btn btn-p" to="/boutique">Voir ma boutique</Link>
+        ) : (
+          <>
+            <Link className="btn btn-s" to="/assistance?onglet=assistant" style={{ flex: '0 0 auto' }}><Icon name="chat" />Contacter</Link>
+            {buyable ? (
+              <button className="btn btn-p" onClick={order}>{inCart ? 'Voir le panier' : 'Commander via SAVAA'}</button>
+            ) : (
+              <button className="btn btn-p" disabled>{status}</button>
+            )}
+          </>
+        )}
       </Foot>
     </div>
   );

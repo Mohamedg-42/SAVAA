@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { fcfa, useStore } from '../data';
-import { simulate } from '../toast';
-import { Badge, Check, Foot, Header, Icon, Photo } from '../ui';
+import { fcfa, priceLabel, today, useStore, type Listing } from '../data';
+import { downloadCSV } from '../device';
+import { showToast } from '../toast';
+import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd } from '../ui';
 
 /* Lot 5 : vente (boutique, publication, campagne, statistiques, espace restaurant). */
 
@@ -47,8 +48,13 @@ const parseAmount = (v: string) => Number(v.replace(/\D/g, '').slice(0, 9));
 const SHOP_CATS = ['Bovins', 'Ovins et caprins', 'Volailles', 'Récoltes', 'Aliments et intrants', 'Matériel'];
 
 export function CreateShop() {
+  const s = useStore();
+  const shop = s.shop();
   const navigate = useNavigate();
-  const [name, setName] = useState('Ferme Koné & Fils');
+  const [name, setName] = useState(shop.name);
+  const [logo, setLogo] = useState(shop.logo);
+  const [desc, setDesc] = useState(shop.desc);
+  const [town, setTown] = useState(shop.town);
   const [cats, setCats] = useState<Record<string, boolean>>({ Bovins: true, 'Ovins et caprins': true });
   const [delivery, setDelivery] = useState(true);
   const [cgv, setCgv] = useState(false);
@@ -59,7 +65,11 @@ export function CreateShop() {
       <Header back title="Créer ma boutique" actions={<span className="small muted" style={{ paddingRight: 12, flex: 'none' }}>Étape 3 sur 3</span>} />
       <div className="body" style={{ gap: 20 }}>
         <div className="row" style={{ gap: 14 }}>
-          <button className="addph" style={{ width: 76, height: 76, borderRadius: 12, fontFamily: 'inherit', cursor: 'pointer', flex: 'none' }} onClick={() => simulate('Ajout du logo à venir.')}><Icon name="camera" />Logo</button>
+          {logo ? (
+            <Photo src={logo} label="Logo de la boutique" w={76} h={76} radius={12} onRemove={() => setLogo(undefined)} />
+          ) : (
+            <PhotoAdd height={76} label="Logo" onAdd={setLogo} style={{ width: 76, borderRadius: 12, flex: 'none' }} />
+          )}
           <div className="field grow">
             <label htmlFor="shop-name">Nom de la boutique</label>
             <input id="shop-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -71,12 +81,12 @@ export function CreateShop() {
         </div>
         <div className="field">
           <label htmlFor="shop-desc">Présentation</label>
-          <textarea id="shop-desc" className="input" defaultValue="Élevage familial de bovins et d’ovins à Sinématiali depuis 2009. Animaux suivis par un vétérinaire, visite possible sur rendez-vous." />
+          <textarea id="shop-desc" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} />
         </div>
         <div className="grid2">
           <div className="field">
             <label htmlFor="shop-town">Commune</label>
-            <select id="shop-town" className="input" defaultValue="Sinématiali">
+            <select id="shop-town" className="input" value={town} onChange={(e) => setTown(e.target.value)}>
               {['Sinématiali', 'Korhogo', 'Ferkessédougou', 'Boundiali', 'Napiéolédougou'].map((t) => <option key={t}>{t}</option>)}
             </select>
           </div>
@@ -103,7 +113,7 @@ export function CreateShop() {
       </div>
       <Foot>
         <Link className="btn btn-s" to="/accueil" style={{ flex: '0 0 auto' }}>Plus tard</Link>
-        <button className="btn btn-p" disabled={!ready} onClick={() => navigate('/vendre')}>Créer et publier</button>
+        <button className="btn btn-p" disabled={!ready} onClick={() => { s.setShop({ name: name.trim(), desc: desc.trim(), town, logo }); navigate('/vendre'); }}>Créer et publier</button>
       </Foot>
     </div>
   );
@@ -111,25 +121,35 @@ export function CreateShop() {
 
 /* Écran 12 : ma boutique */
 
-const SHOP_TABS = [['ads', 'Annonces (4)'], ['orders', 'Commandes (3)'], ['reviews', 'Avis (23)']] as const;
-type ShopTab = (typeof SHOP_TABS)[number][0];
+type ShopTab = 'ads' | 'orders' | 'reviews';
 
 const thumb = <Photo w={52} h={52} radius={6} />;
+const LISTING_BADGE: Record<Listing['status'], [string, 'green' | 'amber' | 'blue' | 'red']> = {
+  online: ['En ligne', 'green'],
+  review: ['En revue', 'amber'],
+  sold: ['Vendu', 'blue'],
+  out: ['Rupture', 'red'],
+};
 
 export function Shop() {
+  const s = useStore();
+  const shop = s.shop();
+  const mine = s.myListings();
   const [tab, setTab] = useState<ShopTab>('ads');
   const statCell: CSSProperties = { padding: 10, borderRight: '1px solid #E3E7E4', minWidth: 0 };
+  const initials = shop.name.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const tabs: [ShopTab, string][] = [['ads', `Annonces (${4 + mine.length})`], ['orders', 'Commandes (3)'], ['reviews', 'Avis (23)']];
 
   return (
     <div className="app">
-      <Header back title="Ma boutique" actions={<span className="link" style={{ paddingRight: 12, flex: 'none' }}>Vue acheteur</span>} />
+      <Header back title="Ma boutique" actions={<Link className="link" to="/annonce/FK-0142" style={{ paddingRight: 12, flex: 'none' }}>Vue acheteur</Link>} />
       <div className="body flush">
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 14, borderBottom: '1px solid #E3E7E4' }}>
           <div className="row" style={{ gap: 14 }}>
-            <span className="av" style={{ width: 60, height: 60, fontSize: 20, borderRadius: 10 }}>FK</span>
-            <div className="col grow" style={{ gap: 3 }}>
-              <span className="b" style={{ fontSize: 17 }}>Ferme Koné &amp; Fils</span>
-              <span className="xs muted">Éleveur, bovins et ovins, Sinématiali</span>
+            {shop.logo ? <Photo src={shop.logo} label="Logo" w={60} h={60} radius={10} /> : <span className="av" style={{ width: 60, height: 60, fontSize: 20, borderRadius: 10 }}>{initials}</span>}
+            <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
+              <span className="b ell" style={{ fontSize: 17 }}>{shop.name}</span>
+              <span className="xs muted">Éleveur, bovins et ovins, {shop.town}</span>
               <div className="wrap" style={{ marginTop: 2 }}><Badge tone="green">Compte vérifié</Badge><Badge tone="amber">Exploitation : visite le 25/11</Badge></div>
             </div>
           </div>
@@ -146,16 +166,32 @@ export function Shop() {
           </div>
         </div>
         <div className="utabs" role="tablist">
-          {SHOP_TABS.map(([id, t]) => (
+          {tabs.map(([id, t]) => (
             <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{t}</button>
           ))}
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {tab === 'ads' && (
             <div className="card list">
+              {mine.map((l) => {
+                const [label, tone] = LISTING_BADGE[l.status];
+                return (
+                  <div className="li" key={l.id}>
+                    <Link to={`/annonce/${l.id}`} className="row grow" style={{ gap: 12, minWidth: 0 }}>
+                      <Photo w={52} h={52} radius={6} src={l.photos?.[0]} />
+                      <div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">{l.title}</span><span className="xs muted num ell">{priceLabel(l)}, publiée le {l.date}</span></div>
+                    </Link>
+                    {l.status === 'review' ? (
+                      <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => { s.updateListing(l.id, { status: 'online' }); showToast('Annonce validée et mise en ligne.'); }} title="En démonstration, valide l’annonce comme le ferait l’équipe SAVAA">Valider</button>
+                    ) : (
+                      <Badge tone={tone}>{label}</Badge>
+                    )}
+                  </div>
+                );
+              })}
               <Link className="li" to="/annonce/FK-0142">{thumb}<div className="col grow"><span className="small b ell">Taurillon Zébu Goudali</span><span className="xs muted num">650 000 FCFA, 214 vues, 9 contacts</span></div><Badge tone="blue">Vendu</Badge></Link>
-              <Link className="li" to="/campagne/stats">{thumb}<div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 / tête, stock 6</span></div><Badge tone="sp">Sponsorisé</Badge></Link>
-              <div className="li">{thumb}<div className="col grow"><span className="small b ell">Génisse métisse, 19 mois</span><span className="xs muted num">480 000 FCFA, en modération</span></div><Badge tone="amber">En revue</Badge></div>
+              <Link className="li" to="/campagne/stats"><Photo w={52} h={52} radius={6} src="/images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 / tête, stock 6</span></div><Badge tone="sp">Sponsorisé</Badge></Link>
+              <div className="li"><Photo w={52} h={52} radius={6} src="/images/genisse-metisse.jpg" /><div className="col grow"><span className="small b ell">Génisse métisse, 19 mois</span><span className="xs muted num">480 000 FCFA, en modération</span></div><Badge tone="amber">En revue</Badge></div>
               <div className="li"><Photo w={52} h={52} radius={6} tint="w" /><div className="col grow"><span className="small b ell">Fumier composté, sac 40 kg</span><span className="xs muted num">2 000 FCFA, stock 0</span></div><Badge tone="red">Rupture</Badge></div>
             </div>
           )}
@@ -190,22 +226,37 @@ export function Shop() {
 
 const CATEGORIES = ['Animaux, Bovins', 'Animaux, Ovins', 'Animaux, Caprins', 'Volailles', 'Récoltes', 'Aliments et intrants', 'Matériel'];
 
+/* Brouillon d'annonce gardé sur le téléphone (bouton « Brouillon »). */
+const DRAFT_KEY = 'savaa-brouillon-annonce';
+type Draft = { category: string; picked: string[]; photos: string[]; title: string; price: number; qty: number; neg: boolean; delivery: boolean };
+function loadDraft(): Draft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as Draft) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function Publish() {
   const s = useStore();
   const navigate = useNavigate();
   const herd = s.animals();
 
+  const [draft] = useState(loadDraft);
   const [step, setStep] = useState<1 | 2 | 'sent'>(1);
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [picked, setPicked] = useState<string[]>(['FK-0091']);
+  const [category, setCategory] = useState(draft?.category ?? CATEGORIES[0]);
+  const [picked, setPicked] = useState<string[]>(draft?.picked ?? ['FK-0091']);
   const [picker, setPicker] = useState(false);
-  const [photos, setPhotos] = useState(['1', '2', 'Vidéo']);
-  const [title, setTitle] = useState('Génisse métisse Goudali × N’Dama, 19 mois');
-  const [price, setPrice] = useState(480000);
-  const [qty, setQty] = useState(1);
-  const [neg, setNeg] = useState(true);
-  const [delivery, setDelivery] = useState(true);
-  const [toast, setToast] = useState('');
+  /* Photos : libellés de la maquette, ou images ajoutées (data URL). */
+  const [photos, setPhotos] = useState<string[]>(draft?.photos ?? ['1', '2', 'Vidéo']);
+  const [title, setTitle] = useState(draft?.title ?? 'Génisse métisse Goudali × N’Dama, 19 mois');
+  const [price, setPrice] = useState(draft?.price ?? 480000);
+  const [qty, setQty] = useState(draft?.qty ?? 1);
+  const [neg, setNeg] = useState(draft?.neg ?? true);
+  const [delivery, setDelivery] = useState(draft?.delivery ?? true);
+  const [published, setPublished] = useState<string | null>(null);
+  const shop = s.shop();
 
   const isAnimal = category.startsWith('Animaux');
   const chosen = herd.filter((a) => picked.includes(a.id));
@@ -219,8 +270,46 @@ export function Publish() {
   };
 
   const saveDraft = () => {
-    setToast('Brouillon enregistré sur le téléphone');
-    window.setTimeout(() => setToast(''), 2500);
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ category, picked, photos, title, price, qty, neg, delivery } satisfies Draft));
+      showToast('Brouillon enregistré sur le téléphone');
+    } catch {
+      showToast('Brouillon trop lourd : retirez une photo et réessayez.');
+    }
+  };
+
+  const images = photos.filter((p) => p.startsWith('data:'));
+  const send = () => {
+    const id = `L-${Date.now().toString(36).toUpperCase()}`;
+    s.addListing({
+      id,
+      title: title.trim(),
+      details: isAnimal ? (chosen.length === 1 ? chosen[0].details : `${chosen.length} animaux : ${chosen.map((a) => a.id).join(', ')}`) : `${qty} ${unit} disponibles`,
+      price,
+      unit: qty > 1 ? (isAnimal ? 'la tête' : 'l’unité') : undefined,
+      negotiable: neg,
+      place: `${shop.town}, Poro`,
+      seller: shop.name,
+      sellerShort: shop.name,
+      sellerVerified: true,
+      category,
+      photo: 'Photo',
+      photos: images,
+      trace: isAnimal ? [chosen.length > 1 ? `${chosen.length} fiches` : 'Fiche liée', 'blue'] : ['Nouveau', 'grey'],
+      animalIds: isAnimal ? chosen.map((a) => a.id) : undefined,
+      delivery,
+      stock: qty > 1 ? qty : undefined,
+      status: 'review',
+      mine: true,
+      date: today(),
+    });
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* rien */
+    }
+    setPublished(id);
+    setStep('sent');
   };
 
   const header = (
@@ -258,6 +347,7 @@ export function Publish() {
           </div>
           <Link className="btn btn-p btn-block" to="/campagne">Mettre en avant</Link>
           <Link className="btn btn-s btn-block" to="/boutique">Voir ma boutique</Link>
+          {published && <Link className="btn btn-ghost btn-block" to={`/annonce/${published}`}>Voir l’annonce</Link>}
         </div>
       </div>
     );
@@ -272,11 +362,11 @@ export function Publish() {
           <div className="sec" style={{ gap: 8 }}>
             <span className="lbl">Aperçu dans les résultats</span>
             <div className="hc">
-              <Photo label={photos[0] ? `Photo ${photos[0]}` : 'Photo'} w={84} h={84} />
+              <Photo label={photos[0] && !images[0] ? `Photo ${photos[0]}` : 'Photo'} src={images[0]} w={84} h={84} radius={images[0] ? 8 : undefined} />
               <div className="col grow" style={{ gap: 3 }}>
                 <span className="b small" style={{ lineHeight: 1.3 }}>{title}</span>
                 <span className="price">{fcfa(price)} FCFA{neg ? ', négociable' : ''}</span>
-                <span className="xs muted ell">Sinématiali, Ferme Koné &amp; Fils</span>
+                <span className="xs muted ell">{shop.town}, {shop.name}</span>
                 <span className="wrap" style={{ gap: 4, marginTop: 2 }}>
                   <Badge tone="green">Compte vérifié</Badge>
                   {isAnimal && <Badge tone="blue">{chosen.length > 1 ? `${chosen.length} fiches` : 'Fiche liée'}</Badge>}
@@ -307,7 +397,7 @@ export function Publish() {
         </div>
         <Foot>
           <button className="btn btn-s" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Modifier</button>
-          <button className="btn btn-p" onClick={() => setStep('sent')}>Envoyer en relecture</button>
+          <button className="btn btn-p" onClick={send}>Envoyer en relecture</button>
         </Foot>
       </div>
     );
@@ -360,12 +450,10 @@ export function Publish() {
         <div className="field">
           <span className="lbl">Photos et vidéo</span>
           <div className="grid4">
-            {photos.map((p) => <Photo key={p} label={p} h={76} radius={8} />)}
-            {photos.length < 8 && (
-              <button className="addph" style={{ height: 76, fontFamily: 'inherit', cursor: 'pointer' }} aria-label="Ajouter une photo" onClick={() => setPhotos([...photos, String(photos.length)])}>
-                <Icon name="plus" />
-              </button>
-            )}
+            {photos.map((p, i) => (p.startsWith('data:')
+              ? <Photo key={i} src={p} label={`Photo ${i + 1}`} h={76} radius={8} onRemove={() => setPhotos(photos.filter((_, j) => j !== i))} />
+              : <Photo key={i} label={p} h={76} radius={8} />))}
+            {photos.length < 8 && <PhotoAdd height={76} label="" icon="plus" onAdd={(p) => setPhotos((x) => (x.length < 8 ? [...x, p] : x))} />}
           </div>
           <span className="hint">Prenez l’animal de profil, en plein jour. Au moins 3 photos.</span>
         </div>
@@ -403,7 +491,6 @@ export function Publish() {
         <button className="btn btn-s" style={{ flex: '0 0 auto' }} onClick={saveDraft}>Brouillon</button>
         <button className="btn btn-p" disabled={!ready} onClick={() => setStep(2)}>Continuer</button>
       </Foot>
-      {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );
 }
@@ -436,7 +523,7 @@ export function Campaign() {
       <Header back title="Mettre en avant" />
       <div className="body" style={{ gap: 20 }}>
         <div className="card row" style={{ padding: '10px 12px' }}>
-          <Photo w={48} h={48} radius={6} />
+          <Photo w={48} h={48} radius={6} src="/images/beliers-saheliens.jpg" />
           <div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 FCFA / tête, en ligne</span></div>
           <Link className="link" to="/boutique" style={{ flex: 'none' }}>Changer</Link>
         </div>
@@ -496,7 +583,7 @@ export function Campaign() {
         <div className="sec" style={{ gap: 8 }}>
           <span className="lbl">Aperçu dans les résultats</span>
           <div className="hc" style={{ borderStyle: 'dashed' }}>
-            <Photo label="Photo" w={84} h={84} />
+            <Photo label="Photo" w={84} h={84} src="/images/beliers-saheliens.jpg" />
             <div className="col grow" style={{ gap: 3 }}>
               <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>
               <span className="b small ell">Béliers Sahéliens, lot de 6</span>
@@ -596,10 +683,20 @@ const OFFERS = [
   { n: 'Volailles du Sud', kg: 1950, d: 'Retrait à Yopougon uniquement', v: 'Non vérifié', verified: false, note: 'Nouveau' },
 ];
 const WEEKLY_KG = 120;
+const RECURRING = [
+  ['Tomates fraîches, 60 kg', 'Chaque lundi et jeudi, Coop. maraîchère d’Anyama', 'jeu. 20'],
+  ['Mouton entier, 2 têtes', 'Chaque vendredi, Bergerie Soro', 'ven. 21'],
+];
+const INVOICES: [string, string, number, string, 'green' | 'amber'][] = [
+  ['FAC-2026-1104', 'Coop. d’Anyama', 186000, 'Payée', 'green'],
+  ['FAC-2026-1098', 'Bergerie Soro', 240000, 'À régler le 25/11', 'amber'],
+];
 
 export function Restaurant() {
   const [sel, setSel] = useState(1);
   const [ordered, setOrdered] = useState<string | null>(null);
+  const [manage, setManage] = useState(false);
+  const [paused, setPaused] = useState<Record<number, boolean>>({});
   const chosen = OFFERS[sel];
 
   return (
@@ -649,18 +746,25 @@ export function Restaurant() {
         </div>
 
         <div className="sec">
-          <div className="sech"><h2>Commandes récurrentes</h2><span className="link">Gérer</span></div>
+          <div className="sech"><h2>Commandes récurrentes</h2><button className="link plain" aria-pressed={manage} onClick={() => setManage(!manage)}>{manage ? 'Terminé' : 'Gérer'}</button></div>
           <div className="card list">
-            <div className="li"><div className="col grow"><span className="small b">Tomates fraîches, 60 kg</span><span className="xs muted">Chaque lundi et jeudi, Coop. maraîchère d’Anyama</span></div><span className="small num muted" style={{ flex: 'none' }}>jeu. 20</span></div>
-            <div className="li"><div className="col grow"><span className="small b">Mouton entier, 2 têtes</span><span className="xs muted">Chaque vendredi, Bergerie Soro</span></div><span className="small num muted" style={{ flex: 'none' }}>ven. 21</span></div>
+            {RECURRING.map(([t, d, next], i) => (
+              <div className="li" key={t}>
+                <div className="col grow" style={{ minWidth: 0 }}><span className="small b">{t}</span><span className="xs muted">{d}</span></div>
+                {manage ? (
+                  <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => setPaused({ ...paused, [i]: !paused[i] })}>{paused[i] ? 'Reprendre' : 'Suspendre'}</button>
+                ) : paused[i] ? <Badge tone="amber">Suspendue</Badge> : <span className="small num muted" style={{ flex: 'none' }}>{next}</span>}
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="sec">
-          <div className="sech"><h2>Factures</h2><span className="link">Exporter</span></div>
+          <div className="sech"><h2>Factures</h2><button className="link plain" onClick={() => downloadCSV('factures-savaa.csv', [['Facture', 'Fournisseur', 'Montant (FCFA)', 'Statut'], ...INVOICES.map(([n, f, m, st]) => [n, f, m, st])])}>Exporter</button></div>
           <div className="card list">
-            <div className="li"><div className="col grow"><span className="small b num">FAC-2026-1104</span><span className="xs muted">Coop. d’Anyama, 186 000 FCFA</span></div><Badge tone="green">Payée</Badge></div>
-            <div className="li"><div className="col grow"><span className="small b num">FAC-2026-1098</span><span className="xs muted">Bergerie Soro, 240 000 FCFA</span></div><Badge tone="amber">À régler le 25/11</Badge></div>
+            {INVOICES.map(([n, f, m, st, tone]) => (
+              <div className="li" key={n}><div className="col grow"><span className="small b num">{n}</span><span className="xs muted">{f}, {fcfa(m)} FCFA</span></div><Badge tone={tone}>{st}</Badge></div>
+            ))}
           </div>
         </div>
       </div>

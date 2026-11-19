@@ -1,6 +1,9 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { clearToast, useToast } from './toast';
+import { photoFor } from './data';
+import { readImage } from './device';
+import { photoFor } from './photos';
+import { clearToast, showToast, useToast } from './toast';
 
 /* Icônes au trait de la maquette (24 × 24, trait 1,75). */
 const ICONS = {
@@ -99,12 +102,55 @@ export function Badge({ tone = 'grey', children, style }: { tone?: Tone; childre
   return <span className={`badge bd-${tone}`} style={style}>{children}</span>;
 }
 
-/** Emplacement photo en attendant les vraies images. */
-export function Photo({ label = '', w, h, radius, tint }: { label?: string; w?: number | string; h?: number; radius?: number; tint?: 'w' | 's' }) {
+/** Photo : affiche l'image `src` ou l'image correspondant au libellé / teinte. */
+export function Photo({ label = '', w, h, radius, tint, src, onRemove }: { label?: string; w?: number | string; h?: number; radius?: number; tint?: 'w' | 's'; src?: string; onRemove?: () => void }) {
+  const img = src ?? photoFor(label, tint);
+  const showTag = Boolean(label && !label.startsWith('Photo'));
   return (
-    <div className={`ph${tint ? ' ' + tint : ''}`} style={{ width: w, height: h, borderRadius: radius, padding: label ? undefined : 0 }}>
-      {label && <span>{label}</span>}
+    <div
+      className={`ph${tint ? ' ' + tint : ''}`}
+      style={{
+        width: w,
+        height: h,
+        borderRadius: radius,
+        padding: showTag ? undefined : 0,
+        backgroundImage: `url(${img})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      {showTag && <span>{label}</span>}
+      {onRemove && (
+        <button className="iconbtn" aria-label="Retirer la photo" onClick={onRemove} style={{ position: 'absolute', top: 2, right: 2, width: 28, height: 28, borderRadius: 14, background: 'rgba(23,32,27,.7)', color: '#fff' }}>
+          <Icon name="close" size="sm" />
+        </button>
+      )}
     </div>
+  );
+}
+
+/** Bouton « Ajouter » qui ouvre l'appareil photo ou la galerie et rend l'image réduite. */
+export function PhotoAdd({ onAdd, height, label = 'Ajouter', icon = 'camera', style, video }: { onAdd: (dataUrl: string) => void; height: number; label?: string; icon?: IconName; style?: React.CSSProperties; video?: boolean }) {
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    for (const f of files) {
+      if (!f.type.startsWith('image/')) {
+        showToast('Seules les photos sont gardées dans cette démo.');
+        continue;
+      }
+      try {
+        onAdd(await readImage(f));
+      } catch {
+        showToast('Cette image n’a pas pu être lue.');
+      }
+    }
+  };
+  return (
+    <label className="addph" style={{ height, cursor: 'pointer', position: 'relative', overflow: 'hidden', ...style }}>
+      <input type="file" accept={video ? 'image/*,video/*' : 'image/*'} multiple onChange={pick} style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />
+      <Icon name={icon} />{label}
+    </label>
   );
 }
 
