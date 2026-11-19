@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { fcfa, priceLabel, useStore, type Listing } from '../data';
+import { LogoInline } from '../logo';
 import { photoFor } from '../photos';
 import { Badge, Foot, Icon, NotFound, Photo, SectionHead, TabBar, type Tone } from '../ui';
 
@@ -140,7 +141,7 @@ export function Home() {
     <div className="app">
       <header className="hdr" style={{ padding: '10px 8px 10px 16px' }}>
         <div className="col grow" style={{ gap: 0 }}>
-          <span className="b" style={{ fontSize: 18, letterSpacing: '0.06em' }}>SAVAA</span>
+          <LogoInline tone="white" height={26} />
           <span className="row xs" style={{ gap: 4, color: '#CFE0D4' }}><Icon name="pin" size="sm" /><span className="ell">Korhogo, Poro</span></span>
         </div>
         <Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}><Icon name="bell" />{unread > 0 && <span className="dot">{unread}</span>}</Link>

@@ -1,3 +1,24 @@
+/**
+ * Logo horizontal pour les en-têtes : symbole + nom côte à côte.
+ * `tone="white"` sur fond vert (reliefs et nom blancs), `"color"` sur fond clair.
+ */
+export function LogoInline({ height = 28, tone = 'color' }: { height?: number; tone?: 'color' | 'white' }) {
+  const ink = tone === 'white' ? '#FFFFFF' : '#145C3A';
+  const hole = tone === 'white' ? '#145C3A' : '#FFFFFF';
+  return (
+    <span className="row" style={{ gap: Math.round(height / 4), alignItems: 'center', flex: 'none' }} role="img" aria-label="SAVAA">
+      <svg viewBox="200 160 800 500" height={height} style={{ display: 'block', flex: 'none' }} aria-hidden="true">
+        <circle cx="600" cy="285" r="122" fill="#F28C28" />
+        <path d="M220 618 L426 285 Q470 213 521 285 L600 420 L679 285 Q730 213 774 285 L980 618 L829 618 L700 414 L600 577 L500 414 L371 618 Z" fill={ink} />
+        <path d="M448 415 L500 331 L551 415 Z" fill={hole} />
+        <path d="M649 415 L700 331 L752 415 Z" fill={hole} />
+        <path d="M350 638 C470 566 730 566 850 638" fill="none" stroke="#F28C28" strokeWidth="30" strokeLinecap="round" />
+      </svg>
+      <span aria-hidden="true" style={{ fontWeight: 700, fontSize: Math.round(height * 0.68), letterSpacing: '0.04em', color: ink, lineHeight: 1 }}>SAVAA</span>
+    </span>
+  );
+}
+
 /*
   Logo SAVAA (fichier source : public/logo-savaa.svg).
   Deux reliefs en forme de A, un soleil orange derrière, un sillon, le nom.

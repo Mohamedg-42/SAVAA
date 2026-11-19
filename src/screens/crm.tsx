@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fcfa, today, useStore } from '../data';
 import { downloadCSV } from '../device';
+import { LogoInline } from '../logo';
 import { showToast, simulate } from '../toast';
 import { Badge, Check, Foot, Header, Icon, NotFound } from '../ui';
 
@@ -492,7 +493,7 @@ export function BackOffice() {
   return (
     <div className="adm">
       <aside className="adm-side">
-        <div className="brand">SAVAA<small>Back-office, administration</small></div>
+        <div className="brand"><LogoInline tone="white" height={30} /><small>Back-office, administration</small></div>
         {NAV.map((n) => {
           const on = sec === n.id;
           return (

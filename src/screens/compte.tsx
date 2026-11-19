@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { today, useStore, type NotifCat, type Session } from '../data';
-import { Logo } from '../logo';
+import { Logo, LogoInline } from '../logo';
 import { showToast } from '../toast';
 import { Badge, Check, Header, Icon, TabBar } from '../ui';
 
@@ -112,7 +112,7 @@ export function Login() {
 
   return (
     <div className="app" style={{ background: '#fff' }}>
-      <WhiteHeader right={<span className="b" style={{ fontSize: 15, letterSpacing: '0.06em', color: '#145C3A', paddingRight: 12 }}>SAVAA</span>} />
+      <WhiteHeader right={<span style={{ paddingRight: 12 }}><LogoInline height={24} /></span>} />
       <div className="body" style={{ background: '#fff', padding: '8px 20px 20px', gap: 22 }}>
         <div className="col" style={{ gap: 6 }}>
           <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Connexion ou inscription</h2>
