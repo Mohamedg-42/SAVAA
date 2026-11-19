@@ -71,6 +71,7 @@ export function Home() {
   const s = useStore();
   const cartCount = s.cartLines().length;
   const unread = s.unread();
+  const sponsored = s.listings().filter((l) => l.sponsored && l.status === 'online');
   return (
     <div className="app">
       <header className="hdr" style={{ padding: '10px 8px 10px 16px' }}>
@@ -86,12 +87,32 @@ export function Home() {
           <Link className="search" to="/explorer?q=" style={{ borderColor: '#fff' }}><Icon name="search" /><span>Animal, récolte, aliment, matériel…</span></Link>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div className="grid4">
-            <Link className="tile" to="/explorer"><Icon name="search" size="lg" />Explorer</Link>
-            {s.canSell() && <Link className="tile" to="/vendre"><Icon name="sell" size="lg" />Vendre</Link>}
-            <Link className="tile" to="/commande"><Icon name="truck" size="lg" />Commandes</Link>
-            <Link className="tile" to="/assistance"><Icon name="chat" size="lg" />Aide</Link>
-          </div>
+          {/* Profil vendeur : les annonces sponsorisées défilent à la place des tuiles. */}
+          {s.canSell() ? (
+            <div className="sec">
+              <SectionHead title="Sponsorisés" link="Tout voir" to="/explorer?q=" />
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px', scrollSnapType: 'x mandatory' }}>
+                {sponsored.length === 0 && <div className="card pad" style={{ flex: 1 }}><span className="small muted">Aucune annonce sponsorisée en ce moment.</span></div>}
+                {sponsored.map((l) => (
+                  <Link key={l.id} className="pc" to={`/annonce/${l.id}`} style={{ flex: 'none', width: 152, scrollSnapAlign: 'start' }}>
+                    <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} h={112} />
+                    <div className="in">
+                      <span className="small b ell">{l.title}</span>
+                      <span className="price">{fcfa(l.price)} FCFA{l.unit && <span className="small muted" style={{ fontWeight: 400 }}> {l.unit}</span>}</span>
+                      <span className="xs muted ell">{l.place.split(',')[0]}, {l.sellerShort ?? l.seller}</span>
+                      <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="grid4">
+              <Link className="tile" to="/explorer"><Icon name="search" size="lg" />Explorer</Link>
+              <Link className="tile" to="/commande"><Icon name="truck" size="lg" />Commandes</Link>
+              <Link className="tile" to="/assistance"><Icon name="chat" size="lg" />Aide</Link>
+            </div>
+          )}
 
           <div className="sec">
             <SectionHead title="Catégories" />
