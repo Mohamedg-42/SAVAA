@@ -493,7 +493,7 @@ export function BackOffice() {
   return (
     <div className="adm">
       <aside className="adm-side">
-        <div className="brand"><LogoInline tone="white" height={30} /><small>Back-office, administration</small></div>
+        <div className="brand"><LogoInline tone="white" height={40} name={false} /><small>Back-office, administration</small></div>
         {NAV.map((n) => {
           const on = sec === n.id;
           return (

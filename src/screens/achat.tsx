@@ -141,7 +141,7 @@ export function Home() {
     <div className="app">
       <header className="hdr" style={{ padding: '10px 8px 10px 16px' }}>
         <div className="col grow" style={{ gap: 0 }}>
-          <LogoInline tone="white" height={26} />
+          <LogoInline tone="white" height={34} name={false} />
           <span className="row xs" style={{ gap: 4, color: '#CFE0D4' }}><Icon name="pin" size="sm" /><span className="ell">Korhogo, Poro</span></span>
         </div>
         <Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}><Icon name="bell" />{unread > 0 && <span className="dot">{unread}</span>}</Link>

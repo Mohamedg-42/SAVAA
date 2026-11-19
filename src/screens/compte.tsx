@@ -112,7 +112,7 @@ export function Login() {
 
   return (
     <div className="app" style={{ background: '#fff' }}>
-      <WhiteHeader right={<span style={{ paddingRight: 12 }}><LogoInline height={24} /></span>} />
+      <WhiteHeader right={<span style={{ paddingRight: 12 }}><LogoInline height={30} name={false} /></span>} />
       <div className="body" style={{ background: '#fff', padding: '8px 20px 20px', gap: 22 }}>
         <div className="col" style={{ gap: 6 }}>
           <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Connexion ou inscription</h2>

@@ -2,7 +2,7 @@
  * Logo horizontal pour les en-têtes : symbole + nom côte à côte.
  * `tone="white"` sur fond vert (reliefs et nom blancs), `"color"` sur fond clair.
  */
-export function LogoInline({ height = 28, tone = 'color' }: { height?: number; tone?: 'color' | 'white' }) {
+export function LogoInline({ height = 28, tone = 'color', name = true }: { height?: number; tone?: 'color' | 'white'; name?: boolean }) {
   const ink = tone === 'white' ? '#FFFFFF' : '#145C3A';
   const hole = tone === 'white' ? '#145C3A' : '#FFFFFF';
   return (
@@ -14,7 +14,7 @@ export function LogoInline({ height = 28, tone = 'color' }: { height?: number; t
         <path d="M649 415 L700 331 L752 415 Z" fill={hole} />
         <path d="M350 638 C470 566 730 566 850 638" fill="none" stroke="#F28C28" strokeWidth="30" strokeLinecap="round" />
       </svg>
-      <span aria-hidden="true" style={{ fontWeight: 700, fontSize: Math.round(height * 0.68), letterSpacing: '0.04em', color: ink, lineHeight: 1 }}>SAVAA</span>
+      {name && <span aria-hidden="true" style={{ fontWeight: 700, fontSize: Math.round(height * 0.68), letterSpacing: '0.04em', color: ink, lineHeight: 1 }}>SAVAA</span>}
     </span>
   );
 }
