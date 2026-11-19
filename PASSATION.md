@@ -2,7 +2,7 @@
 
 Mise à jour du 19/11/2026.
 
-C'est le front de démonstration de SAVAA, fait à partir de la maquette v2. Il n'y a pas de backend : les données sont fictives et tout ce qu'on saisit est perdu au rechargement de la page.
+C'est le front de démonstration de SAVAA, fait à partir de la maquette v2. Il n'y a pas de backend : les données partent de la maquette et tout ce qu'on saisit est gardé dans le navigateur (localStorage). « Remettre la démo à zéro », en bas de l'écran Compte, revient aux données de départ.
 
 ## Lancer le projet
 
@@ -22,7 +22,9 @@ Côté code :
 - `src/App.tsx` contient toutes les routes (HashRouter).
 - `src/index.css` est la feuille de style de la maquette, reprise telle quelle.
 - `src/ui.tsx` regroupe les composants partagés : icônes, en-tête, barre d'onglets, badges, emplacements photo, écran « introuvable »…
-- `src/data.ts` porte les données de démo (animaux, dossiers sanitaires, panier) et un petit store maison, `useStore`. C'est là qu'il faudra brancher l'API ; les écrans n'auront normalement pas à changer.
+- `src/data.ts` porte les données de démo et un petit store maison, `useStore` : cheptel, dossiers sanitaires, annonces, favoris, panier, commandes, boutique, compte, notifications, tickets, et un stockage clé → valeur (`get` / `put`) utilisé par le CRM. C'est là qu'il faudra brancher l'API ; les écrans n'auront normalement pas à changer.
+- `src/device.ts` réunit ce qui passe par le navigateur ou le téléphone : photos réduites avant stockage, partage, export CSV, fichier calendrier (.ics), impression en PDF.
+- `src/photos.ts` associe les libellés photo de la maquette aux images de `public/images/`.
 - `src/toast.ts` gère le petit message qui s'affiche en bas de l'écran.
 
 Les écrans sont rangés par thème dans `src/screens/` :
@@ -39,7 +41,9 @@ Les écrans sont rangés par thème dans `src/screens/` :
 
 Les 30 écrans d'application de la maquette sont faits, avec tous leurs textes, onglets et états. Les planches 26 (feuille de route) et 27 (design system) sont des planches de présentation, il n'y a rien à intégrer.
 
-Aucun bouton n'est mort. Ce qui demanderait un serveur ou le téléphone (PDF, appel, appareil photo, export) affiche un court message qui dit que ce n'est pas encore disponible.
+Le front est fonctionnel de bout en bout : recherche, favoris, panier, paiement simulé avec compte à rebours, commande, reçu imprimable, suivi ; publication d'annonce avec photos, modération dans le back-office, boutique ; connexion, rôles, profil, notifications créées par les actions ; observations avec photos ; CRM avec journal ; réclamations ; exports CSV et calendrier.
+
+Il reste trois actions qui affichent seulement un message : appeler le transporteur (pas de numéro réel), et les choix de période « 7 derniers jours » et « 30 j » du back-office (une seule période dans les données, on n'invente pas d'autres chiffres).
 
 La charte : vert `#145C3A`, vert clair `#E8F3EA`, orange `#F28C28`, fond `#F8FAF8`, police IBM Plex Sans (installée localement, pas de Google Fonts).
 
@@ -47,7 +51,8 @@ La charte : vert `#145C3A`, vert clair `#E8F3EA`, orange `#F28C28`, fond `#F8FAF
 
 - Comparer la mise en page à la maquette sur des captures. Les textes ont été vérifiés écran par écran, l'affichage seulement par endroits.
 - Ajouter des tests. Il n'y en a aucun pour l'instant ; Vitest serait le plus simple avec Vite.
-- Remplacer les emplacements photo et l'icône d'onglet provisoire quand on aura les vraies images et le logo.
+- Remplacer les photos de démonstration et l'icône d'onglet provisoire quand on aura les vraies images et le logo.
+- Brancher une vraie API à la place de `data.ts` (connexion par SMS, paiement, modération côté serveur).
 
 ## À respecter
 
@@ -69,4 +74,6 @@ Sur le code :
 - Un bouton fait quelque chose, sinon il est `disabled`. Pour une action pas encore branchée, appeler `simulate('…')` avec une phrase courte propre à ce bouton, pas une formule toute faite.
 - Si l'identifiant d'une URL n'existe pas (`/animal/:id`, `/annonce/:id`, `/prospect/:id`), on affiche `NotFound`. On ne montre jamais un autre élément à la place.
 - Chaque événement sanitaire est rattaché à un animal par `animalId`. On lit un dossier avec `store.eventsFor(id)`. Le champ `summary` donne la ligne courte affichée dans l'onglet Santé de la fiche ; `false` l'en exclut.
-- Seul le taurillon FK-0142 a une fiche complète (race, ascendance, mouvements), et c'est la seule annonce qui a une page de détail. Les autres cartes du catalogue ne sont donc pas cliquables.
+- Le taurillon FK-0142 reprend mot pour mot la fiche et l'annonce de la maquette. Les autres animaux et annonces ont une fiche construite à partir de leurs données.
+- Les photos choisies sur l'appareil sont réduites (640 px, JPEG) avant d'être gardées : le stockage du navigateur est limité à quelques Mo.
+- Si on change la forme des données dans `data.ts`, changer aussi la clé `KEY` : sinon d'anciennes données gardées dans le navigateur se mélangent aux nouvelles.

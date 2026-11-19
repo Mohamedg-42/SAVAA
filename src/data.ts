@@ -198,7 +198,7 @@ function initial() {
     ],
   };
 
-  return { animals, events, listings, cart, orders, favorites: ['L-METIS', 'L-BELIERS', 'IGNAME'] as string[], tickets, chat: [] as string[], shop, notifs, session };
+  return { animals, events, listings, cart, orders, favorites: ['L-METIS', 'L-BELIERS', 'IGNAME'] as string[], tickets, chat: [] as string[], shop, notifs, session, kv: {} as Record<string, unknown> };
 }
 
 export type NotifCat = 'cmd' | 'pay' | 'cmp' | 'pro' | 'alr';
@@ -333,6 +333,14 @@ export const store = {
   },
   markAllRead() {
     commit({ notifs: state.notifs.map((n) => ({ ...n, unread: false })) });
+  },
+
+  /* Petites données d'écran gardées telles quelles (CRM : prospects ajoutés, journaux, conversions). */
+  get<T>(key: string, fallback: T): T {
+    return key in state.kv ? (state.kv[key] as T) : fallback;
+  },
+  put(key: string, value: unknown) {
+    commit({ kv: { ...state.kv, [key]: value } });
   },
 
   /* Annonces */
