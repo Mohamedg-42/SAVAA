@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { fcfa, priceLabel, useStore, type Listing } from '../data';
+import { fcfa, useStore, type Listing } from '../data';
 import { LogoInline } from '../logo';
 import { photoFor } from '../photos';
 import { Badge, Foot, Icon, NotFound, Photo, SectionHead, TabBar, type Tone } from '../ui';
@@ -16,22 +16,35 @@ const matches = (l: Listing, q: string) => {
 };
 const hasSheet = (l: Listing) => !!l.animalIds?.length || (/fiche/i.test(l.trace[0]) && !/déclarée/i.test(l.trace[0]));
 
-function ListingCard({ l }: { l: Listing }) {
+/** Carte d'annonce en grille (Explorer, Favoris) : photo en haut, deux cartes par ligne. */
+function GridCard({ l }: { l: Listing }) {
   return (
-    <Link className="hc" to={`/annonce/${l.id}`}>
-      <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} />
-      <div className="col grow" style={{ gap: 3 }}>
+    <Link className="pc" to={`/annonce/${l.id}`} style={{ minWidth: 0 }}>
+      <Photo label={l.photo} tint={l.tint} src={l.photos?.[0]} h={112} />
+      <div className="in" style={{ gap: 3 }}>
         {l.sponsored && <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>}
-        <span className="b small" style={{ lineHeight: 1.3 }}>{l.title}</span>
-        <span className="xs muted ell">{l.details}</span>
-        <span className="price">{priceLabel(l)}{l.negotiable ? ', négociable' : ''}</span>
-        <span className="xs muted ell">{l.place}, {l.sellerShort ?? l.seller}</span>
+        <span className="small b" style={{ lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{l.title}</span>
+        <span className="price">{fcfa(l.price)} FCFA{l.unit && <span className="xs muted" style={{ fontWeight: 400 }}> {l.unit}</span>}</span>
+        <span className="xs muted ell">{l.place.split(',')[0]}, {l.sellerShort ?? l.seller}</span>
         <span className="wrap" style={{ gap: 4, marginTop: 2 }}>
-          {l.sellerVerified ? <Badge tone="green">Compte vérifié</Badge> : <Badge>Non vérifié</Badge>}
+          {l.sellerVerified ? <Badge tone="green">Vérifié</Badge> : <Badge>Non vérifié</Badge>}
           <Badge tone={l.trace[1]}>{l.trace[0]}</Badge>
         </span>
       </div>
     </Link>
+  );
+}
+
+function GridSkeleton() {
+  return (
+    <div className="pc" aria-hidden="true" style={{ minWidth: 0 }}>
+      <div className="ph" style={{ height: 112, background: '#E9ECEA' }} />
+      <div className="in" style={{ gap: 8 }}>
+        <div style={{ height: 12, width: '85%', background: '#E9ECEA', borderRadius: 3 }} />
+        <div style={{ height: 14, width: '55%', background: '#E9ECEA', borderRadius: 3 }} />
+        <div style={{ height: 10, width: '70%', background: '#EEF0EE', borderRadius: 3 }} />
+      </div>
+    </div>
   );
 }
 
@@ -275,9 +288,9 @@ export function Catalog({ favorites = false }: { favorites?: boolean }) {
       </div>
       <div className="body" style={{ padding: '12px 16px', gap: 10 }}>
         {loading ? (
-          <>{[1, 2, 3].map((k) => <Skeleton key={k} />)}</>
+          <div className="grid2">{[1, 2, 3, 4].map((k) => <GridSkeleton key={k} />)}</div>
         ) : items.length ? (
-          items.map((l) => <ListingCard key={l.id} l={l} />)
+          <div className="grid2">{items.map((l) => <GridCard key={l.id} l={l} />)}</div>
         ) : (
           <div className="card pad col" style={{ alignItems: 'center', textAlign: 'center', gap: 8, padding: '28px 20px' }}>
             <span className="b">{favMode && !pool.length ? 'Aucun favori pour l’instant' : 'Aucune annonce avec ces filtres'}</span>
