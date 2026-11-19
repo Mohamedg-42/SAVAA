@@ -1,7 +1,7 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Guard } from './guard';
 import { Catalog, CatalogOffline, Home, ListingDetail } from './screens/achat';
-import { Cart, Payment, Receipt, Support, Tracking } from './screens/commande';
+import { Cart, Orders, Payment, Receipt, Support, Tracking } from './screens/commande';
 import { Login, Notifications, Profile, RolePicker, Splash } from './screens/compte';
 import { BackOffice, NewProspect, Prospection, ProspectSheet } from './screens/crm';
 import { AddAnimal, Dashboard, Herd } from './screens/eleveur';
@@ -30,6 +30,8 @@ export default function App() {
         <Route path="/accueil" element={<Home />} />
         <Route path="/explorer" element={<Catalog />} />
         <Route path="/explorer/hors-ligne" element={<CatalogOffline />} />
+        <Route path="/favoris" element={<Catalog favorites />} />
+        <Route path="/commandes" element={<Guard need="login"><Orders /></Guard>} />
         <Route path="/annonce/:id" element={<ListingDetail />} />
         <Route path="/panier" element={<Guard need="login"><Cart /></Guard>} />
         <Route path="/paiement" element={<Guard need="login"><Payment /></Guard>} />

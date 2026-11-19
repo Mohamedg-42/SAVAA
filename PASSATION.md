@@ -56,7 +56,7 @@ Sur l'écran de connexion, « Essayer le compte de démonstration » charge les 
 Les accès sont gérés dans `src/guard.tsx` et les onglets du bas suivent les rôles :
 
 - sans compte : accueil, catalogue, annonces, fiches et dossiers sanitaires (traçabilité) ;
-- connecté : panier, paiement, commandes, compte, notifications ;
+- connecté : panier, paiement, commandes, compte, notifications ; un acheteur (sans rôle vendeur) a en plus les onglets Favoris (`/favoris`) et Commandes (`/commandes`, la liste de ses achats) ; le restaurant a Commandes mais pas Favoris, pour garder 5 onglets ;
 - éleveur : Suivi, cheptel, ajout d'animal, observations (seulement sur ses propres animaux) ;
 - éleveur, producteur, vendeur ou fournisseur : Vendre, boutique, campagnes ; la boutique doit être créée avant de publier ; seuls les éleveurs publient des animaux (vendus avec leur fiche) ;
 - restaurant : espace professionnel.

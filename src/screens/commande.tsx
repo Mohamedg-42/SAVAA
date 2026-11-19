@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { fcfa, useStore, type Order } from '../data';
 import { printPage } from '../device';
 import { simulate } from '../toast';
-import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd } from '../ui';
+import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, TabBar } from '../ui';
 
 function Steps({ n }: { n: number }) {
   return (
@@ -510,6 +510,44 @@ export function Support() {
           <Foot><button className="btn btn-p" disabled={!!sent || !text.trim()} onClick={submit}>{sent ? 'Réclamation envoyée' : 'Envoyer la réclamation'}</button></Foot>
         </>
       )}
+    </div>
+  );
+}
+
+/* Onglet Commandes (acheteurs) : toutes les commandes, la plus récente en premier. */
+export function Orders() {
+  const orders = useStore().orders();
+  return (
+    <div className="app">
+      <header className="hdr" style={{ paddingLeft: 16 }}><h1>Mes commandes</h1></header>
+      <div className="body" style={{ gap: 10 }}>
+        {orders.length === 0 ? (
+          <div className="card pad col" style={{ alignItems: 'center', textAlign: 'center', gap: 8, padding: '32px 20px' }}>
+            <Icon name="truck" style={{ width: 44, height: 44, color: '#5D6862', strokeWidth: 1.4 }} />
+            <span className="b">Aucune commande pour l’instant</span>
+            <span className="small muted">Vos achats apparaîtront ici, avec leur suivi et leur reçu.</span>
+            <Link className="btn btn-p btn-sm" to="/explorer">Voir les annonces</Link>
+          </div>
+        ) : (
+          orders.map((o) => {
+            const items = o.lines.map((l) => (l.qty > 1 ? `${l.qty} × ${l.title}` : l.title)).join(', ');
+            return (
+              <Link key={o.ref} className="card pad col" to={`/commande?ref=${o.ref}`} style={{ gap: 6 }}>
+                <span className="row between" style={{ gap: 8 }}>
+                  <span className="b small num">{o.ref}</span>
+                  {o.demo ? <Badge tone="blue">En route</Badge> : <Badge tone="green">Payée</Badge>}
+                </span>
+                <span className="small ell">{items}</span>
+                <span className="row between xs muted num">
+                  <span>{o.date}, {o.delivery ? 'livraison' : 'retrait sur place'}</span>
+                  <span className="b" style={{ color: '#17201B' }}>{fcfa(o.total)} FCFA</span>
+                </span>
+              </Link>
+            );
+          })
+        )}
+      </div>
+      <TabBar />
     </div>
   );
 }

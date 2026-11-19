@@ -157,7 +157,7 @@ export function Home() {
             <div className="grid4">
               <Link className="tile" to="/explorer"><Icon name="search" size="lg" />Explorer</Link>
               <Link className="tile" to="/vendre"><Icon name="sell" size="lg" />Vendre</Link>
-              <Link className="tile" to="/commande"><Icon name="truck" size="lg" />Commandes</Link>
+              <Link className="tile" to="/commandes"><Icon name="truck" size="lg" />Commandes</Link>
               <Link className="tile" to="/assistance"><Icon name="chat" size="lg" />Aide</Link>
             </div>
           ) : (
@@ -234,11 +234,11 @@ export function Home() {
   );
 }
 
-/* Écran 05 : résultats de recherche (chargement simulé à l'ouverture). Avec `?favoris=1` : mes favoris. */
-export function Catalog() {
+/* Écran 05 : résultats de recherche (chargement simulé à l'ouverture). Avec `favorites` (onglet Favoris, /favoris) : les annonces gardées avec le cœur. */
+export function Catalog({ favorites = false }: { favorites?: boolean }) {
   const s = useStore();
   const [params, setParams] = useSearchParams();
-  const favMode = params.get('favoris') === '1';
+  const favMode = favorites || params.get('favoris') === '1';
   /* Explorer s'ouvre sur toutes les annonces en ligne, sans recherche ni filtre imposés. */
   const q = params.get('q') ?? '';
   const [loading, setLoading] = useState(true);
@@ -257,8 +257,7 @@ export function Catalog() {
   return (
     <div className="app">
       {favMode ? (
-        <header className="hdr">
-          <Link className="iconbtn" to="/explorer" aria-label="Retour"><Icon name="back" /></Link>
+        <header className="hdr" style={{ paddingLeft: 16 }}>
           <h1>Mes favoris</h1>
         </header>
       ) : (
@@ -286,7 +285,7 @@ export function Catalog() {
             {active > 0 && <button className="btn btn-s btn-sm" onClick={() => { setVerified(false); setDelivery(false); setTrace(false); }}>Réinitialiser les filtres</button>}
           </div>
         )}
-        {!favMode && <Link to="/explorer?favoris=1" className="xs muted" style={{ textAlign: 'center', textDecoration: 'underline' }}>Mes favoris ({s.favorites().length})</Link>}
+        {!favMode && <Link to="/favoris" className="xs muted" style={{ textAlign: 'center', textDecoration: 'underline' }}>Mes favoris ({s.favorites().length})</Link>}
         {!favMode && <Link to="/explorer/hors-ligne" className="xs muted" style={{ textAlign: 'center', textDecoration: 'underline' }}>Voir l’état « pas de connexion »</Link>}
       </div>
       <TabBar />
@@ -315,7 +314,7 @@ export function CatalogOffline() {
           <h2 style={{ fontSize: 19, fontWeight: 600 }}>Pas de connexion</h2>
           <p className="small muted" style={{ lineHeight: 1.5 }}>Impossible de charger les annonces. Vos favoris et les annonces déjà vues restent consultables.</p>
           <button className="btn btn-p btn-block" onClick={() => setSt('load')} style={{ marginTop: 8 }}>Réessayer</button>
-          <button className="btn btn-s btn-block" onClick={() => navigate('/explorer?favoris=1')}>Voir mes favoris ({s.favorites().length})</button>
+          <button className="btn btn-s btn-block" onClick={() => navigate('/favoris')}>Voir mes favoris ({s.favorites().length})</button>
         </div>
       )}
       {st === 'load' && (

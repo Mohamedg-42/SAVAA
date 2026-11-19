@@ -75,16 +75,24 @@ export function Header({ title, sub, back, close, actions }: { title: ReactNode;
   );
 }
 
-/** Onglets selon les rôles : Vendre pour les vendeurs, Suivi pour les éleveurs, Pro pour les restaurants. */
+/**
+ * Onglets selon les rôles : Favoris et Commandes pour les acheteurs, Vendre pour les vendeurs,
+ * Suivi pour les éleveurs, Pro pour les restaurants.
+ */
 export function TabBar() {
   const s = useStore();
   const logged = s.session().loggedIn;
+  const buyer = logged && !s.canSell();
+  /* Le restaurant a déjà son espace Pro : pas d'onglet Favoris, pour tenir sur un petit écran. */
+  const favTab = buyer && !s.has('resto');
   const tabs: { to: string; label: string; icon: IconName }[] = [
     { to: '/accueil', label: 'Accueil', icon: 'home' },
     { to: '/explorer', label: 'Explorer', icon: 'search' },
+    ...(favTab ? [{ to: '/favoris', label: 'Favoris', icon: 'heart' as IconName }] : []),
+    ...(buyer ? [{ to: '/commandes', label: 'Commandes', icon: 'truck' as IconName }] : []),
     ...(s.canSell() ? [{ to: '/vendre', label: 'Vendre', icon: 'sell' as IconName }] : []),
     ...(s.isBreeder() ? [{ to: '/suivi', label: 'Suivi', icon: 'pulse' as IconName }] : []),
-    ...(s.has('resto') ? [{ to: '/restaurant', label: 'Pro', icon: 'truck' as IconName }] : []),
+    ...(s.has('resto') ? [{ to: '/restaurant', label: 'Pro', icon: 'calendar' as IconName }] : []),
     logged ? { to: '/compte', label: 'Compte', icon: 'user' } : { to: '/connexion', label: 'Connexion', icon: 'user' },
   ];
   return (
