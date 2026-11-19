@@ -273,7 +273,8 @@ function ListingDetailInner({ l }: { l: Listing }) {
   const navigate = useNavigate();
   const fav = s.isFavorite(l.id);
   const full = l.id === DETAIL_ID;
-  const round = { background: '#fff', width: 40, height: 40, borderRadius: 20 };
+  /* Sans fond : icône blanche avec une ombre, lisible sur toutes les photos. */
+  const round = { background: 'transparent', color: '#fff', width: 44, height: 44, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.8))', strokeWidth: 2.4 };
   const buyable = l.status === 'online' && !l.mine;
   const inCart = s.cart().items.some((i) => i.listingId === l.id);
   const animals = (l.animalIds ?? []).map((a) => s.animal(a)).filter(Boolean);
@@ -287,10 +288,10 @@ function ListingDetailInner({ l }: { l: Listing }) {
   return (
     <div className="app">
       <div className="body flush">
-        <div className="ph" style={{ height: 270, alignItems: 'stretch', flexDirection: 'column', justifyContent: 'space-between', padding: 10, backgroundImage: `url(${photo})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+        <div className="ph" style={{ height: 270, alignItems: 'stretch', flexDirection: 'column', justifyContent: 'space-between', padding: 10, backgroundImage: `linear-gradient(rgba(0,0,0,.42), rgba(0,0,0,0) 32%), url(${photo})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
           <div className="row between">
             <button className="iconbtn" aria-label="Retour" style={round} onClick={() => navigate(-1)}><Icon name="back" /></button>
-            <button className="iconbtn" aria-label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={fav} style={{ ...round, color: fav ? '#F28C28' : '#17201B' }} onClick={() => s.toggleFavorite(l.id)}>
+            <button className="iconbtn" aria-label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={fav} style={{ ...round, color: fav ? '#F28C28' : '#fff' }} onClick={() => s.toggleFavorite(l.id)}>
               <Icon name="heart" style={{ fill: fav ? '#F28C28' : 'none' }} />
             </button>
           </div>
