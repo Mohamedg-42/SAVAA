@@ -3,7 +3,26 @@ import { Link } from 'react-router-dom';
 import { fcfa, today, useStore } from '../data';
 import { downloadCSV } from '../device';
 import { showToast } from '../toast';
+import type { ReactNode } from 'react';
+import { DashHeader, TodayCard } from '../dash';
 import { Badge, Icon, Photo, TabBar, type Tone } from '../ui';
+
+/*
+  Les données de la maquette (visites, mission en cours, gains, lots, devis, factures) appartiennent au compte de démonstration.
+  Un compte neuf part de zéro. Les alertes des éleveurs et les missions disponibles sont des demandes ouvertes à tous les vétérinaires
+  et transporteurs : elles restent visibles pour tous.
+*/
+
+/** Carte affichée quand une rubrique est vide, avec ce qu'il faut faire pour la remplir. */
+function EmptyState({ title, text, children }: { title: string; text: string; children?: ReactNode }) {
+  return (
+    <div className="card pad col" style={{ gap: 6 }}>
+      <span className="small b">{title}</span>
+      <span className="xs muted" style={{ lineHeight: 1.45 }}>{text}</span>
+      {children}
+    </div>
+  );
+}
 
 /* ================================================================== */
 /* 1. ESPACE VÉTÉRINAIRE / AGENT HABILITÉ (/veto)                     */
@@ -62,9 +81,16 @@ export function VetSpace() {
   const validated = s.get<Record<string, boolean>>('vet.validated', {});
   const confirmed = s.get<Record<string, boolean>>('vet.confirmed', {});
   const unread = s.unread();
+  const visits = s.session().demo ? VET_VISITS : [];
 
-  const openAlerts = INITIAL_VET_ALERTS.filter((a) => handled[a.id] !== 'done').length;
-  const pendingVal = VET_VALIDATIONS.filter((v) => !validated[v.id]).length;
+  /* Un vétérinaire ne traite ni ne valide ses propres animaux : ils passent à un autre vétérinaire. */
+  const own = new Set(s.animals().filter((a) => a.mine).map((a) => a.id));
+  const alerts = INITIAL_VET_ALERTS.filter((a) => !own.has(a.animalId));
+  const validations = VET_VALIDATIONS.filter((v) => !own.has(v.id));
+  const openAlerts = alerts.filter((a) => handled[a.id] !== 'done').length;
+  const pendingVal = validations.filter((v) => !validated[v.id]).length;
+  const RANK = { Élevée: 0, Moyenne: 1, Faible: 2 } as const;
+  const urgent = alerts.filter((a) => !handled[a.id]).sort((x, y) => RANK[x.urgency] - RANK[y.urgency])[0];
 
   const markAlert = (id: string, status: 'taken' | 'done', label: string) => {
     s.put('vet.handled', { ...handled, [id]: status });
@@ -82,31 +108,38 @@ export function VetSpace() {
 
   return (
     <div className="app">
-      <header className="hdr" style={{ paddingLeft: 16 }}>
-        <div className="col grow" style={{ gap: 1 }}>
-          <span className="xs muted">Espace vétérinaire</span>
-          <span className="b ell" style={{ fontSize: 17 }}>{s.session().name || 'Dr Y. Coulibaly'}</span>
-        </div>
-        <Link className="iconbtn" to="/notifications" aria-label="Notifications">
+      <DashHeader label="Espace vétérinaire" name={s.session().name || 'Vétérinaire'} action={<Link className="iconbtn" to="/notifications" aria-label="Notifications">
           <Icon name="bell" />
           {unread > 0 && <span className="dot">{unread}</span>}
-        </Link>
-      </header>
+        </Link>} />
       <div className="utabs" role="tablist">
         <button role="tab" aria-selected={tab === 'alerts'} className={tab === 'alerts' ? 'on' : ''} onClick={() => setTab('alerts')}>Alertes ({openAlerts})</button>
         <button role="tab" aria-selected={tab === 'validations'} className={tab === 'validations' ? 'on' : ''} onClick={() => setTab('validations')}>Validations ({pendingVal})</button>
-        <button role="tab" aria-selected={tab === 'visits'} className={tab === 'visits' ? 'on' : ''} onClick={() => setTab('visits')}>Visites ({VET_VISITS.length})</button>
+        <button role="tab" aria-selected={tab === 'visits'} className={tab === 'visits' ? 'on' : ''} onClick={() => setTab('visits')}>Visites ({visits.length})</button>
       </div>
       <div className="body">
+        {urgent ? (
+          <TodayCard alert eyebrow="Alerte la plus urgente" title={`${urgent.animalId}, ${urgent.animal}`} text={`${urgent.sign}. ${urgent.farm}, ${urgent.date}.`}>
+            <button className="btn btn-p" onClick={() => markAlert(urgent.id, 'taken', 'Prise en charge signalée à l’éleveur.')}>Prendre en charge</button>
+            <Link className="btn btn-s" to={`/animal/${urgent.animalId}/sante`}>Dossier</Link>
+          </TodayCard>
+        ) : pendingVal ? (
+          <TodayCard eyebrow="Aujourd’hui" title={`${pendingVal} fiche${pendingVal > 1 ? 's' : ''} à valider`} text="Aucune alerte en attente de prise en charge. Les éleveurs attendent la validation de leurs fiches.">
+            <button className="btn btn-p" onClick={() => setTab('validations')}>Voir les fiches</button>
+          </TodayCard>
+        ) : (
+          <TodayCard eyebrow="Aujourd’hui" title="Rien d’urgent" text="Les nouvelles alertes des éleveurs de votre zone apparaîtront ici en premier." />
+        )}
         <div className="card grid3" style={{ gap: 0 }}>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{openAlerts}</span><span className="l">Alertes ouvertes</span></div>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{pendingVal}</span><span className="l">À valider</span></div>
-          <div className="stat" style={{ padding: 12 }}><span className="v">{VET_VISITS.length}</span><span className="l">Visites prévues</span></div>
+          <div className="stat" style={{ padding: 12 }}><span className="v">{visits.length}</span><span className="l">Visites prévues</span></div>
         </div>
 
         {tab === 'alerts' && (
           <div className="col" style={{ gap: 10 }}>
-            {INITIAL_VET_ALERTS.map((a) => {
+            {alerts.length === 0 && <div className="card pad"><span className="small muted">Aucune alerte dans votre zone.</span></div>}
+            {alerts.map((a) => {
               const st = handled[a.id];
               return (
                 <div key={a.id} className="card pad col" style={{ gap: 10 }}>
@@ -141,7 +174,8 @@ export function VetSpace() {
 
         {tab === 'validations' && (
           <div className="col" style={{ gap: 10 }}>
-            {VET_VALIDATIONS.map((v) => {
+            {validations.length === 0 && <div className="card pad"><span className="small muted">Aucune fiche à valider.</span></div>}
+            {validations.map((v) => {
               const ok = !!validated[v.id];
               return (
                 <div key={v.id} className="card pad col" style={{ gap: 10 }}>
@@ -166,9 +200,12 @@ export function VetSpace() {
           </div>
         )}
 
-        {tab === 'visits' && (
+        {tab === 'visits' && !visits.length && (
+          <EmptyState title="Aucune visite prévue" text="Vos visites d’exploitation apparaîtront ici quand un éleveur vous en demandera une ou quand vous en planifierez." />
+        )}
+        {tab === 'visits' && !!visits.length && (
           <div className="card list">
-            {VET_VISITS.map((v) => {
+            {visits.map((v) => {
               const ok = !!confirmed[v.id];
               return (
                 <div className="li" key={v.id}>
@@ -229,9 +266,14 @@ export function CourierSpace() {
   const step = s.get<'picked' | 'route' | 'delivered'>('courier.step', 'route');
   const [codeInput, setCodeInput] = useState('');
   const unread = s.unread();
+  const demo = !!s.session().demo;
 
   const availableCount = MISSION_OFFERS.filter((m) => !accepted[m.id]).length;
-  const deliveredCount = MISSION_HISTORY.length + (step === 'delivered' ? 1 : 0);
+  /* Compte neuf : les missions en cours sont celles qu'il a acceptées ; ni historique ni gains tant qu'il n'a rien livré. */
+  const acceptedOffers = MISSION_OFFERS.filter((m) => accepted[m.id]);
+  const activeCount = demo ? (step === 'delivered' ? 0 : 1) : acceptedOffers.length;
+  const deliveredCount = demo ? MISSION_HISTORY.length + (step === 'delivered' ? 1 : 0) : 0;
+  const earned = demo ? 40000 + (step === 'delivered' ? 25000 : 0) : 0;
 
   const validateCode = () => {
     if (codeInput.trim() !== '4827') {
@@ -245,29 +287,59 @@ export function CourierSpace() {
 
   return (
     <div className="app">
-      <header className="hdr" style={{ paddingLeft: 16 }}>
-        <div className="col grow" style={{ gap: 1 }}>
-          <span className="xs muted">Espace transporteur</span>
-          <span className="b ell" style={{ fontSize: 17 }}>{s.session().name || 'Transports Ouattara'}</span>
-        </div>
-        <Link className="iconbtn" to="/notifications" aria-label="Notifications">
+      <DashHeader label="Espace transporteur" name={s.session().name || 'Transporteur'} action={<Link className="iconbtn" to="/notifications" aria-label="Notifications">
           <Icon name="bell" />
           {unread > 0 && <span className="dot">{unread}</span>}
-        </Link>
-      </header>
+        </Link>} />
       <div className="utabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'active'} className={tab === 'active' ? 'on' : ''} onClick={() => setTab('active')}>En cours ({step === 'delivered' ? 0 : 1})</button>
+        <button role="tab" aria-selected={tab === 'active'} className={tab === 'active' ? 'on' : ''} onClick={() => setTab('active')}>En cours ({activeCount})</button>
         <button role="tab" aria-selected={tab === 'offers'} className={tab === 'offers' ? 'on' : ''} onClick={() => setTab('offers')}>Disponibles ({availableCount})</button>
         <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'on' : ''} onClick={() => setTab('history')}>Historique ({deliveredCount})</button>
       </div>
       <div className="body">
+        {demo && step !== 'delivered' ? (
+          <TodayCard eyebrow="Mission en cours" title="Taurillon FK-0142 et 4 sacs d’aliment" text="Livrer à Fatou Ouattara, route de Dikodougou. À la remise, demandez le code à 4 chiffres à l’acheteur.">
+            <button className="btn btn-p" onClick={() => setTab('active')}>Voir la mission</button>
+          </TodayCard>
+        ) : !demo && acceptedOffers[0] ? (
+          <TodayCard eyebrow="Mission acceptée" title={acceptedOffers[0].title} text={`${acceptedOffers[0].route}, ${acceptedOffers[0].when}. Le vendeur vous confirme l’heure d’enlèvement.`}>
+            <button className="btn btn-p" onClick={() => setTab('active')}>Voir la mission</button>
+          </TodayCard>
+        ) : (
+          <TodayCard eyebrow="Aujourd’hui" title="Aucune mission en cours" text={`${availableCount} mission${availableCount > 1 ? 's' : ''} disponible${availableCount > 1 ? 's' : ''} près de vous.`}>
+            <button className="btn btn-p" onClick={() => setTab('offers')}>Voir les missions</button>
+          </TodayCard>
+        )}
         <div className="card grid3" style={{ gap: 0 }}>
-          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{step === 'delivered' ? 0 : 1}</span><span className="l">En cours</span></div>
+          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{activeCount}</span><span className="l">En cours</span></div>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{availableCount}</span><span className="l">Offres dispo</span></div>
-          <div className="stat" style={{ padding: 12 }}><span className="v">{fcfa(40000 + (step === 'delivered' ? 25000 : 0))}</span><span className="l">FCFA (7 j)</span></div>
+          <div className="stat" style={{ padding: 12 }}><span className="v">{fcfa(earned)}</span><span className="l">FCFA (7 j)</span></div>
         </div>
 
-        {tab === 'active' && (
+        {tab === 'active' && !demo && (
+          acceptedOffers.length ? (
+            <div className="col" style={{ gap: 10 }}>
+              {acceptedOffers.map((m) => (
+                <div key={m.id} className="card pad col" style={{ gap: 8 }}>
+                  <div className="row between" style={{ gap: 8 }}>
+                    <span className="b small ell">{m.title}</span>
+                    <Badge tone="blue">Acceptée</Badge>
+                  </div>
+                  <span className="xs muted">{m.route}</span>
+                  <span className="xs muted">{m.vehicle}, {m.when}</span>
+                  <span className="price">{fcfa(m.fee)} FCFA</span>
+                  <span className="hint">Le vendeur vous confirmera l’heure d’enlèvement. À la livraison, l’acheteur vous donnera son code de remise.</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Aucune mission en cours" text="Acceptez une mission dans l’onglet Disponibles : elle apparaîtra ici jusqu’à la livraison.">
+              <button className="btn btn-s btn-sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => setTab('offers')}>Voir les missions disponibles</button>
+            </EmptyState>
+          )
+        )}
+
+        {tab === 'active' && demo && (
           <div className="card pad col" style={{ gap: 12 }}>
             <div className="row between">
               <span className="b num">SAV-2026-11-004812</span>
@@ -356,7 +428,11 @@ export function CourierSpace() {
           </div>
         )}
 
-        {tab === 'history' && (
+        {tab === 'history' && !demo && (
+          <EmptyState title="Aucune livraison pour l’instant" text="Vos livraisons terminées et leur rémunération apparaîtront ici." />
+        )}
+
+        {tab === 'history' && demo && (
           <div className="card list">
             {step === 'delivered' && (
               <div className="li">
@@ -410,8 +486,9 @@ const LOT_TONE: Record<HarvestLot['status'], Tone> = {
 export function AgriSpace() {
   const s = useStore();
   const [tab, setTab] = useState<'lots' | 'add' | 'cal'>('lots');
+  const demo = !!s.session().demo;
   const extraLots = s.get<HarvestLot[]>('agri.lots', []);
-  const lots = [...extraLots, ...INITIAL_LOTS];
+  const lots = [...extraLots, ...(demo ? INITIAL_LOTS : [])];
   const [crop, setCrop] = useState('');
   const [qty, setQty] = useState('');
   const [price, setPrice] = useState('');
@@ -422,10 +499,10 @@ export function AgriSpace() {
       id: `REC-${lots.length + 1}`,
       crop: crop.trim(),
       qty: qty.trim(),
-      price: Number(price.replace(/\D/g, '')) || 500,
+      price: Number(price.replace(/\D/g, '')),
       unit: 'le kg',
       status: 'Disponible',
-      photo: '/images/mais-jaune.jpg',
+      photo: '',
     };
     s.put('agri.lots', [lot, ...extraLots]);
     setCrop('');
@@ -437,38 +514,50 @@ export function AgriSpace() {
 
   return (
     <div className="app">
-      <header className="hdr" style={{ paddingLeft: 16 }}>
-        <div className="col grow" style={{ gap: 1 }}>
-          <span className="xs muted">Producteur agricole</span>
-          <span className="b ell" style={{ fontSize: 17 }}>{s.shop().created ? s.shop().name : s.session().name || 'Mes récoltes'}</span>
-        </div>
-        <Link className="iconbtn" to="/vendre" aria-label="Publier une récolte"><Icon name="plus" /></Link>
-      </header>
+      <DashHeader label="Producteur agricole" name={s.shop().created ? s.shop().name : s.session().name || 'Mes récoltes'} action={<Link className="iconbtn" to="/vendre" aria-label="Publier une récolte"><Icon name="plus" /></Link>} />
       <div className="utabs" role="tablist">
         <button role="tab" aria-selected={tab === 'lots'} className={tab === 'lots' ? 'on' : ''} onClick={() => setTab('lots')}>Disponibilités ({lots.length})</button>
         <button role="tab" aria-selected={tab === 'add'} className={tab === 'add' ? 'on' : ''} onClick={() => setTab('add')}>Déclarer un lot</button>
         <button role="tab" aria-selected={tab === 'cal'} className={tab === 'cal' ? 'on' : ''} onClick={() => setTab('cal')}>Calendrier</button>
       </div>
       <div className="body">
+        {demo ? (
+          <TodayCard eyebrow="Prochaine collecte" title="Maïs jaune, le 24/11" text="Magasin de Dikodougou, environ 120 sacs. Prévenez vos acheteurs et réservez le séchage.">
+            <button className="btn btn-p" onClick={() => setTab('cal')}>Voir le calendrier</button>
+          </TodayCard>
+        ) : lots[0] ? (
+          <TodayCard eyebrow="Aujourd’hui" title={`Mettez en vente : ${lots[0].crop}`} text={`${lots[0].qty}. La fiche de traçabilité se remplit en 4 étapes.`}>
+            <Link className="btn btn-p" to="/vendre">Mettre en vente</Link>
+          </TodayCard>
+        ) : (
+          <TodayCard eyebrow="Pour commencer" title="Déclarez votre première récolte" text="Culture, quantité et prix indicatif : vous suivez vos disponibilités et les mettez en vente quand vous voulez.">
+            <button className="btn btn-p" onClick={() => setTab('add')}>Déclarer un lot</button>
+          </TodayCard>
+        )}
         <div className="card grid3" style={{ gap: 0 }}>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{lots.length}</span><span className="l">Lots actifs</span></div>
-          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">33 t</span><span className="l">Volume estimé</span></div>
-          <div className="stat" style={{ padding: 12 }}><span className="v">4</span><span className="l">Acheteurs pros</span></div>
+          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{demo ? '33 t' : '—'}</span><span className="l">Volume estimé</span></div>
+          <div className="stat" style={{ padding: 12 }}><span className="v">{demo ? 4 : 0}</span><span className="l">Acheteurs pros</span></div>
         </div>
 
-        {tab === 'lots' && (
+        {tab === 'lots' && !lots.length && (
+          <EmptyState title="Aucune récolte déclarée" text="Déclarez vos lots (culture, quantité, prix indicatif) pour suivre vos disponibilités, puis mettez-les en vente avec leur fiche de traçabilité.">
+            <button className="btn btn-p btn-sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => setTab('add')}>Déclarer un lot</button>
+          </EmptyState>
+        )}
+        {tab === 'lots' && !!lots.length && (
           <div className="col" style={{ gap: 10 }}>
             {lots.map((l) => (
               <div key={l.id} className="card pad col" style={{ gap: 10 }}>
                 <div className="row" style={{ gap: 12 }}>
-                  <Photo w={56} h={56} radius={8} src={l.photo} />
-                  <div className="col grow" style={{ gap: 2 }}>
+                  {l.photo && <Photo w={56} h={56} radius={8} src={l.photo} />}
+                  <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
                     <div className="row between" style={{ gap: 6 }}>
                       <span className="b small ell">{l.crop}</span>
                       <Badge tone={LOT_TONE[l.status]}>{l.status}</Badge>
                     </div>
                     <span className="xs muted">{l.qty}</span>
-                    <span className="price">{fcfa(l.price)} FCFA <span className="xs muted" style={{ fontWeight: 400 }}>{l.unit}</span></span>
+                    {l.price ? <span className="price">{fcfa(l.price)} FCFA <span className="xs muted" style={{ fontWeight: 400 }}>{l.unit}</span></span> : <span className="xs muted">Prix à définir</span>}
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8 }}>
@@ -501,7 +590,10 @@ export function AgriSpace() {
           </div>
         )}
 
-        {tab === 'cal' && (
+        {tab === 'cal' && !demo && (
+          <EmptyState title="Calendrier vide" text="Vos dates de récolte et de collecte apparaîtront ici." />
+        )}
+        {tab === 'cal' && demo && (
           <div className="card list">
             {[
               ['24', 'nov.', 'Collecte coopérative maïs jaune', 'Magasin Dikodougou · 120 sacs', '/images/mais-jaune.jpg'],
@@ -541,10 +633,15 @@ const SUPPLIER_INVOICES: [string, string, number, string, Tone][] = [
 export function SupplierSpace() {
   const s = useStore();
   const [tab, setTab] = useState<'quotes' | 'catalog' | 'invoices'>('quotes');
+  const demo = !!s.session().demo;
   const sent = s.get<Record<string, number>>('fourn.sent', {});
   const [offers, setOffers] = useState<Record<string, string>>({});
-  const pendingQuotes = SUPPLIER_QUOTES.filter((q) => !sent[q.id]).length;
-  const stockItems = s.listings().filter((l) => l.category.includes('Aliments') || l.category === 'Matériel');
+  /* Devis reçus et factures : ceux de la démo seulement ; un fournisseur neuf n'en a pas encore. */
+  const quotes = demo ? SUPPLIER_QUOTES : [];
+  const invoices = demo ? SUPPLIER_INVOICES : [];
+  const pendingQuotes = quotes.filter((q) => !sent[q.id]).length;
+  /* Références : ses propres annonces d'aliments, d'intrants et de matériel (en démo, celles de la maquette). */
+  const stockItems = s.listings().filter((l) => (demo || l.mine) && (l.category.includes('Aliments') || l.category === 'Matériel'));
 
   const sendQuote = (id: string, fallback: number, client: string) => {
     const val = Number((offers[id] ?? '').replace(/\D/g, '')) || fallback;
@@ -554,28 +651,40 @@ export function SupplierSpace() {
 
   return (
     <div className="app">
-      <header className="hdr" style={{ paddingLeft: 16 }}>
-        <div className="col grow" style={{ gap: 1 }}>
-          <span className="xs muted">Fournisseur / entreprise B2B</span>
-          <span className="b ell" style={{ fontSize: 17 }}>{s.shop().created ? s.shop().name : s.session().name || 'Espace fournisseur'}</span>
-        </div>
-        <Link className="link" to="/boutique" style={{ paddingRight: 12 }}>Boutique</Link>
-      </header>
+      <DashHeader label="Fournisseur / entreprise B2B" name={s.shop().created ? s.shop().name : s.session().name || 'Espace fournisseur'} action={<Link className="link" to="/boutique" style={{ paddingRight: 12 }}>Boutique</Link>} />
       <div className="utabs" role="tablist">
         <button role="tab" aria-selected={tab === 'quotes'} className={tab === 'quotes' ? 'on' : ''} onClick={() => setTab('quotes')}>Devis ({pendingQuotes})</button>
         <button role="tab" aria-selected={tab === 'catalog'} className={tab === 'catalog' ? 'on' : ''} onClick={() => setTab('catalog')}>Catalogue gros</button>
         <button role="tab" aria-selected={tab === 'invoices'} className={tab === 'invoices' ? 'on' : ''} onClick={() => setTab('invoices')}>Factures</button>
       </div>
       <div className="body">
+        {pendingQuotes ? (
+          <TodayCard eyebrow="Aujourd’hui" title={`${pendingQuotes} demande${pendingQuotes > 1 ? 's' : ''} de devis à traiter`} text={`${quotes.find((q) => !sent[q.id])?.client ?? ''} attend votre tarif.`}>
+            <button className="btn btn-p" onClick={() => setTab('quotes')}>Répondre</button>
+          </TodayCard>
+        ) : stockItems.length ? (
+          <TodayCard eyebrow="Aujourd’hui" title="Aucune demande de devis en attente" text={`Vos ${stockItems.length} référence${stockItems.length > 1 ? 's sont visibles' : ' est visible'} par les restaurants, éleveurs et coopératives.`}>
+            <Link className="btn btn-p" to="/vendre">Ajouter une référence</Link>
+          </TodayCard>
+        ) : (
+          <TodayCard eyebrow="Pour commencer" title="Publiez vos premières références" text="Aliments, intrants, matériel : les acheteurs pros vous envoient leurs demandes de devis.">
+            <Link className="btn btn-p" to="/vendre">Publier un produit</Link>
+          </TodayCard>
+        )}
         <div className="card grid3" style={{ gap: 0 }}>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{pendingQuotes}</span><span className="l">Devis ouverts</span></div>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{stockItems.length}</span><span className="l">Références</span></div>
-          <div className="stat" style={{ padding: 12 }}><span className="v">1,8 M</span><span className="l">FCFA (nov.)</span></div>
+          <div className="stat" style={{ padding: 12 }}><span className="v">{demo ? '1,8 M' : 0}</span><span className="l">FCFA (nov.)</span></div>
         </div>
 
-        {tab === 'quotes' && (
+        {tab === 'quotes' && !quotes.length && (
+          <EmptyState title="Aucune demande de devis" text="Les restaurants, éleveurs et coopératives vous envoient leurs demandes ici. Publiez vos produits pour être trouvé.">
+            <Link className="btn btn-p btn-sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} to="/vendre">Publier un produit</Link>
+          </EmptyState>
+        )}
+        {tab === 'quotes' && !!quotes.length && (
           <div className="col" style={{ gap: 10 }}>
-            {SUPPLIER_QUOTES.map((q) => {
+            {quotes.map((q) => {
               const sentPrice = sent[q.id];
               return (
                 <div key={q.id} className="card pad col" style={{ gap: 10 }}>
@@ -613,7 +722,12 @@ export function SupplierSpace() {
           </div>
         )}
 
-        {tab === 'catalog' && (
+        {tab === 'catalog' && !stockItems.length && (
+          <EmptyState title="Aucune référence" text="Vos annonces d’aliments, d’intrants et de matériel forment votre catalogue de gros.">
+            <Link className="btn btn-p btn-sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} to="/vendre">Publier un produit</Link>
+          </EmptyState>
+        )}
+        {tab === 'catalog' && !!stockItems.length && (
           <div className="card list">
             {stockItems.map((l) => (
               <Link key={l.id} className="li" to={`/annonce/${l.id}`}>
@@ -628,19 +742,22 @@ export function SupplierSpace() {
           </div>
         )}
 
-        {tab === 'invoices' && (
+        {tab === 'invoices' && !invoices.length && (
+          <EmptyState title="Aucune facture" text="Les factures de vos ventes B2B apparaîtront ici, avec leur statut de paiement." />
+        )}
+        {tab === 'invoices' && !!invoices.length && (
           <div className="sec">
             <div className="sech">
               <h2>Factures B2B</h2>
               <button
                 className="link plain"
-                onClick={() => downloadCSV('factures-fournisseur-savaa.csv', [['Facture', 'Client', 'Montant (FCFA)', 'Statut'], ...SUPPLIER_INVOICES.map(([n, c, m, st]) => [n, c, m, st])])}
+                onClick={() => downloadCSV('factures-fournisseur-savaa.csv', [['Facture', 'Client', 'Montant (FCFA)', 'Statut'], ...invoices.map(([n, c, m, st]) => [n, c, m, st])])}
               >
                 Exporter CSV
               </button>
             </div>
             <div className="card list">
-              {SUPPLIER_INVOICES.map(([n, c, m, st, tone]) => (
+              {invoices.map(([n, c, m, st, tone]) => (
                 <div className="li" key={n}>
                   <div className="col grow"><span className="small b num">{n}</span><span className="xs muted">{c}, {fcfa(m)} FCFA</span></div>
                   <Badge tone={tone}>{st}</Badge>
