@@ -48,7 +48,7 @@ export function Guard({ need, shop, children }: { need: Need; shop?: boolean; ch
           <h2 style={{ fontSize: 19, fontWeight: 600 }}>{title}</h2>
           <p className="small muted" style={{ lineHeight: 1.5 }}>{text}</p>
           <Link className="btn btn-p btn-block" to={`/role?next=${here}`}>Ajouter ce profil à mon compte</Link>
-          <Link className="btn btn-ghost btn-block" to="/accueil" replace>Retour à l’accueil</Link>
+          <Link className="btn btn-ghost btn-block" to={s.home()} replace>Retour à l’accueil</Link>
         </div>
       </div>
     );
@@ -92,7 +92,7 @@ export function StaffGuard({ children }: { children: ReactNode }) {
           {error && <span id="staff-err" className="hint" style={{ color: '#A0221A' }}>Code incorrect.</span>}
         </div>
         <button className="btn btn-p btn-block" type="submit" disabled={!code.trim()}>Entrer</button>
-        <Link className="btn btn-ghost btn-block" to="/accueil" replace>Retour à l’application</Link>
+        <Link className="btn btn-ghost btn-block" to={s.home()} replace>Retour à l’application</Link>
       </form>
     </div>
   );

@@ -28,7 +28,7 @@ Côté code :
 - `src/toast.ts` gère le petit message qui s'affiche en bas de l'écran.
 - `src/guard.tsx` contrôle les accès : connexion, rôle demandé (`Guard`) et code d'équipe du back-office (`StaffGuard`).
 - `src/trace.ts` définit les fiches de traçabilité :
-  - les 8 catégories du cahier des charges, avec leurs champs, et leur correspondance avec les anciennes catégories d'annonce ;
+  - les 8 catégories du cahier des charges, plus une 9e ajoutée à la demande, « Engrais et produits phytosanitaires » (composition, homologation, lot, péremption), avec leurs champs et leur correspondance avec les anciennes catégories d'annonce ;
   - le code SAV-TRACE et les statuts de fiche ;
   - le statut, la vocation, la pesée et l'origine d'un animal ;
   - les fiches des annonces de démonstration.
@@ -67,22 +67,27 @@ La charte : vert `#145C3A`, vert clair `#E8F3EA`, orange `#F28C28`, fond `#F8FAF
 
 ## Comptes et rôles
 
-Un nouveau compte part de zéro : formulaires vides, cheptel vide, pas de boutique, pas de commande ni de notification. Seules les annonces des autres vendeurs existent déjà.
+À l’inscription, un compte professionnel complète ensuite son **profil métier** (`/profil-metier`, champs dans `src/profils.ts`) : pièce d’identité pour tous, et selon le métier exploitation, RCCM, numéro d’inscription à l’Ordre, véhicule et permis… avec les photos des justificatifs (obligatoires pour vétérinaire, transporteur et fournisseur). Ils rejoignent les justificatifs du compte, « En revue ». Chaque espace métier commence par l’en-tête avec la photo du compte et une **carte du jour** (`src/dash.tsx`).
+
+Un nouveau compte part de zéro : formulaires vides, cheptel vide, pas de boutique, pas de commande ni de notification. Seules les annonces des autres vendeurs existent déjà. Dans les espaces métiers (`metiers.tsx`), les visites, la mission en cours, les gains, l’historique, les lots, le calendrier, les devis et les factures de la maquette ne s’affichent que pour le compte de démonstration ; un compte neuf voit un message qui explique comment remplir chaque rubrique. Les alertes des éleveurs et les missions disponibles restent visibles pour tous les vétérinaires et transporteurs.
 
 Sur l'écran de connexion, « Essayer le compte de démonstration » charge les données de la maquette (Adama Koné, Ferme Koné & Fils, cheptel de 46 têtes, commande, notifications). C'est ce compte qu'il faut utiliser pour présenter la maquette telle quelle.
 
-Les accès sont gérés dans `src/guard.tsx`. La barre du bas montre au plus 5 onglets : Accueil, Explorer, deux onglets selon le métier, Compte (`TabBar` dans `src/ui.tsx`).
+Les accès sont gérés dans `src/guard.tsx`. La barre du bas montre au plus 5 onglets (`TabBar` dans `src/ui.tsx`). L’onglet **Accueil mène à l’espace du métier principal** (`store.home()`) : seuls le visiteur et l’acheteur ont l’accueil marchand (bannière sponsorisée, catégories, catalogue). Le catalogue reste ouvert à tous par l’onglet Explorer, car presque tous les métiers achètent aussi (aliment, semences, intrants). Après la connexion, le choix du rôle ou « Continuer » sur l’écran de démarrage, on arrive sur cet accueil.
 
-| Profil | Onglets du milieu | Ce qui lui est réservé |
-| --- | --- | --- |
-| Sans compte | (Connexion à la place de Compte) | Accueil, catalogue, annonces, fiches et dossiers sanitaires (traçabilité) |
-| Acheteur | Favoris, Commandes | Panier, paiement, commandes (`/commandes`), favoris (`/favoris`) |
-| Éleveur | Vendre, Suivi | Cheptel, ajout d'animal, observations sur ses propres animaux ; seul profil qui publie des animaux (vendus avec leur fiche) |
-| Producteur agricole | Vendre, Récoltes | Récoltes et disponibilités (`/recoltes`) |
-| Vendeur, fournisseur | Vendre, Devis B2B pour le fournisseur | Boutique, publication, campagnes ; devis B2B (`/fournisseur`) |
-| Restaurant | Commandes, Pro | Espace professionnel (`/restaurant`) |
-| Vétérinaire | Véto | Alertes et validations sanitaires (`/veto`) |
-| Transporteur | Missions | Missions de livraison (`/missions`) |
+| Profil | Accueil | Autres onglets | Ce qui lui est réservé |
+| --- | --- | --- | --- |
+| Sans compte | Accueil marchand | Explorer, Connexion | Accueil, catalogue, annonces, fiches produit et animales (traçabilité) |
+| Acheteur | Accueil marchand | Explorer, Favoris, Commandes | Panier, paiement, commandes (`/commandes`), favoris (`/favoris`) |
+| Éleveur | Tableau de bord (`/suivi`) | Explorer, Vendre, Boutique | Cheptel, ajout d’animal, observations sur ses propres animaux ; seul profil qui publie des bovins, ovins et caprins (vendus avec leur fiche) |
+| Producteur agricole | Récoltes (`/recoltes`) | Explorer, Vendre, Boutique | Récoltes et disponibilités |
+| Vendeur | Tableau de bord (`/vendeur`, ou la création de boutique) | Explorer, Vendre, Boutique | Boutique, publication, campagnes |
+| Fournisseur | Devis B2B (`/fournisseur`) | Explorer, Vendre, Boutique | Devis, catalogue de gros, factures |
+| Restaurant | Espace Pro (`/restaurant`) | Explorer, Commandes, Favoris | Demandes de devis, achats en volume |
+| Vétérinaire | Véto (`/veto`) | Explorer | Alertes et validations sanitaires, visites |
+| Transporteur | Missions (`/missions`) | Explorer | Missions de livraison |
+
+L’onglet Boutique n’apparaît qu’une fois la boutique créée. Pour un compte à plusieurs métiers, l’accueil suit l’ordre éleveur, producteur, fournisseur, vendeur, restaurant, vétérinaire, transporteur, et les espaces des autres métiers prennent les places libres de la barre.
 
 Tout compte connecté a aussi panier, compte et notifications. Un vendeur doit créer sa boutique avant de publier.
 
@@ -100,13 +105,6 @@ Se déconnecter efface les données du compte sur l'appareil, puisqu'il n'y a pa
 
 Décisions et corrections en attente, vues lors de la revue des comptes du 20/11/2026 :
 
-- **Espaces métiers :** pour un compte neuf, plusieurs espaces affichent des données de la démo qui ne sont pas à lui :
-  - le producteur agricole voit 3 lots et « 4 acheteurs pros » ;
-  - le fournisseur voit 3 devis et 1,8 M FCFA de factures ;
-  - le transporteur voit une mission en cours et 40 000 FCFA gagnés ;
-  - le vétérinaire voit 3 visites prévues.
-
-  Ces données ne devraient apparaître que pour le compte de démonstration (`metiers.tsx`).
 - **Korhogo par défaut :** Korhogo apparaît encore alors que l'appli est nationale, à trois endroits : l'accueil sans compte (« Korhogo, Savanes »), le back-office (« zone pilote Poro et Tchologo ») et l'exemple du champ de livraison du restaurant.
 - **Écrans métiers :** l'espace vétérinaire, transporteur, producteur et fournisseur utilisent le même gabarit. Il faudrait un premier écran propre à chaque métier, par exemple la mission en cours pour le transporteur ou l'alerte la plus urgente pour le vétérinaire.
 - **Combinaisons de rôles :** les règles sont proposées mais pas codées.
@@ -115,7 +113,6 @@ Décisions et corrections en attente, vues lors de la revue des comptes du 20/11
   - Le vétérinaire peut être éleveur, mais ne valide pas ses propres animaux.
   - Le transporteur ne prend pas de mission sur ses propres ventes.
   - Deux métiers au maximum.
-- **Engrais et produits phytosanitaires :** ils n'entrent dans aucune des 8 catégories de traçabilité. Il faut décider où les ranger.
 - **Fiches des autres annonces de démonstration :** il faut leurs vraies informations (origine, dates) avant de leur créer une fiche.
 - **Statut « archivée » :** il n'existe pas encore d'action pour archiver une annonce.
 - **Cahier des charges de traçabilité :** il s'arrête à la section 2.2.

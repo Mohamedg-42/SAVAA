@@ -2,7 +2,8 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Guard, StaffGuard } from './guard';
 import { Catalog, CatalogOffline, Home, ListingDetail } from './screens/achat';
 import { Cart, Orders, Payment, Receipt, Support, Tracking } from './screens/commande';
-import { Login, Notifications, Profile, RolePicker, Splash } from './screens/compte';
+import { Login, Notifications, ProDetails, Profile, RolePicker, Splash } from './screens/compte';
+import { VendorHome } from './screens/tableaux';
 import { BackOffice, ProspectRedirect } from './screens/crm';
 import { AddAnimal, Dashboard, Herd } from './screens/eleveur';
 import { ProductSheet } from './screens/fiche';
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/demarrage" element={<Splash />} />
         <Route path="/connexion" element={<Login />} />
         <Route path="/role" element={<RolePicker />} />
+        <Route path="/profil-metier" element={<ProDetails />} />
         <Route path="/compte" element={<Guard need="login"><Profile /></Guard>} />
         <Route path="/notifications" element={<Guard need="login"><Notifications /></Guard>} />
 
@@ -53,6 +55,7 @@ export default function App() {
         {/* Lot 5, vente */}
         <Route path="/vendre" element={<Guard need="seller" shop><Publish /></Guard>} />
         <Route path="/boutique" element={<Guard need="seller" shop><Shop /></Guard>} />
+        <Route path="/vendeur" element={<Guard need="seller" shop><VendorHome /></Guard>} />
         <Route path="/boutique/creer" element={<Guard need="seller"><CreateShop /></Guard>} />
         <Route path="/campagne" element={<Guard need="seller" shop><Campaign /></Guard>} />
         <Route path="/campagne/stats" element={<Guard need="seller" shop><CampaignStats /></Guard>} />

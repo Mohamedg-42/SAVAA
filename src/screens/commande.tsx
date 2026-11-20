@@ -262,11 +262,12 @@ const noOrder = <NotFound title="Commande" text="Aucune commande pour l’instan
 export function Receipt() {
   const o = useOrder();
   const navigate = useNavigate();
+  const home = useStore().home();
   if (!o) return noOrder;
   return (
     <div className="app">
       <header className="hdr">
-        <button className="iconbtn" aria-label="Fermer" onClick={() => navigate('/accueil')}><Icon name="close" /></button>
+        <button className="iconbtn" aria-label="Fermer" onClick={() => navigate(home)}><Icon name="close" /></button>
         <h1>Reçu</h1>
       </header>
       <div className="body">

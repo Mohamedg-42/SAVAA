@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CI_REGIONS, useStore, type Species } from '../data';
 import { downloadICS } from '../device';
 import { showToast } from '../toast';
+import { DashHeader } from '../dash';
+import { animalStatus } from '../trace';
 import { Badge, Foot, Header, Icon, Photo, PhotoAdd, SectionHead, TabBar } from '../ui';
 
 /* Échéances de la maquette : jour, mois, titre, détail, date du calendrier (AAAAMMJJ). */
@@ -22,18 +24,15 @@ export function Dashboard() {
   const herd = s.animals();
   const alerts = herd.flatMap((a) => s.eventsFor(a.id).filter((e) => e.kind === 'obs' && e.pending).slice(0, 1).map((e) => ({ a, e })));
   const first = herd[0]?.id;
+  /* Animaux en vente, réservés ou vendus (statut déduit des annonces et commandes). */
+  const selling = herd.filter((a) => a.mine).map((a) => ({ a, st: animalStatus(a, s.listings(), s.orders()) })).filter(({ st }) => st.label !== 'En élevage' && st.label !== 'Indisponible').slice(0, 4);
   return (
     <div className="app">
-      <header className="hdr" style={{ paddingLeft: 16 }}>
-        <div className="col grow" style={{ gap: 1 }}>
-          <span className="xs muted">Mon exploitation</span>
-          <span className="b ell" style={{ fontSize: 17 }}>{s.shop().created ? s.shop().name : s.session().name}</span>
-        </div>
-        <Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}>
-          <Icon name="bell" />
-          {unread > 0 && <span className="dot">{unread}</span>}
-        </Link>
-      </header>
+      <DashHeader
+        label="Mon exploitation"
+        name={s.shop().created ? s.shop().name : s.session().pro?.['eleveur.ferme'] || s.session().name}
+        action={<Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}><Icon name="bell" />{unread > 0 && <span className="dot">{unread}</span>}</Link>}
+      />
       <div className="body">
         <span className="sync"><i></i>{demo ? 'Synchronisé il y a 12 min, hors connexion disponible' : 'Données gardées sur ce téléphone, hors connexion disponible'}</span>
         {!demo && herd.length === 0 && (
@@ -109,6 +108,16 @@ export function Dashboard() {
             <Link className="card pad stat" to="/boutique"><span className="v">{(demo ? 3 : 0) + online}</span><span className="l">Annonces en ligne</span></Link>
             <div className="card pad stat"><span className="v">{demo ? 1 : 0}</span><span className="l">Commande à préparer</span></div>
           </div>
+          {selling.length > 0 && (
+            <div className="card list">
+              {selling.map(({ a, st }) => (
+                <Link key={a.id} className="li" to={`/animal/${a.id}`}>
+                  <div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">{a.id}, {a.name}</span></div>
+                  <Badge tone={st.tone}>{st.label}</Badge>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <TabBar />

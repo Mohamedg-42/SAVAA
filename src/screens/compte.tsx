@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CI_REGIONS, today, useStore, type NotifCat, type Session } from '../data';
+import { readImage } from '../device';
 import { Logo, LogoInline } from '../logo';
 import { showToast } from '../toast';
-import { Badge, Check, Header, Icon, TabBar } from '../ui';
+import { Avatar } from '../dash';
+import { ID_FIELD, idPhotoRequired, missingProfile, needsProfile, sectionsFor } from '../profils';
+import { Badge, Check, Header, Icon, Photo, PhotoAdd, TabBar } from '../ui';
 
 /* Bouton retour des en-têtes blancs (connexion, rôle). */
 function WhiteHeader({ right }: { right: React.ReactNode }) {
@@ -51,7 +54,7 @@ export function Splash() {
       <div className="splash-after" style={{ padding: '0 24px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {bye && !logged && <p className="small" role="status" style={{ textAlign: 'center', color: '#145C3A', fontWeight: 500 }}>{bye === 'reset' ? 'Démo remise à zéro.' : 'Vous êtes déconnecté.'}</p>}
         <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, textAlign: 'center' }}>Acheter et vendre des animaux, des récoltes et des intrants. Chaque animal avec son origine et son suivi sanitaire.</p>
-        <Link className="btn btn-p btn-block" to={logged ? '/accueil' : '/connexion'}>{logged ? 'Continuer' : 'Commencer'}</Link>
+        <Link className="btn btn-p btn-block" to={logged ? s.home() : '/connexion'}>{logged ? 'Continuer' : 'Commencer'}</Link>
         {!logged && <Link className="btn btn-s btn-block" to="/accueil">Parcourir sans compte</Link>}
         <p className="xs muted" style={{ textAlign: 'center' }}>Prototype de démonstration v2.0, données fictives</p>
       </div>
@@ -87,11 +90,11 @@ export function Login() {
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
     s.login({ phone: phone.trim(), name: fullName, town, prefs: { ...session.prefs, mkt } });
     if (!s.shop().created) s.setShop({ town });
-    navigate(s.session().roles.length ? next ?? '/accueil' : `/role${next ? `?next=${encodeURIComponent(next)}` : ''}`, { replace: true });
+    navigate(s.session().roles.length ? next ?? s.home() : `/role${next ? `?next=${encodeURIComponent(next)}` : ''}`, { replace: true });
   };
   const demo = () => {
     s.loginDemo();
-    navigate(next ?? '/accueil', { replace: true });
+    navigate(next ?? s.home(), { replace: true });
   };
 
   return (
@@ -180,16 +183,13 @@ export function RolePicker() {
   if (!s.session().loggedIn) return <Navigate to={`/connexion?next=${encodeURIComponent('/role')}`} replace />;
   const next = () => {
     s.setSession({ roles: ROLES.filter((r) => sel[r.id]).map((r) => r.id) });
-    const target =
-      sel.eleveur ? '/suivi'
-        : sel.agri ? '/recoltes'
-          : sel.fourn ? '/fournisseur'
-            : sel.vendeur ? (s.shop().created ? '/boutique' : '/boutique/creer')
-              : sel.resto ? '/restaurant'
-                : sel.veto ? '/veto'
-                  : sel.coursier ? '/missions'
-                    : '/accueil';
-    navigate(back ?? target, { replace: true });
+    const roles = ROLES.filter((r) => sel[r.id]).map((r) => r.id);
+    const sess = s.session();
+    if (!sess.demo && needsProfile(roles) && missingProfile(roles, sess.pro, sess.proPhotos).length) {
+      navigate(`/profil-metier${back ? `?next=${encodeURIComponent(back)}` : ''}`, { replace: true });
+      return;
+    }
+    navigate(back ?? s.home(), { replace: true });
   };
 
   return (
@@ -228,6 +228,122 @@ export function RolePicker() {
   );
 }
 
+
+/* Écran 04b : profil métier. Les informations demandées dépendent du ou des rôles choisis (voir profils.ts). */
+export function ProDetails() {
+  const s = useStore();
+  const session = s.session();
+  const navigate = useNavigate();
+  const back = useNext();
+  const roles = session.roles;
+  const sections = sectionsFor(roles);
+  const strict = idPhotoRequired(roles);
+  const [pro, setPro] = useState<Record<string, string>>(session.pro ?? {});
+  const [photos, setPhotos] = useState<Record<string, string>>(session.proPhotos ?? {});
+  const [avatar, setAvatar] = useState(session.photo);
+  const [tried, setTried] = useState(false);
+  if (!session.loggedIn) return <Navigate to={`/connexion?next=${encodeURIComponent('/profil-metier')}`} replace />;
+  if (!sections.length) return <Navigate to={back ?? s.home()} replace />;
+
+  const missing = missingProfile(roles, pro, photos);
+  const err = (key: string, required?: boolean) => tried && required && !(pro[key] ?? '').trim();
+  const errPhoto = (key: string, required?: boolean) => tried && required && !photos[key];
+  const set = (key: string, v: string) => setPro({ ...pro, [key]: v });
+  const setPhoto = (key: string, v?: string) => {
+    const next = { ...photos };
+    if (v) next[key] = v;
+    else delete next[key];
+    setPhotos(next);
+  };
+
+  const save = () => {
+    if (missing.length) {
+      setTried(true);
+      showToast(`Il manque ${missing.length} information${missing.length > 1 ? 's' : ''} obligatoire${missing.length > 1 ? 's' : ''}.`);
+      return;
+    }
+    /* Chaque justificatif photographié rejoint la liste des justificatifs, en revue par l'équipe SAVAA. */
+    const labels: Record<string, string> = { 'id.photo': 'Pièce d’identité' };
+    for (const sec of sections) for (const d of sec.docs) labels[d.key] = d.label;
+    const known = new Set(session.docs.map((d) => d.name));
+    const newDocs = Object.keys(photos).filter((k) => labels[k] && !known.has(labels[k])).map((k) => ({ name: labels[k], date: today(), status: 'review' as const }));
+    s.setSession({ pro, proPhotos: photos, photo: avatar, docs: [...session.docs, ...newDocs] });
+    showToast('Profil enregistré. L’équipe SAVAA contrôle vos justificatifs.');
+    navigate(back ?? s.home(), { replace: true });
+  };
+
+  const photoSlot = (key: string, label: string, required?: boolean) => (
+    <div className="field" key={key}>
+      <span className="lbl">{label}{!required && <span className="muted"> (facultatif)</span>}</span>
+      <div className="row" style={{ gap: 10 }}>
+        {photos[key]
+          ? <Photo src={photos[key]} label={label} w={96} h={72} radius={8} onRemove={() => setPhoto(key)} />
+          : <PhotoAdd height={72} label="Photo" style={{ width: 96, flex: 'none' }} onAdd={(p) => setPhoto(key, p)} />}
+        <span className="xs muted" style={{ lineHeight: 1.45 }}>Photo nette, en entier, lisible. Elle n’est vue que par l’équipe SAVAA.</span>
+      </div>
+      {errPhoto(key, required) && <span className="xs" role="alert" style={{ color: '#A0221A' }}>Ajoutez cette photo.</span>}
+    </div>
+  );
+
+  return (
+    <div className="app" style={{ background: '#fff' }}>
+      <WhiteHeader right={<span className="small muted" style={{ paddingRight: 12 }}>Étape 3 sur 3</span>} />
+      <div className="body" style={{ background: '#fff', padding: '4px 20px 20px', gap: 20 }}>
+        <div className="col" style={{ gap: 6 }}>
+          <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Complétez votre profil</h2>
+          <p className="muted">Ces informations protègent les acheteurs et les vendeurs. L’équipe SAVAA les contrôle avant d’afficher le badge « Vérifié ».</p>
+        </div>
+
+        <div className="row" style={{ gap: 14 }}>
+          {avatar
+            ? <span className="av" style={{ width: 72, height: 72, backgroundImage: `url(${avatar})`, backgroundSize: 'cover', backgroundPosition: 'center' }} aria-hidden="true" />
+            : <span className="av" style={{ width: 72, height: 72, fontSize: 22 }} aria-hidden="true">{session.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()}</span>}
+          <div className="col" style={{ gap: 6 }}>
+            <span className="b small">Photo de profil</span>
+            <PhotoAdd height={40} label={avatar ? 'Changer la photo' : 'Ajouter une photo'} style={{ padding: '0 12px' }} onAdd={setAvatar} />
+          </div>
+        </div>
+
+        <div className="sec" style={{ gap: 12 }}>
+          <span className="eyebrow">Identité</span>
+          <div className="field">
+            <label htmlFor="pro-id">{ID_FIELD.label}</label>
+            <input id="pro-id" className="input" value={pro[ID_FIELD.key] ?? ''} onChange={(e) => set(ID_FIELD.key, e.target.value)} aria-invalid={!!err(ID_FIELD.key, true)} />
+            {err(ID_FIELD.key, true) && <span className="xs" role="alert" style={{ color: '#A0221A' }}>Indiquez le numéro de votre pièce.</span>}
+          </div>
+          {photoSlot('id.photo', 'Photo de la pièce d’identité', strict)}
+        </div>
+
+        {sections.map((sec) => (
+          <div className="sec" style={{ gap: 12 }} key={sec.role}>
+            <span className="eyebrow">{sec.title}</span>
+            {sec.fields.map((f) => (
+              <div className="field" key={f.key}>
+                <label htmlFor={`pro-${f.key}`}>{f.label}{!f.required && <span className="muted"> (facultatif)</span>}</label>
+                {f.options ? (
+                  <select id={`pro-${f.key}`} className="input" value={pro[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} aria-invalid={!!err(f.key, f.required)} style={{ color: pro[f.key] ? '#17201B' : '#5D6862' }}>
+                    <option value="" disabled>Choisir…</option>
+                    {f.options.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input id={`pro-${f.key}`} className="input" inputMode={f.numeric ? 'decimal' : undefined} placeholder={f.placeholder} value={pro[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} aria-invalid={!!err(f.key, f.required)} />
+                )}
+                {err(f.key, f.required) && <span className="xs" role="alert" style={{ color: '#A0221A' }}>Ce champ est obligatoire.</span>}
+              </div>
+            ))}
+            {sec.docs.map((d) => photoSlot(d.key, d.label, d.required))}
+          </div>
+        ))}
+        <p className="hint">Vos justificatifs ne sont jamais montrés aux autres utilisateurs. Vous pourrez les modifier depuis votre compte.</p>
+      </div>
+      <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
+        {!strict && <button className="btn btn-s" style={{ flex: '0 0 auto' }} onClick={() => navigate(back ?? s.home(), { replace: true })}>Plus tard</button>}
+        <button className="btn btn-p" onClick={save}>Enregistrer</button>
+      </div>
+    </div>
+  );
+}
+
 /* Icône horloge (en attente), absente de ui.tsx. */
 function ClockIcon({ color }: { color: string }) {
   return (
@@ -251,7 +367,19 @@ export function Profile() {
   const navigate = useNavigate();
   const { push, mkt } = session.prefs;
   const setPref = (k: 'push' | 'mkt') => s.setSession({ prefs: { ...session.prefs, [k]: !session.prefs[k] } });
-  const initials = session.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const changePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !file.type.startsWith('image/')) return;
+    try {
+      s.setSession({ photo: await readImage(file) });
+      showToast('Photo de profil mise à jour.');
+    } catch {
+      showToast('Cette image n’a pas pu être lue.');
+    }
+  };
+  const proMissing = missingProfile(session.roles, session.pro, session.proPhotos);
+  const proSections = sectionsFor(session.roles);
   const roles = ROLES.filter((r) => session.roles.includes(r.id));
   const addDoc = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -281,7 +409,13 @@ export function Profile() {
       />
       <div className="body">
         <div className="card pad row" style={{ gap: 14 }}>
-          <span className="av" style={{ width: 56, height: 56, fontSize: 18 }}>{initials}</span>
+          <div className="col" style={{ gap: 6, alignItems: 'center', flex: 'none' }}>
+            <Avatar size={56} name={session.name} />
+            <label className="link xs" style={{ cursor: 'pointer', position: 'relative' }}>
+              {session.photo ? 'Changer' : 'Ajouter une photo'}
+              <input type="file" accept="image/*" onChange={changePhoto} style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} aria-label="Photo de profil" />
+            </label>
+          </div>
           <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
             <span className="b" style={{ fontSize: 16 }}>{session.name}</span>
             <span className="small muted ell">{s.shop().created ? `${s.shop().name}, ${s.shop().town}` : session.phone ? `+225 ${session.phone}` : session.mail}</span>
@@ -291,6 +425,22 @@ export function Profile() {
             </div>
           </div>
         </div>
+
+        {!session.demo && needsProfile(session.roles) && (
+          <div className="sec">
+            <div className="sech"><h2>Profil métier</h2><Badge tone={proMissing.length ? 'amber' : 'green'}>{proMissing.length ? 'À compléter' : 'Complet'}</Badge></div>
+            <Link className="card pad col" to={`/profil-metier?next=${encodeURIComponent('/compte')}`} style={{ gap: 8 }}>
+              {proSections.map((sec) => {
+                const main = sec.fields.find((x) => x.required);
+                return <div className="row between" key={sec.role} style={{ gap: 10 }}><span className="small muted">{sec.title}</span><span className="small b ell" style={{ minWidth: 0 }}>{(main && session.pro?.[main.key]) || '—'}</span></div>;
+              })}
+              <div className="row between" style={{ gap: 10 }}><span className="small muted">Pièce d’identité</span><span className="small b">{session.pro?.[ID_FIELD.key] ? 'Renseignée' : '—'}</span></div>
+              {proMissing.length > 0 && <span className="xs" style={{ color: '#8A4B00' }}>Il manque {proMissing.length} information{proMissing.length > 1 ? 's' : ''} : {proMissing.slice(0, 2).join(', ')}{proMissing.length > 2 ? '…' : ''}</span>}
+              <div className="divider" />
+              <span className="link row between">{proMissing.length ? 'Compléter mon profil' : 'Modifier mon profil'}<Icon name="chevron" size="sm" /></span>
+            </Link>
+          </div>
+        )}
 
         <div className="sec">
           <div className="sech"><h2>Niveau de vérification</h2><span className="small b num">{level} / 3</span></div>

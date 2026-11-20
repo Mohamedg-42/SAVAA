@@ -86,9 +86,10 @@ function Skeleton() {
 
 function SearchHeader({ q, onQ }: { q: string; onQ?: (v: string) => void }) {
   const navigate = useNavigate();
+  const home = useStore().home();
   return (
     <header className="hdr" style={{ gap: 2, paddingRight: 12 }}>
-      <button className="iconbtn" aria-label="Retour" onClick={() => navigate('/accueil')}><Icon name="back" /></button>
+      <button className="iconbtn" aria-label="Retour" onClick={() => navigate(home)}><Icon name="back" /></button>
       <label className="search grow" style={{ height: 42 }}>
         <Icon name="search" />
         <input className="plain grow" type="search" value={q} onChange={(e) => onQ?.(e.target.value)} readOnly={!onQ} placeholder="Animal, récolte, aliment…" aria-label="Rechercher" style={{ outline: 'none', color: '#17201B' }} />

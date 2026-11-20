@@ -2,7 +2,8 @@ import { Fragment, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CI_REGIONS, fcfa, priceLabel, today, useStore, type Listing, type TraceSheet } from '../data';
-import { ACTORS, HANDOVER, HERD_SPECIES, TRACE_CATEGORIES, UNITS, newTraceCode, nowStamp, subsFor, traceCategory, unitPrice, unitQty } from '../trace';
+import { ACTORS, HANDOVER, HERD_SPECIES, TRACE_CATEGORIES, UNITS, newTraceCode, nowStamp, sheetOf, subsFor, traceCategory, unitPrice, unitQty } from '../trace';
+import { DashHeader, Kpis, TodayCard } from '../dash';
 import { downloadCSV } from '../device';
 import { clearToast, showToast } from '../toast';
 import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd, TabBar } from '../ui';
@@ -120,7 +121,7 @@ export function CreateShop() {
         </button>
       </div>
       <Foot>
-        <Link className="btn btn-s" to="/accueil" style={{ flex: '0 0 auto' }}>Plus tard</Link>
+        <Link className="btn btn-s" to="/explorer" style={{ flex: '0 0 auto' }}>Plus tard</Link>
         <button className="btn btn-p" disabled={!ready} onClick={() => { s.setShop({ created: true, name: name.trim(), desc: desc.trim(), town, logo }); navigate(next && next.startsWith('/') ? next : '/vendre', { replace: true }); }}>Créer et publier</button>
       </Foot>
     </div>
@@ -237,6 +238,7 @@ export function Shop() {
           )}
         </div>
       </div>
+      <TabBar />
     </div>
   );
 }
@@ -1073,6 +1075,66 @@ const INVOICES: [string, string, number, string, 'green' | 'amber'][] = [
 
 type RestoRequest = { product: string; kg: number; place: string };
 
+/** Haut du tableau de bord restaurant : prochaine livraison ou demande en cours, dépenses, origine des produits reçus. */
+function RestoOverview({ req }: { req: RestoRequest | null }) {
+  const s = useStore();
+  const demo = !!s.session().demo;
+  const orders = s.orders();
+  const last = s.lastOrder();
+  const month = today().slice(3);
+  const spent = orders.filter((o) => o.date.endsWith(month)).reduce((t, o) => t + o.total, 0);
+  /* Origine des produits commandés : la fiche SAV-TRACE de chaque annonce qui en a une. */
+  const seen = new Set<string>();
+  const origins = orders.flatMap((o) => o.lines).flatMap((line) => {
+    const l = s.listing(line.listingId);
+    const sheet = l && sheetOf(l);
+    if (!l || !sheet || seen.has(sheet.code)) return [];
+    seen.add(sheet.code);
+    return [{ title: l.title, from: `${sheet.origin.farm}, ${sheet.origin.town}`, code: sheet.code }];
+  });
+  return (
+    <>
+      {demo ? (
+        <TodayCard eyebrow="Prochaine livraison" title="Lundi, avant 8 h" text="Poulets de chair prêts à cuire, 120 kg. Le fournisseur confirme le créneau la veille.">
+          {last && <Link className="btn btn-p" to={`/commande?ref=${last.ref}`}>Suivre la livraison</Link>}
+        </TodayCard>
+      ) : last ? (
+        <TodayCard eyebrow="Commande en cours" title={`Commande ${last.ref}`} text={`${last.lines.length} article${last.lines.length > 1 ? 's' : ''}, ${fcfa(last.total)} FCFA. Gardez votre code de remise pour le livreur.`}>
+          <Link className="btn btn-p" to={`/commande?ref=${last.ref}`}>Suivre la livraison</Link>
+        </TodayCard>
+      ) : req ? (
+        <TodayCard eyebrow="Demande en cours" title={req.product} text={`${fcfa(req.kg)} kg par semaine, livraison ${req.place}. Les fournisseurs vérifiés vous répondent avec leur prix.`} />
+      ) : (
+        <TodayCard eyebrow="Pour commencer" title="Envoyez votre première demande de devis" text="Indiquez le produit, le volume par semaine et le lieu : les fournisseurs vérifiés vous répondent." />
+      )}
+      <Kpis items={demo ? [
+        { label: 'Dépenses du mois', value: '684 000', sub: 'FCFA, 11 commandes' },
+        { label: 'Commandes récurrentes', value: 2, sub: '1 à confirmer' },
+        { label: 'Devis en attente', value: 1, sub: 'poulets de chair', wide: true },
+      ] : [
+        { label: 'Dépenses du mois', value: fcfa(spent), sub: 'FCFA' },
+        { label: 'Commandes', value: orders.length },
+        { label: 'Devis en attente', value: req ? 1 : 0, wide: true },
+      ]} />
+      <div className="sec">
+        <div className="sech"><h2>D’où viennent vos produits</h2></div>
+        {origins.length ? (
+          <div className="card list">
+            {origins.map((o) => (
+              <Link key={o.code} className="li" to={`/fiche/${o.code}`}>
+                <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b ell">{o.title}</span><span className="xs muted ell">{o.from}</span></div>
+                <span className="xs num link" style={{ flex: 'none' }}>{o.code}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="card pad"><span className="small muted">L’origine de vos produits, avec leur fiche de traçabilité, apparaîtra ici après vos commandes.</span></div>
+        )}
+      </div>
+    </>
+  );
+}
+
 export function Restaurant() {
   const s = useStore();
   const demo = !!s.session().demo;
@@ -1091,14 +1153,9 @@ export function Restaurant() {
   if (!req) {
     return (
       <div className="app">
-        <header className="hdr green" style={{ paddingLeft: 16 }}>
-          <div className="col grow" style={{ gap: 1 }}>
-            <span className="xs" style={{ color: '#CFE0D4' }}>Espace professionnel</span>
-            <span className="b ell" style={{ fontSize: 17 }}>{s.session().name}</span>
-          </div>
-          <Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>
-        </header>
+        <DashHeader label="Espace professionnel" name={s.session().pro?.['resto.nom'] || s.session().name} action={<Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>} />
         <div className="body" style={{ gap: 18 }}>
+          <RestoOverview req={null} />
           <div className="col" style={{ gap: 4 }}><h2 style={{ fontSize: 18, fontWeight: 600 }}>Demander un devis</h2><span className="small muted">Les fournisseurs vérifiés de la zone vous répondent avec leur prix.</span></div>
           <div className="field"><label htmlFor="rq-product">Produit</label><input id="rq-product" className="input" placeholder="Ex. poulets de chair prêts à cuire" value={product} onChange={(e) => setProduct(e.target.value)} /></div>
           <div className="field">
@@ -1108,7 +1165,7 @@ export function Restaurant() {
               <span className="muted" style={{ flex: 'none' }}>kg</span>
             </label>
           </div>
-          <div className="field"><label htmlFor="rq-place">Lieu de livraison</label><input id="rq-place" className="input" placeholder="Ex. Korhogo, quartier Soba" value={place} onChange={(e) => setPlace(e.target.value)} /></div>
+          <div className="field"><label htmlFor="rq-place">Lieu de livraison</label><input id="rq-place" className="input" placeholder="Ex. Cocody, Riviera 3" value={place} onChange={(e) => setPlace(e.target.value)} /></div>
           <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Elles apparaîtront ici après votre première commande.</span></div>
         </div>
         <Foot><button className="btn btn-p" disabled={!product.trim() || kg <= 0 || !place.trim()} onClick={() => s.put('resto.request', { product: product.trim(), kg, place: place.trim() } satisfies RestoRequest)}>Envoyer la demande</button></Foot>
@@ -1119,14 +1176,9 @@ export function Restaurant() {
 
   return (
     <div className="app">
-      <header className="hdr green" style={{ paddingLeft: 16 }}>
-        <div className="col grow" style={{ gap: 1 }}>
-          <span className="xs" style={{ color: '#CFE0D4' }}>Espace professionnel</span>
-          <span className="b ell" style={{ fontSize: 17 }}>{demo ? 'La Terrasse du Plateau' : s.session().name}</span>
-        </div>
-        <Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>
-      </header>
+      <DashHeader label="Espace professionnel" name={demo ? 'La Terrasse du Plateau' : s.session().pro?.['resto.nom'] || s.session().name} action={<Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>} />
       <div className="body">
+        <RestoOverview req={req} />
         <label className="search">
           <Icon name="search" />
           <input className="plain grow" placeholder="Produit et volume, ex. tomate 200 kg" aria-label="Rechercher un produit" style={{ outline: 'none', cursor: 'text', minWidth: 0 }} />

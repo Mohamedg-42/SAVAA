@@ -60,6 +60,19 @@ export const TRACE_CATEGORIES: TraceCategory[] = [
     fields: [{ label: 'Numéro de lot' }, { label: 'Date de fabrication', type: 'date' }, { label: 'Date de péremption', type: 'date' }, { label: 'Ingrédients principaux' }],
     legacy: () => 'Aliments et intrants',
   },
+  /* Hors des 8 catégories du cahier des charges, ajoutée à la demande : les engrais et produits phytosanitaires
+     ont besoin d'une traçabilité propre (composition, homologation, lot, péremption). */
+  {
+    id: 'intrants', label: 'Engrais et produits phytosanitaires', subs: ['Engrais minéraux', 'Engrais organiques et compost', 'Herbicides', 'Insecticides', 'Fongicides', 'Autre'], unit: 'sac',
+    fields: [
+      { label: 'Fabricant ou marque' },
+      { label: 'Composition ou matière active', placeholder: 'Ex. NPK 15-15-15, glyphosate 360 g/l' },
+      { label: 'Numéro d’homologation', placeholder: 'Pour un produit phytosanitaire' },
+      { label: 'Numéro de lot' },
+      { label: 'Date de péremption', type: 'date' },
+    ],
+    legacy: () => 'Aliments et intrants',
+  },
   {
     id: 'equipement', label: 'Équipements, matériels et machines', subs: ['Matériel d’élevage', 'Matériel agricole', 'Irrigation', 'Transformation', 'Pièces détachées', 'Autre'], unit: 'pièce',
     fields: [{ label: 'Marque' }, { label: 'Modèle' }, { label: 'État', placeholder: 'Neuf ou occasion' }, { label: 'Année', type: 'number' }],

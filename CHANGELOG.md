@@ -150,3 +150,59 @@ Compte de démonstration ou compte vendeur avec boutique, puis l'onglet Vendre.
    - Avec un compte éleveur neuf, ajouter un animal avec son poids, sa date de pesée, son état, sa vocation, son département et sa localité.
    - Résultat attendu : la fiche les affiche avec le statut « En élevage », et l'historique contient la pesée (Déclaré).
 3. **Test 5, non-régression.** Le parcours d'achat (annonce, panier), le cheptel et la publication fonctionnent comme avant.
+
+## Tableaux de bord métier, photo de profil et profil métier à l'inscription
+
+**Ajouté**
+
+- **`src/dash.tsx`** : les éléments communs des tableaux de bord :
+  - `DashHeader` : l'en-tête avec la photo du compte, le métier et le nom ;
+  - `TodayCard` : la carte du jour, ce qu'il faut faire maintenant, en rouge pour une urgence sanitaire ;
+  - `Kpis` (les chiffres clés), `QuickActions` (les actions rapides) et `Avatar` (la photo ou les initiales).
+- **`src/screens/tableaux.tsx`** : le tableau de bord du vendeur, sur la route `/vendeur`. C'est son nouvel accueil une fois sa boutique créée. Il affiche :
+  - la carte du jour ;
+  - les ventes, les commandes, les annonces et le stock bas ;
+  - les éléments à traiter (annonces en revue, indisponibles, stock bas) et les actions rapides.
+- **`src/profils.ts`** : les informations demandées à l'inscription selon le métier.
+  - Tout compte professionnel donne le numéro de sa pièce d'identité.
+  - La photo de la pièce est obligatoire pour le vétérinaire, le transporteur et le fournisseur.
+  - Les autres informations dépendent du métier :
+
+  | Métier | Informations demandées |
+  | --- | --- |
+  | Éleveur | Exploitation, localité, animaux élevés, effectif |
+  | Producteur | Exploitation ou coopérative, cultures, superficie |
+  | Vendeur | Commerce, emplacement, RCCM facultatif |
+  | Fournisseur | Raison sociale, RCCM (obligatoire), NCC, siège, activité, extrait RCCM |
+  | Restaurant | Nom et type d'établissement, adresse de livraison |
+  | Vétérinaire | Numéro d'inscription à l'Ordre ou d'agrément, statut, structure, zone, carte professionnelle |
+  | Transporteur | Véhicule, immatriculation, capacité, permis, zone, carte grise et photo du permis |
+
+- **Écran « Complétez votre profil »** (`/profil-metier`, étape 3 de l'inscription) :
+  - il s'ouvre après le choix d'un rôle professionnel ;
+  - il permet d'ajouter la photo de profil et les photos des justificatifs ;
+  - les champs obligatoires sont contrôlés ;
+  - « Plus tard » n'est pas proposé aux métiers vérifiés (vétérinaire, transporteur, fournisseur) ;
+  - les photos rejoignent les justificatifs du compte, au statut « En revue ».
+- **Session** (`data.ts`) : champs facultatifs `photo`, `pro` et `proPhotos`. La clé de stockage ne change pas.
+
+**Modifié**
+
+- **Espaces vétérinaire, transporteur, producteur et fournisseur** (`metiers.tsx`) : ils reçoivent l'en-tête avec photo et une carte du jour :
+  - vétérinaire : l'alerte la plus urgente ;
+  - transporteur : la mission en cours ou acceptée ;
+  - producteur : le lot à mettre en vente ;
+  - fournisseur : les devis à traiter.
+
+  Un vétérinaire ne voit plus ses propres animaux dans les alertes et les validations.
+- **Espace restaurant** (`vente.tsx`) : en-tête avec photo, carte du jour (commande en cours, demande de devis), dépenses du mois, et origine des produits commandés avec le lien vers leur fiche SAV-TRACE. L'exemple de lieu de livraison ne cite plus Korhogo.
+- **Tableau de bord éleveur** (`eleveur.tsx`) : en-tête avec photo, et statut des animaux en vente (Disponible, Réservé, Vendu).
+- **Compte** : photo de profil modifiable, et section « Profil métier » (Complet ou À compléter, avec un lien pour le modifier).
+- **Accueil du vendeur** : `store.home()` le mène à `/vendeur` une fois sa boutique créée.
+
+## Catégorie « Engrais et produits phytosanitaires »
+
+Une 9e catégorie de traçabilité, hors des 8 du cahier des charges, est ajoutée dans `src/trace.ts`, avec ses champs propres. Elle rejoint le filtre « Aliments et intrants » du catalogue.
+
+- **Sous-catégories :** engrais minéraux, engrais organiques et compost, herbicides, insecticides, fongicides.
+- **Champs :** fabricant ou marque, composition ou matière active, numéro d'homologation, numéro de lot, date de péremption.

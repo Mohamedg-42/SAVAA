@@ -1170,6 +1170,12 @@ export type Session = {
   roles: string[];
   prefs: { push: boolean; mkt: boolean };
   docs: { name: string; date: string; status: 'verified' | 'documented' | 'review' }[];
+  /** Photo du compte (réduite), affichée dans l'en-tête des espaces métiers et la page Compte. */
+  photo?: string;
+  /** Profil métier saisi après le choix du rôle (voir profils.ts) : clé → valeur. */
+  pro?: Record<string, string>;
+  /** Photos des justificatifs du profil métier (pièce d'identité, carte grise…) : clé → image réduite. */
+  proPhotos?: Record<string, string>;
 };
 
 export type Shop = { created: boolean; name: string; desc: string; town: string; logo?: string };
@@ -1290,6 +1296,16 @@ export const store = {
   has: (role: string) => state.session.loggedIn && state.session.roles.includes(role),
   isBreeder: () => store.has('eleveur'),
   canSell: () => ['eleveur', 'agri', 'vendeur', 'fourn'].some((r) => store.has(r)),
+  /** Accueil du compte : l'espace de son métier principal. Seuls le visiteur et l'acheteur ont l'accueil marchand. */
+  home: (): string =>
+    store.has('eleveur') ? '/suivi'
+      : store.has('agri') ? '/recoltes'
+        : store.has('fourn') ? '/fournisseur'
+          : store.has('vendeur') ? (state.shop.created ? '/vendeur' : '/boutique/creer')
+            : store.has('resto') ? '/restaurant'
+              : store.has('veto') ? '/veto'
+                : store.has('coursier') ? '/missions'
+                  : '/accueil',
   setSession(patch: Partial<Session>) {
     commit({ session: { ...state.session, ...patch } });
   },

@@ -81,6 +81,8 @@ export function Header({ title, sub, back, close, actions }: { title: ReactNode;
 export function TabBar() {
   const s = useStore();
   const logged = s.session().loggedIn;
+  /* « Accueil » mène à l'espace du métier principal ; le visiteur et l'acheteur gardent l'accueil marchand. */
+  const home = s.home();
   const hasSpecial = s.canSell() || s.has('resto') || s.has('veto') || s.has('coursier');
   const pureBuyer = logged && !hasSpecial;
   const middle: { to: string; label: string; icon: IconName }[] = [];
@@ -88,23 +90,26 @@ export function TabBar() {
   if (pureBuyer) {
     middle.push({ to: '/favoris', label: 'Favoris', icon: 'heart' });
     middle.push({ to: '/commandes', label: 'Commandes', icon: 'truck' });
-  } else {
+  } else if (logged) {
     if (s.canSell()) middle.push({ to: '/vendre', label: 'Vendre', icon: 'sell' });
-    if (s.isBreeder()) middle.push({ to: '/suivi', label: 'Suivi', icon: 'pulse' });
-    else if (s.has('agri')) middle.push({ to: '/recoltes', label: 'Récoltes', icon: 'calendar' });
-    else if (s.has('fourn')) middle.push({ to: '/fournisseur', label: 'Devis B2B', icon: 'file' });
-    if (s.has('resto')) {
-      if (!s.canSell()) middle.push({ to: '/commandes', label: 'Commandes', icon: 'truck' });
-      middle.push({ to: '/restaurant', label: 'Pro', icon: 'calendar' });
-    }
+    /* Pour un compte à plusieurs métiers, l'espace des autres métiers. */
+    if (s.has('agri')) middle.push({ to: '/recoltes', label: 'Récoltes', icon: 'calendar' });
+    if (s.has('fourn')) middle.push({ to: '/fournisseur', label: 'Devis B2B', icon: 'file' });
+    if (s.has('resto')) middle.push({ to: '/restaurant', label: 'Pro', icon: 'calendar' });
     if (s.has('veto')) middle.push({ to: '/veto', label: 'Véto', icon: 'pulse' });
     if (s.has('coursier')) middle.push({ to: '/missions', label: 'Missions', icon: 'truck' });
+    if (s.canSell() && s.shop().created) middle.push({ to: '/boutique', label: 'Boutique', icon: 'cart' });
+    if (s.has('resto')) {
+      middle.push({ to: '/commandes', label: 'Commandes', icon: 'truck' });
+      middle.push({ to: '/favoris', label: 'Favoris', icon: 'heart' });
+    }
   }
+  const extra = middle.filter((t, i) => t.to !== home && middle.findIndex((x) => x.to === t.to) === i);
 
   const tabs: { to: string; label: string; icon: IconName }[] = [
-    { to: '/accueil', label: 'Accueil', icon: 'home' },
+    { to: home, label: 'Accueil', icon: 'home' },
     { to: '/explorer', label: 'Explorer', icon: 'search' },
-    ...middle.slice(0, 2),
+    ...extra.slice(0, 2),
     logged ? { to: '/compte', label: 'Compte', icon: 'user' } : { to: '/connexion', label: 'Connexion', icon: 'user' },
   ];
   return (
