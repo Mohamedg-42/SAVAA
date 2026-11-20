@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { fcfa, useStore, type Order } from '../data';
 import { printPage } from '../device';
-import { simulate } from '../toast';
 import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, TabBar } from '../ui';
 
 function Steps({ n }: { n: number }) {
@@ -361,7 +360,7 @@ export function Tracking() {
           <div className="card pad row">
             <span className="av" style={{ background: '#EEF0EE', color: '#3E4943' }}>TO</span>
             <div className="col grow"><span className="b small">Transports Ouattara</span><span className="xs muted">{o.demo ? 'Bétaillère AB 4512 CI, Issa O.' : 'Chauffeur attribué à la prise en charge'}</span></div>
-            <button className="iconbtn" aria-label="Appeler le transporteur" style={{ border: '1px solid #C5CDC7' }} onClick={() => simulate('Numéro du transporteur à confirmer.')}><Icon name="phone" /></button>
+            <Link className="iconbtn" to="/assistance?onglet=assistant" aria-label="Écrire au transporteur via l’assistance" style={{ border: '1px solid #C5CDC7' }}><Icon name="chat" /></Link>
           </div>
         )}
         <div className="card pad col" style={{ gap: 10 }}>

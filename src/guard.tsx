@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './data';
 import { Header, Icon } from './ui';
@@ -55,4 +55,45 @@ export function Guard({ need, shop, children }: { need: Need; shop?: boolean; ch
   }
   if (shop && !s.shop().created) return <Navigate to={`/boutique/creer?next=${here}`} replace />;
   return <>{children}</>;
+}
+
+/*
+  Back-office et prospection : réservés à l'équipe SAVAA.
+  Démo sans serveur : un code d'accès d'équipe (voir PASSATION.md) ouvre l'accès sur cet appareil ;
+  le compte de démonstration y a accès d'office pour la présentation.
+  En production, ce contrôle doit être fait côté serveur, jamais seulement dans le navigateur.
+*/
+const STAFF_CODE = 'SAVAA-EQUIPE';
+
+export function StaffGuard({ children }: { children: ReactNode }) {
+  const s = useStore();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState(false);
+  if (s.session().demo || s.get<boolean>('staff', false)) return <>{children}</>;
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code.trim().toUpperCase() === STAFF_CODE) s.put('staff', true);
+    else setError(true);
+  };
+
+  return (
+    <div className="app">
+      <Header back title="Équipe SAVAA" />
+      <form className="body" onSubmit={submit} style={{ justifyContent: 'center', gap: 14, padding: 32 }}>
+        <div className="col" style={{ alignItems: 'center', textAlign: 'center', gap: 8 }}>
+          <Icon name="info" style={{ width: 48, height: 48, color: '#5D6862', strokeWidth: 1.4 }} />
+          <h2 style={{ fontSize: 19, fontWeight: 600 }}>Accès réservé à l’équipe</h2>
+          <p className="small muted" style={{ lineHeight: 1.5 }}>Le back-office et la prospection servent à l’équipe SAVAA. Saisissez le code d’accès d’équipe.</p>
+        </div>
+        <div className="field">
+          <label htmlFor="staff-code">Code d’accès</label>
+          <input id="staff-code" className="input" autoComplete="off" value={code} onChange={(e) => { setCode(e.target.value); setError(false); }} aria-invalid={error} aria-describedby={error ? 'staff-err' : undefined} />
+          {error && <span id="staff-err" className="hint" style={{ color: '#A0221A' }}>Code incorrect.</span>}
+        </div>
+        <button className="btn btn-p btn-block" type="submit" disabled={!code.trim()}>Entrer</button>
+        <Link className="btn btn-ghost btn-block" to="/accueil" replace>Retour à l’application</Link>
+      </form>
+    </div>
+  );
 }

@@ -3,7 +3,7 @@ import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { fcfa, today, useStore } from '../data';
 import { downloadCSV } from '../device';
 import { LogoInline } from '../logo';
-import { showToast, simulate } from '../toast';
+import { showToast } from '../toast';
 import { Badge, Check, Icon } from '../ui';
 
 /* Données de démo (prospection)                                       */
@@ -351,9 +351,6 @@ export function ProspectRedirect() {
   const target = id === 'nouveau' ? '/admin?sec=prospects&new=1' : id ? `/admin?sec=prospects&id=${id}` : '/admin?sec=prospects';
   return <Navigate to={target} replace />;
 }
-export const Prospection = ProspectRedirect;
-export const NewProspect = () => <Navigate to="/admin?sec=prospects&new=1" replace />;
-export const ProspectSheet = ProspectRedirect;
 
 
 /* Écran 25 : back-office (page large) */
@@ -622,7 +619,7 @@ export function BackOffice() {
           <>
             <div className="adm-top">
               <div style={colStyle}><h1>Tableau de bord</h1><span className="small muted">Mardi 18 novembre 2026, zone pilote Poro et Tchologo</span></div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="btn btn-s btn-sm" onClick={() => simulate('Une seule période dans les données de test.')}>7 derniers jours</button><button className="btn btn-p btn-sm" onClick={exportDash}>Exporter</button></div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><span className="badge bd-grey" style={{ alignSelf: 'center' }}>Période : 7 derniers jours</span><button className="btn btn-p btn-sm" onClick={exportDash}>Exporter</button></div>
             </div>
             <div className="adm-kpis">
               <div className="card pad stat"><span className="l">Vendeurs actifs</span><span className="v">209</span><span className="xs" style={{ color: '#145C3A' }}>+14 sur 7 j</span></div>
@@ -800,7 +797,7 @@ export function BackOffice() {
           <>
             <div className="adm-top">
               <div style={colStyle}><h1>Statistiques du pilote</h1><span className="small muted">Depuis l’ouverture le 1er septembre 2026</span></div>
-              <div className="seg" style={{ minWidth: 0, width: 260, maxWidth: '100%' }}><button onClick={() => simulate('Chiffres sur 30 jours pas encore chargés.')}>30 j</button><button className="on">Depuis le début</button></div>
+              <span className="badge bd-grey">Période : depuis l’ouverture</span>
             </div>
             <div className="adm-kpis">
               <div className="card pad stat"><span className="l">Annonces publiées</span><span className="v">1 146</span></div>

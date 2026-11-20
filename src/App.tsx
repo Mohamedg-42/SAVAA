@@ -1,9 +1,9 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { Guard } from './guard';
+import { Guard, StaffGuard } from './guard';
 import { Catalog, CatalogOffline, Home, ListingDetail } from './screens/achat';
 import { Cart, Orders, Payment, Receipt, Support, Tracking } from './screens/commande';
 import { Login, Notifications, Profile, RolePicker, Splash } from './screens/compte';
-import { BackOffice, NewProspect, Prospection, ProspectSheet } from './screens/crm';
+import { BackOffice, ProspectRedirect } from './screens/crm';
 import { AddAnimal, Dashboard, Herd } from './screens/eleveur';
 import { AgriSpace, CourierSpace, SupplierSpace, VetSpace } from './screens/metiers';
 import { AnimalSheet, HealthRecord, Observation } from './screens/sante';
@@ -62,11 +62,10 @@ export default function App() {
         <Route path="/recoltes" element={<Guard need="agri"><AgriSpace /></Guard>} />
         <Route path="/fournisseur" element={<Guard need="fourn"><SupplierSpace /></Guard>} />
 
-        {/* Lot 6, outils de l'équipe SAVAA (hors application grand public) */}
-        <Route path="/prospection" element={<Prospection />} />
-        <Route path="/prospect/nouveau" element={<NewProspect />} />
-        <Route path="/prospect/:id" element={<ProspectSheet />} />
-        <Route path="/admin" element={<BackOffice />} />
+        {/* Lot 6, outils de l’équipe SAVAA : code d’accès d’équipe ; les anciennes adresses de prospection renvoient au back-office */}
+        <Route path="/prospection" element={<ProspectRedirect />} />
+        <Route path="/prospect/:id" element={<ProspectRedirect />} />
+        <Route path="/admin" element={<StaffGuard><BackOffice /></StaffGuard>} />
 
         <Route path="*" element={<Navigate to="/accueil" replace />} />
       </Routes>
