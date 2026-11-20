@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CI_REGIONS, fcfa, useStore, type Listing } from '../data';
 import { LogoInline } from '../logo';
 import { photoFor } from '../photos';
+import { sheetOf, sheetStatus } from '../trace';
 import { Badge, Foot, Icon, NotFound, Photo, SectionHead, TabBar, type Tone } from '../ui';
 
 /* Annonce détaillée de la maquette (écran 06) : son contenu est repris tel quel. */
@@ -425,6 +426,7 @@ export function ListingDetail() {
 }
 
 function ListingDetailInner({ l }: { l: Listing }) {
+  const sheet = sheetOf(l);
   const s = useStore();
   const navigate = useNavigate();
   const fav = s.isFavorite(l.id);
@@ -595,6 +597,18 @@ function ListingDetailInner({ l }: { l: Listing }) {
               ) : (
                 <p className="small muted">Les fiches de ces animaux sont tenues par le vendeur. Demandez-les avant d’acheter.</p>
               )}
+            </div>
+          )}
+
+          {sheet && (
+            <div className="sec">
+              <div className="sech"><h2>Fiche produit</h2><Badge tone={sheetStatus(l).tone}>{sheetStatus(l).label}</Badge></div>
+              <Link className="card pad col" to={`/fiche/${sheet.code}`} style={{ gap: 8 }}>
+                <div className="row between"><span className="small muted">Code de traçabilité</span><span className="small b num">{sheet.code}</span></div>
+                <div className="row between"><span className="small muted">Origine</span><span className="small b ell" style={{ minWidth: 0 }}>{sheet.origin.farm}, {sheet.origin.town}</span></div>
+                <div className="divider" />
+                <span className="link row between">Voir la fiche produit<Icon name="chevron" size="sm" /></span>
+              </Link>
             </div>
           )}
 

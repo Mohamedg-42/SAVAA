@@ -27,6 +27,7 @@ Côté code :
 - `src/photos.ts` associe les libellés photo de la maquette aux images de `public/images/`.
 - `src/toast.ts` gère le petit message qui s'affiche en bas de l'écran.
 - `src/guard.tsx` contrôle les accès : connexion, rôle demandé (`Guard`) et code d'équipe du back-office (`StaffGuard`).
+- `src/trace.ts` définit les fiches de traçabilité : les 8 catégories du cahier des charges, leurs champs, le code SAV-TRACE, les statuts de fiche et les fiches des annonces de démonstration. La fiche produit (`/fiche/:code`, avec son QR code) est dans `src/screens/fiche.tsx` ; la fiche animale y reprend la frise et le QR code. Le détail des changements est dans `CHANGELOG.md`.
 - `src/logo.tsx` dessine le logo SAVAA (fichier source `public/logo-savaa.svg`), avec son animation sur l'écran de démarrage.
 - `public/` contient l'icône d'onglet (`favicon.svg`), les icônes d'installation sur l'écran d'accueil du téléphone (`icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, `manifest.webmanifest`), les photos de démonstration (`images/`) et les logos des moyens de paiement (`images/payments/`).
 

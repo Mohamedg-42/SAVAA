@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from './data';
 import { readImage } from './device';
@@ -193,6 +193,28 @@ export function SectionHead({ title, link, to, onClick }: { title: string; link?
       ) : (
         <span className="link">{link}</span>
       ))}
+    </div>
+  );
+}
+
+/** Section repliable (fiche produit, fiche animale) : un titre cliquable, le contenu en dessous. */
+export function Section({ title, aside, open: initial = false, children }: { title: string; aside?: ReactNode; open?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(initial);
+  return (
+    <div className="card" style={{ overflow: 'hidden' }}>
+      <button
+        className="row between"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        style={{ width: '100%', border: 0, background: 'none', padding: '14px 16px', font: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'left', gap: 10 }}
+      >
+        <span className="b" style={{ fontSize: 15 }}>{title}</span>
+        <span className="row" style={{ gap: 8, flex: 'none' }}>
+          {aside}
+          <Icon name="chevron" size="sm" style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }} />
+        </span>
+      </button>
+      {open && <div className="col" style={{ gap: 12, padding: '0 16px 16px' }}>{children}</div>}
     </div>
   );
 }

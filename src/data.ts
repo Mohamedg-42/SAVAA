@@ -34,6 +34,10 @@ export type Animal = {
   docs?: string[];
   /** Détails saisis à l'identification (écran 09b). */
   info?: { breed: string; coat: string; marks: string; entry: string; mother: string; father: string };
+  /** Pesée, mensurations, état et vocation (fiche d'identité, section 2.1). */
+  measure?: { weight?: number; weighedOn?: string; size?: string; condition?: string; purpose?: 'repro' | 'viande' };
+  /** Origine détaillée (section 2.2). */
+  origin?: { country: string; region: string; department?: string; town: string; locality?: string };
 };
 
 export type EventKind = 'obs' | 'trt' | 'vac';
@@ -90,6 +94,38 @@ export type Listing = {
   mine?: boolean;
   date: string;
   description?: string;
+  /** Fiche d'identité et de traçabilité (annonces créées depuis l'onglet Vendre). Les catégories et champs sont définis dans trace.ts. */
+  sheet?: TraceSheet;
+};
+
+/** Événement de l'historique de traçabilité d'une fiche (partie E du cahier des charges). */
+export type TraceEvent = {
+  /** Date et heure, ex. « 20/11/2026 14:05 ». */
+  date: string;
+  /** Nature de l'événement, ex. « Création de la fiche ». */
+  kind: string;
+  text: string;
+  /** Personne ou structure responsable. */
+  by: string;
+  place?: string;
+  proof: Proof;
+  file?: string;
+};
+
+/** Fiche produit (parties A à E). Le vendeur ne fait que déclarer : Vérifié et Certifié sont attribués par l'équipe, un vétérinaire ou un organisme. */
+export type TraceSheet = {
+  /** Code SAV-TRACE-2026-XXXXXX. */
+  code: string;
+  /** Identifiant de catégorie (voir TRACE_CATEGORIES). */
+  category: string;
+  sub: string;
+  brand?: string;
+  /** Champs propres à la catégorie (libellé → valeur). */
+  extra: Record<string, string>;
+  origin: { country: string; region: string; department: string; town: string; locality?: string; farm: string; producedOn?: string };
+  sale: { unit: string; minQty: number; available?: string; handover: string };
+  seller: { name: string; phone: string; actor: string; attested: boolean };
+  events: TraceEvent[];
 };
 
 export type CartItem = { listingId: string; qty: number };

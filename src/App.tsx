@@ -5,6 +5,7 @@ import { Cart, Orders, Payment, Receipt, Support, Tracking } from './screens/com
 import { Login, Notifications, Profile, RolePicker, Splash } from './screens/compte';
 import { BackOffice, ProspectRedirect } from './screens/crm';
 import { AddAnimal, Dashboard, Herd } from './screens/eleveur';
+import { ProductSheet } from './screens/fiche';
 import { AgriSpace, CourierSpace, SupplierSpace, VetSpace } from './screens/metiers';
 import { AnimalSheet, HealthRecord, Observation } from './screens/sante';
 import { Campaign, CampaignStats, CreateShop, Publish, Restaurant, Shop } from './screens/vente';
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/favoris" element={<Catalog favorites />} />
         <Route path="/commandes" element={<Guard need="login"><Orders /></Guard>} />
         <Route path="/annonce/:id" element={<ListingDetail />} />
+        <Route path="/fiche/:code" element={<ProductSheet />} />
         <Route path="/panier" element={<Guard need="login"><Cart /></Guard>} />
         <Route path="/paiement" element={<Guard need="login"><Payment /></Guard>} />
         <Route path="/recu" element={<Guard need="login"><Receipt /></Guard>} />

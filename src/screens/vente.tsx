@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CI_REGIONS, fcfa, priceLabel, today, useStore, type Listing } from '../data';
+import { CI_REGIONS, fcfa, priceLabel, today, useStore, type Listing, type TraceSheet } from '../data';
+import { ACTORS, HANDOVER, HERD_SPECIES, TRACE_CATEGORIES, UNITS, newTraceCode, nowStamp, subsFor, traceCategory, unitPrice, unitQty } from '../trace';
 import { downloadCSV } from '../device';
-import { showToast } from '../toast';
+import { clearToast, showToast } from '../toast';
 import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd, TabBar } from '../ui';
 
 /* Lot 5 : vente (boutique, publication, campagne, statistiques, espace restaurant). */
@@ -240,58 +241,163 @@ export function Shop() {
   );
 }
 
-/* Écran 13 : publier une annonce (onglet « Vendre ») */
+/* Écran 13 : publier une annonce (onglet « Vendre »), avec sa fiche d'identité et de traçabilité.
+   4 étapes courtes (produit, origine, prix et vente, vendeur), puis un aperçu de la fiche avant l'envoi en relecture. */
 
-const CATEGORIES = ['Animaux, Bovins', 'Animaux, Ovins', 'Animaux, Caprins', 'Volailles', 'Récoltes', 'Aliments et intrants', 'Matériel'];
-
-/* Brouillon d'annonce gardé sur le téléphone (bouton « Brouillon »). */
-const DRAFT_KEY = 'savaa-brouillon-annonce';
-type Draft = { category: string; picked: string[]; photos: string[]; title: string; price: number; qty: number; neg: boolean; delivery: boolean };
-function loadDraft(): Draft | null {
+/* Brouillon gardé sur le téléphone (bouton « Brouillon »). Nouvelle clé : l'ancien brouillon n'avait pas les champs de la fiche. */
+const DRAFT_KEY = 'savaa-brouillon-fiche';
+type Draft = {
+  cat: string; sub: string; picked: string[]; photos: string[]; title: string; desc: string; brand: string; extra: Record<string, string>;
+  country: string; region: string; department: string; town: string; locality: string; farm: string; producedOn: string;
+  price: number; unit: string; qty: number; minQty: number; available: string; handover: string; neg: boolean;
+  sellerName: string; phone: string; actor: string;
+};
+function loadDraft(): Partial<Draft> | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as Draft) : null;
+    return raw ? (JSON.parse(raw) as Partial<Draft>) : null;
   } catch {
     return null;
   }
+}
+
+type PubStep = 1 | 2 | 3 | 4 | 'apercu' | 'sent';
+const STEP_TITLES = ['Le produit', 'Origine', 'Prix et vente', 'Vendeur'];
+
+/** Date du sélecteur (AAAA-MM-JJ) au format affiché (JJ/MM/AAAA). */
+const frDate = (iso: string) => iso.split('-').reverse().join('/');
+
+/** Message d'erreur sous un champ. */
+function FieldError({ msg }: { msg?: string }) {
+  return msg ? <span className="xs" role="alert" style={{ color: '#A0221A' }}>{msg}</span> : null;
 }
 
 export function Publish() {
   const s = useStore();
   const navigate = useNavigate();
   const herd = s.animals();
+  const shop = s.shop();
+  const session = s.session();
+  const breeder = s.isBreeder();
 
   const [draft] = useState(loadDraft);
-  /* Les animaux se vendent avec leur fiche : seul un éleveur (qui a un cheptel) les propose. */
-  const categories = s.isBreeder() ? CATEGORIES : CATEGORIES.filter((c) => !c.startsWith('Animaux'));
-  const [step, setStep] = useState<1 | 2 | 'sent'>(1);
-  const [category, setCategory] = useState(draft?.category && categories.includes(draft.category) ? draft.category : s.has('agri') && !s.isBreeder() ? 'Récoltes' : categories[0]);
+  const cats = TRACE_CATEGORIES.filter((c) => subsFor(c, breeder).length > 0);
+  const defaultCat = s.has('agri') && !breeder ? 'frais' : s.has('fourn') && !breeder ? 'transforme' : breeder ? 'vivant' : 'frais';
+  const [catId, setCatId] = useState(draft?.cat && cats.some((c) => c.id === draft.cat) ? draft.cat : defaultCat);
+  const cat = traceCategory(catId) ?? cats[0];
+  const subs = subsFor(cat, breeder);
+  const [sub, setSub] = useState(draft?.sub && subs.includes(draft.sub) ? draft.sub : subs[0]);
+
+  const [step, setStep] = useState<PubStep>(1);
+  const [tried, setTried] = useState<Record<string, boolean>>({});
   const [picked, setPicked] = useState<string[]>(draft?.picked ?? []);
   const [picker, setPicker] = useState(false);
   /* Photos ajoutées depuis l'appareil (data URL). */
   const [photos, setPhotos] = useState<string[]>(draft?.photos?.filter((p) => p.startsWith('data:')) ?? []);
   const [title, setTitle] = useState(draft?.title ?? '');
+  const [desc, setDesc] = useState(draft?.desc ?? '');
+  const [brand, setBrand] = useState(draft?.brand ?? '');
+  const [extra, setExtra] = useState<Record<string, string>>(draft?.extra ?? {});
+
+  /* Origine : on part de la commune de la boutique (donnée du compte), modifiable. */
+  const shopRegion = CI_REGIONS.find((g) => g.towns.includes(shop.town))?.region ?? '';
+  const [country, setCountry] = useState(draft?.country ?? 'Côte d’Ivoire');
+  const [region, setRegion] = useState(draft?.region ?? shopRegion);
+  const [department, setDepartment] = useState(draft?.department ?? '');
+  const [town, setTown] = useState(draft?.town ?? (shopRegion ? shop.town : ''));
+  const [locality, setLocality] = useState(draft?.locality ?? '');
+  const [farm, setFarm] = useState(draft?.farm ?? '');
+  const [producedOn, setProducedOn] = useState(draft?.producedOn ?? '');
+
   const [price, setPrice] = useState(draft?.price ?? 0);
+  const [unit, setUnit] = useState(draft?.unit ?? cat.unit);
   const [qty, setQty] = useState(draft?.qty ?? 1);
+  const [minQty, setMinQty] = useState(draft?.minQty ?? 1);
+  const [available, setAvailable] = useState(draft?.available ?? '');
+  const [handover, setHandover] = useState(draft?.handover ?? HANDOVER[0]);
   const [neg, setNeg] = useState(draft?.neg ?? false);
-  const [delivery, setDelivery] = useState(draft?.delivery ?? true);
-  const [published, setPublished] = useState<string | null>(null);
-  const shop = s.shop();
 
-  const isAnimal = category.startsWith('Animaux');
+  /* Vendeur : nom et téléphone du compte et de la boutique, modifiables. */
+  const defaultActor = breeder ? 'Éleveur' : s.has('agri') ? 'Producteur' : s.has('fourn') ? 'Distributeur' : 'Commerçant';
+  const [sellerName, setSellerName] = useState(draft?.sellerName ?? shop.name);
+  const [phone, setPhone] = useState(draft?.phone ?? session.phone);
+  const [actor, setActor] = useState(draft?.actor ?? defaultActor);
+  const [attested, setAttested] = useState(false);
+
+  const [published, setPublished] = useState<{ id: string; code: string } | null>(null);
+
+  /* Les animaux de l'élevage (bovins, ovins, caprins) se vendent avec leur fiche du cheptel. */
+  const isHerd = !!cat.live && HERD_SPECIES.includes(sub);
   const chosen = herd.filter((a) => picked.includes(a.id));
-  const unit = isAnimal ? (qty > 1 ? 'têtes' : 'tête') : 'unité';
-  const ready = title.trim() !== '' && price > 0 && qty > 0 && (!isAnimal || chosen.length > 0);
+  const saleUnit = isHerd ? 'tête' : unit;
 
+  const changeCat = (id: string) => {
+    const c = traceCategory(id);
+    if (!c) return;
+    setCatId(id);
+    setSub(subsFor(c, breeder)[0]);
+    setUnit(c.unit);
+    setExtra({});
+  };
   const togglePick = (id: string) => {
     const next = picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id];
     setPicked(next);
     setQty(Math.max(1, next.length));
   };
 
+  /* Contrôles de chaque étape : les messages s'affichent sous les champs après un premier « Continuer ». */
+  const errorsFor = (n: number): Record<string, string> => {
+    const e: Record<string, string> = {};
+    if (n === 1) {
+      if (!photos.length) e.photos = 'Ajoutez au moins une photo réelle du produit.';
+      if (!title.trim()) e.title = 'Indiquez le nom du produit.';
+      if (isHerd && chosen.length === 0) e.herd = 'Choisissez au moins un animal du cheptel.';
+    }
+    if (n === 2) {
+      if (!region) e.region = 'Choisissez la région.';
+      if (!department.trim()) e.department = 'Indiquez le département.';
+      if (!town) e.town = 'Choisissez la commune ou la ville.';
+      if (!farm.trim()) e.farm = 'Indiquez l’exploitation ou l’unité de production.';
+    }
+    if (n === 3) {
+      if (!(price > 0)) e.price = 'Indiquez un prix en FCFA, en chiffres.';
+      if (!(qty > 0)) e.qty = 'Indiquez la quantité disponible.';
+      if (!(minQty > 0) || minQty > qty) e.minQty = 'La commande minimale doit être comprise entre 1 et la quantité disponible.';
+    }
+    if (n === 4) {
+      if (!sellerName.trim()) e.sellerName = 'Indiquez le nom du vendeur ou de l’exploitation.';
+      if (phone.replace(/\D/g, '').length !== 10) e.phone = 'Numéro à 10 chiffres.';
+      if (!attested) e.attested = 'Cochez l’attestation pour envoyer la fiche.';
+    }
+    return e;
+  };
+  const current = typeof step === 'number' ? step : 0;
+  const errors = current && tried[current] ? errorsFor(current) : {};
+
+  const next = () => {
+    if (typeof step !== 'number') return;
+    if (Object.keys(errorsFor(step)).length) {
+      setTried({ ...tried, [step]: true });
+      showToast('Complétez les champs signalés en rouge.');
+      return;
+    }
+    clearToast();
+    setStep(step === 4 ? 'apercu' : ((step + 1) as PubStep));
+  };
+  const back = () => {
+    clearToast();
+    if (step === 'apercu') setStep(4);
+    else if (typeof step === 'number' && step > 1) setStep((step - 1) as PubStep);
+    else navigate(-1);
+  };
+
   const saveDraft = () => {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ category, picked, photos, title, price, qty, neg, delivery } satisfies Draft));
+      const d: Draft = {
+        cat: catId, sub, picked, photos, title, desc, brand, extra, country, region, department, town, locality, farm, producedOn,
+        price, unit, qty, minQty, available, handover, neg, sellerName, phone, actor,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
       showToast('Brouillon enregistré sur le téléphone');
     } catch {
       showToast('Brouillon trop lourd : retirez une photo et réessayez.');
@@ -299,121 +405,173 @@ export function Publish() {
   };
 
   const images = photos.filter((p) => p.startsWith('data:'));
+  const extraFilled = cat.fields.filter((f) => extra[f.label]?.trim());
+  const delivery = handover !== 'Retrait sur place';
+
   const send = () => {
     const id = `L-${Date.now().toString(36).toUpperCase()}`;
+    const code = newTraceCode(s.listings());
+    const stamp = nowStamp();
+    const sheet: TraceSheet = {
+      code, category: cat.id, sub, brand: brand.trim() || undefined,
+      extra: Object.fromEntries(extraFilled.map((f) => [f.label, f.type === 'date' ? frDate(extra[f.label]) : extra[f.label].trim()])),
+      origin: { country: country.trim(), region, department: department.trim(), town, locality: locality.trim() || undefined, farm: farm.trim(), producedOn: producedOn ? frDate(producedOn) : undefined },
+      sale: { unit: saleUnit, minQty, available: available ? frDate(available) : undefined, handover },
+      seller: { name: sellerName.trim(), phone: phone.trim(), actor, attested: true },
+      events: [
+        ...(producedOn ? [{ date: frDate(producedOn), kind: isHerd || cat.live ? 'Acquisition ou naissance' : 'Production ou récolte', text: `${farm.trim()}, ${town}`, by: sellerName.trim(), place: town, proof: 'declared' as const }] : []),
+        ...(isHerd ? [{ date: stamp, kind: 'Fiches animales liées', text: `Fiches du cheptel : ${chosen.map((a) => a.id).join(', ')}`, by: sellerName.trim(), place: town, proof: 'documented' as const }] : []),
+        { date: stamp, kind: 'Création de la fiche', text: 'Fiche déclarée par le vendeur et envoyée en relecture à l’équipe SAVAA.', by: sellerName.trim(), place: town, proof: 'declared' },
+      ],
+    };
     s.addListing({
       id,
       title: title.trim(),
-      details: isAnimal ? (chosen.length === 1 ? chosen[0].details : `${chosen.length} animaux : ${chosen.map((a) => a.id).join(', ')}`) : `${qty} ${unit} disponibles`,
+      details: isHerd ? (chosen.length === 1 ? chosen[0].details : `${chosen.length} animaux : ${chosen.map((a) => a.id).join(', ')}`) : `${sub}, ${unitQty(qty, saleUnit)} disponibles`,
       price,
-      unit: qty > 1 ? (isAnimal ? 'la tête' : 'l’unité') : undefined,
+      unit: isHerd && qty === 1 ? undefined : unitPrice(saleUnit),
       negotiable: neg,
-      place: `${shop.town}, Poro`,
-      seller: shop.name,
-      sellerShort: shop.name,
+      place: department.trim() && department.trim() !== town ? `${town}, ${department.trim()}` : town,
+      seller: sellerName.trim(),
+      sellerShort: sellerName.trim(),
       sellerVerified: true,
-      category,
+      category: cat.legacy(sub),
       photo: 'Photo',
       photos: images,
-      trace: isAnimal ? [chosen.length > 1 ? `${chosen.length} fiches` : 'Fiche liée', 'blue'] : ['Nouveau', 'grey'],
-      animalIds: isAnimal ? chosen.map((a) => a.id) : undefined,
+      trace: isHerd ? [chosen.length > 1 ? `${chosen.length} fiches` : 'Fiche liée', 'blue'] : ['Fiche déclarée', 'grey'],
+      animalIds: isHerd ? chosen.map((a) => a.id) : undefined,
       delivery,
+      pickup: handover !== HANDOVER[0] ? town : undefined,
       stock: qty > 1 ? qty : undefined,
       status: 'review',
       mine: true,
       date: today(),
+      description: desc.trim() || undefined,
+      sheet,
     });
     try {
       localStorage.removeItem(DRAFT_KEY);
     } catch {
       /* rien */
     }
-    setPublished(id);
+    setPublished({ id, code });
     setStep('sent');
   };
 
   const header = (
     <header className="hdr">
-      {step === 2 ? (
-        <button className="iconbtn" aria-label="Retour" onClick={() => setStep(1)}><Icon name="back" /></button>
-      ) : (
+      {step === 'sent' ? (
+        <button className="iconbtn" aria-label="Fermer" onClick={() => navigate('/boutique')}><Icon name="close" /></button>
+      ) : step === 1 ? (
         <button className="iconbtn" aria-label="Fermer" onClick={() => navigate(-1)}><Icon name="close" /></button>
+      ) : (
+        <button className="iconbtn" aria-label="Retour" onClick={back}><Icon name="back" /></button>
       )}
-      <h1>{step === 'sent' ? 'Annonce envoyée' : 'Nouvelle annonce'}</h1>
-      {step !== 'sent' && <span className="small muted" style={{ paddingRight: 12, flex: 'none' }}>{step} / 2</span>}
+      <h1>{step === 'sent' ? 'Annonce envoyée' : step === 'apercu' ? 'Aperçu de la fiche' : 'Nouvelle annonce'}</h1>
+      {typeof step === 'number' && <span className="small muted" style={{ paddingRight: 12, flex: 'none' }}>{step} / 4</span>}
     </header>
   );
 
   const steps = (
     <div style={{ background: '#fff', padding: '0 16px 12px', borderBottom: '1px solid #E3E7E4', flex: 'none' }}>
-      <div className="steps"><i className="on" /><i className={step === 2 ? 'on' : ''} /></div>
+      <div className="steps">{STEP_TITLES.map((t, i) => <i key={t} className={step === 'apercu' || (typeof step === 'number' && i < step) ? 'on' : ''} />)}</div>
+      {typeof step === 'number' && <span className="xs muted" style={{ display: 'block', marginTop: 8 }}>{STEP_TITLES[step - 1]}</span>}
     </div>
   );
 
-  if (step === 'sent') {
+  if (step === 'sent' && published) {
     return (
       <div className="app">
         {header}
         <div className="body" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 14, padding: 28 }}>
           <Icon name="check" style={{ width: 52, height: 52, color: '#145C3A', strokeWidth: 1.4 }} />
           <h2 style={{ fontSize: 20, fontWeight: 600 }}>Annonce envoyée en relecture</h2>
-          <p className="small muted" style={{ lineHeight: 1.5 }}>L’équipe SAVAA vérifie l’annonce avant sa mise en ligne, en général sous 24 h. Vous serez prévenu par notification.</p>
+          <p className="small muted" style={{ lineHeight: 1.5 }}>L’équipe SAVAA vérifie l’annonce et sa fiche avant la mise en ligne, en général sous 24 h. Vous serez prévenu par notification.</p>
           <div className="card pad" style={{ width: '100%', textAlign: 'left' }}>
             <dl className="kv">
               <dt>Annonce</dt><dd className="ell">{title}</dd>
               <dt>Prix</dt><dd className="num">{fcfa(price)} FCFA</dd>
-              <dt>Statut</dt><dd><Badge tone="amber">En revue</Badge></dd>
+              <dt>Code de traçabilité</dt><dd className="num">{published.code}</dd>
+              <dt>Statut</dt><dd><Badge tone="amber">En modération</Badge></dd>
             </dl>
           </div>
-          <Link className="btn btn-p btn-block" to="/campagne">Mettre en avant</Link>
-          <Link className="btn btn-s btn-block" to="/boutique">Voir ma boutique</Link>
-          {published && <Link className="btn btn-ghost btn-block" to={`/annonce/${published}`}>Voir l’annonce</Link>}
+          <Link className="btn btn-p btn-block" to={`/annonce/${published.id}`}>Voir l’annonce</Link>
+          <Link className="btn btn-s btn-block" to="/campagne">Mettre en avant</Link>
+          <Link className="btn btn-ghost btn-block" to="/boutique">Voir ma boutique</Link>
         </div>
       </div>
     );
   }
 
-  if (step === 2) {
+  if (step === 'apercu') {
     return (
       <div className="app">
         {header}
         {steps}
-        <div className="body" style={{ gap: 20 }}>
+        <div className="body" style={{ gap: 16 }}>
           <div className="sec" style={{ gap: 8 }}>
             <span className="lbl">Aperçu dans les résultats</span>
             <div className="hc">
-              <Photo label={photos[0] && !images[0] ? `Photo ${photos[0]}` : 'Photo'} src={images[0]} w={84} h={84} radius={images[0] ? 8 : undefined} />
-              <div className="col grow" style={{ gap: 3 }}>
+              <Photo label="Photo" src={images[0]} w={84} h={84} radius={images[0] ? 8 : undefined} />
+              <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
                 <span className="b small" style={{ lineHeight: 1.3 }}>{title}</span>
-                <span className="price">{fcfa(price)} FCFA{neg ? ', négociable' : ''}</span>
-                <span className="xs muted ell">{shop.town}, {shop.name}</span>
+                <span className="price">{fcfa(price)} FCFA {unitPrice(saleUnit)}{neg ? ', négociable' : ''}</span>
+                <span className="xs muted ell">{town}, {sellerName}</span>
                 <span className="wrap" style={{ gap: 4, marginTop: 2 }}>
-                  <Badge tone="green">Compte vérifié</Badge>
-                  {isAnimal && <Badge tone="blue">{chosen.length > 1 ? `${chosen.length} fiches` : 'Fiche liée'}</Badge>}
+                  <Badge tone="grey">Brouillon</Badge>
+                  {isHerd ? <Badge tone="blue">{chosen.length > 1 ? `${chosen.length} fiches` : 'Fiche liée'}</Badge> : <Badge>Fiche déclarée</Badge>}
                 </span>
               </div>
             </div>
           </div>
-          <div className="card pad">
+          <div className="card pad col" style={{ gap: 10 }}>
+            <span className="b small">Le produit</span>
             <dl className="kv">
-              <dt>Catégorie</dt><dd>{category}</dd>
-              {isAnimal && <><dt>Animaux</dt><dd>{chosen.map((a) => a.id).join(', ')}</dd></>}
-              <dt>Quantité</dt><dd className="num">{qty} {unit}</dd>
-              <dt>Prix</dt><dd className="num">{fcfa(price)} FCFA{qty > 1 ? ` / ${isAnimal ? 'tête' : 'unité'}` : ''}</dd>
-              <dt>Négociable</dt><dd>{neg ? 'Oui' : 'Non'}</dd>
-              <dt>Livraison</dt><dd>{delivery ? 'Transporteur SAVAA' : 'Retrait sur place'}</dd>
+              <dt>Catégorie</dt><dd>{cat.label}</dd>
+              <dt>Sous-catégorie</dt><dd>{sub}</dd>
+              {brand.trim() && <><dt>Marque ou variété</dt><dd>{brand}</dd></>}
+              {isHerd && <><dt>Animaux</dt><dd>{chosen.map((a) => a.id).join(', ')}</dd></>}
+              {extraFilled.map((f) => <Fragment key={f.label}><dt>{f.label}</dt><dd>{f.type === 'date' ? frDate(extra[f.label]) : extra[f.label]}</dd></Fragment>)}
               <dt>Photos</dt><dd className="num">{photos.length}</dd>
             </dl>
+            {desc.trim() && <p className="small" style={{ lineHeight: 1.5 }}>{desc}</p>}
           </div>
+          <div className="card pad col" style={{ gap: 10 }}>
+            <span className="b small">Origine</span>
+            <dl className="kv">
+              <dt>Pays</dt><dd>{country}</dd>
+              <dt>Région</dt><dd>{region}</dd>
+              <dt>Département</dt><dd>{department}</dd>
+              <dt>Commune</dt><dd>{town}</dd>
+              {locality.trim() && <><dt>Localité</dt><dd>{locality}</dd></>}
+              <dt>Exploitation</dt><dd>{farm}</dd>
+              {producedOn && <><dt>{cat.live ? 'Naissance ou acquisition' : 'Production ou récolte'}</dt><dd className="num">{frDate(producedOn)}</dd></>}
+            </dl>
+          </div>
+          <div className="card pad col" style={{ gap: 10 }}>
+            <span className="b small">Prix et vente</span>
+            <dl className="kv">
+              <dt>Prix</dt><dd className="num">{fcfa(price)} FCFA {unitPrice(saleUnit)}</dd>
+              <dt>Négociable</dt><dd>{neg ? 'Oui' : 'Non'}</dd>
+              <dt>Disponible</dt><dd className="num">{unitQty(qty, saleUnit)}</dd>
+              <dt>Commande minimale</dt><dd className="num">{unitQty(minQty, saleUnit)}</dd>
+              {available && <><dt>À partir du</dt><dd className="num">{frDate(available)}</dd></>}
+              <dt>Remise</dt><dd>{handover}</dd>
+            </dl>
+          </div>
+          <div className="card pad col" style={{ gap: 10 }}>
+            <span className="b small">Vendeur</span>
+            <dl className="kv">
+              <dt>Nom</dt><dd>{sellerName}</dd>
+              <dt>Type d’acteur</dt><dd>{actor}</dd>
+              <dt>Téléphone</dt><dd className="num">+225 {phone}</dd>
+            </dl>
+          </div>
+          <div className="notice"><Icon name="info" size="sm" /><span>Le code de traçabilité SAV-TRACE est attribué à l’envoi. Les informations sont « déclarées » par vous ; l’équipe SAVAA ou un vétérinaire peut ensuite les vérifier.</span></div>
           {photos.length < 3 && (
             <div className="notice n-warn"><Icon name="alert" size="sm" /><span>Ajoutez au moins 3 photos pour une annonce plus visible.</span></div>
           )}
-          <Link className="card pad row" to="/campagne">
-            <Icon name="megaphone" style={{ color: '#145C3A' }} />
-            <span className="col grow"><span className="small b">Mettre en avant après validation</span><span className="xs muted">Option payante. L’annonce portera la mention « Sponsorisé ».</span></span>
-            <Icon name="chevron" size="sm" />
-          </Link>
-          <p className="hint">Chaque annonce est relue par l’équipe SAVAA avant sa mise en ligne, en général sous 24 h.</p>
+          <button className="btn btn-ghost btn-block small" style={{ flex: 'none' }} onClick={saveDraft}>Garder en brouillon</button>
         </div>
         <Foot>
           <button className="btn btn-s" style={{ flex: '0 0 auto' }} onClick={() => setStep(1)}>Modifier</button>
@@ -427,91 +585,220 @@ export function Publish() {
     <div className="app">
       {header}
       {steps}
-      <div className="body" style={{ gap: 20 }}>
-        <div className="field">
-          <label htmlFor="pub-cat">Catégorie</label>
-          <select id="pub-cat" className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
-            {categories.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </div>
+      <div className="body" style={{ gap: 18 }}>
+        {step === 1 && (
+          <>
+            <div className="field">
+              <label htmlFor="pub-cat">Catégorie</label>
+              <select id="pub-cat" className="input" value={cat.id} onChange={(e) => changeCat(e.target.value)}>
+                {cats.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="pub-sub">Sous-catégorie</label>
+              <select id="pub-sub" className="input" value={sub} onChange={(e) => setSub(e.target.value)}>
+                {subs.map((t) => <option key={t}>{t}</option>)}
+              </select>
+            </div>
 
-        {isAnimal && (
-          <div className="field">
-            <span className="lbl">Animaux concernés</span>
-            {herd.length === 0 ? (
-              <span className="hint">Votre cheptel est vide. <Link className="link" to="/cheptel/ajout">Ajoutez d’abord l’animal</Link> : il sera vendu avec sa fiche.</span>
-            ) : chosen.length === 0 && <span className="hint">Choisissez au moins un animal du cheptel.</span>}
-            {chosen.map((a) => (
-              <div key={a.id} className="card row" style={{ padding: '10px 12px' }}>
-                <button className="plain" aria-label={`Retirer ${a.id}`} onClick={() => togglePick(a.id)}><Check on /></button>
-                <div className="col grow"><span className="small b ell">{a.id}, {a.name}</span><span className="xs muted">Fiche liée automatiquement à l’annonce</span></div>
-                {a.tone === 'green' ? <Badge tone="green">Fiche à jour</Badge> : <Badge tone={a.tone}>{a.status}</Badge>}
-              </div>
-            ))}
-            <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => setPicker(!picker)} aria-expanded={picker}>
-              {picker ? 'Fermer la liste du cheptel' : '+ Choisir d’autres animaux du cheptel'}
-            </button>
-            {picker && (
-              <div className="card list">
-                {herd.map((a) => {
-                  const blocked = a.tone === 'red';
-                  const on = picked.includes(a.id);
-                  return (
-                    <button key={a.id} className="li" disabled={blocked} onClick={() => togglePick(a.id)} style={{ opacity: blocked ? 0.55 : 1, cursor: blocked ? 'not-allowed' : 'pointer', background: on ? '#E8F3EA' : '#fff' }}>
-                      <Check on={on} />
-                      <span className="col grow"><span className="small b ell">{a.id}, {a.name}</span><span className="xs muted ell">{blocked ? 'Alerte sanitaire ouverte, vente impossible' : a.details}</span></span>
-                      <Badge tone={a.tone}>{a.status}</Badge>
-                    </button>
-                  );
-                })}
+            {isHerd && (
+              <div className="field">
+                <span className="lbl">Animaux concernés</span>
+                {herd.length === 0 ? (
+                  <span className="hint">Votre cheptel est vide. <Link className="link" to="/cheptel/ajout">Ajoutez d’abord l’animal</Link> : il sera vendu avec sa fiche.</span>
+                ) : chosen.length === 0 && <span className="hint">Choisissez au moins un animal du cheptel.</span>}
+                {chosen.map((a) => (
+                  <div key={a.id} className="card row" style={{ padding: '10px 12px' }}>
+                    <button className="plain" aria-label={`Retirer ${a.id}`} onClick={() => togglePick(a.id)}><Check on /></button>
+                    <div className="col grow"><span className="small b ell">{a.id}, {a.name}</span><span className="xs muted">Fiche liée automatiquement à l’annonce</span></div>
+                    {a.tone === 'green' ? <Badge tone="green">Fiche à jour</Badge> : <Badge tone={a.tone}>{a.status}</Badge>}
+                  </div>
+                ))}
+                {herd.length > 0 && (
+                  <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => setPicker(!picker)} aria-expanded={picker}>
+                    {picker ? 'Fermer la liste du cheptel' : '+ Choisir d’autres animaux du cheptel'}
+                  </button>
+                )}
+                {picker && (
+                  <div className="card list">
+                    {herd.map((a) => {
+                      const blocked = a.tone === 'red';
+                      const on = picked.includes(a.id);
+                      return (
+                        <button key={a.id} className="li" disabled={blocked} onClick={() => togglePick(a.id)} style={{ opacity: blocked ? 0.55 : 1, cursor: blocked ? 'not-allowed' : 'pointer', background: on ? '#E8F3EA' : '#fff' }}>
+                          <Check on={on} />
+                          <span className="col grow"><span className="small b ell">{a.id}, {a.name}</span><span className="xs muted ell">{blocked ? 'Alerte sanitaire ouverte, vente impossible' : a.details}</span></span>
+                          <Badge tone={a.tone}>{a.status}</Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <FieldError msg={errors.herd} />
               </div>
             )}
-          </div>
+
+            <div className="field">
+              <span className="lbl">Photos</span>
+              <div className="grid4">
+                {photos.map((p, i) => <Photo key={i} src={p} label={`Photo ${i + 1}`} h={76} radius={8} onRemove={() => setPhotos(photos.filter((_, j) => j !== i))} />)}
+                {photos.length < 8 && <PhotoAdd height={76} label="" icon="plus" onAdd={(p) => setPhotos((x) => (x.length < 8 ? [...x, p] : x))} />}
+              </div>
+              <span className="hint">{cat.live ? 'Prenez l’animal de profil, en plein jour.' : 'Photos réelles du produit, en plein jour.'} Au moins 3 photos.</span>
+              <FieldError msg={errors.photos} />
+            </div>
+
+            <div className="field">
+              <label htmlFor="pub-title">Nom du produit</label>
+              <input id="pub-title" className="input" placeholder={cat.live ? 'Ex. Génisse N’Dama, 19 mois' : 'Ex. Maïs jaune séché, sacs de 100 kg'} value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} aria-invalid={!!errors.title} />
+              <FieldError msg={errors.title} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-desc">Description courte <span className="muted">(facultatif)</span></label>
+              <textarea id="pub-desc" className="input" rows={3} maxLength={300} placeholder="Qualité, conditionnement, ce que l’acheteur doit savoir" value={desc} onChange={(e) => setDesc(e.target.value)} style={{ height: 'auto', paddingTop: 10, resize: 'vertical' }} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-brand">Marque ou variété <span className="muted">(facultatif)</span></label>
+              <input id="pub-brand" className="input" value={brand} maxLength={60} onChange={(e) => setBrand(e.target.value)} />
+            </div>
+            {cat.fields.length > 0 && !isHerd && (
+              <div className="col" style={{ gap: 12 }}>
+                <span className="lbl">Informations de traçabilité <span className="muted">(facultatif)</span></span>
+                {cat.fields.map((f, i) => (
+                  <div key={f.label} className="field">
+                    <label htmlFor={`pub-x${i}`}>{f.label}</label>
+                    <input id={`pub-x${i}`} className="input" type={f.type === 'date' ? 'date' : 'text'} inputMode={f.type === 'number' ? 'decimal' : undefined} placeholder={f.placeholder} value={extra[f.label] ?? ''} maxLength={80} onChange={(e) => setExtra({ ...extra, [f.label]: e.target.value })} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {isHerd && <p className="hint">Race, âge, poids et santé viennent de la fiche de chaque animal du cheptel.</p>}
+            <Link className="card pad row" to="/assistance" style={{ background: '#E8F3EA', borderColor: '#CFE0D4' }}>
+              <Icon name="phone" style={{ color: '#145C3A' }} />
+              <span className="col grow"><span className="small b">Besoin d’aide pour publier ?</span><span className="xs muted">Un conseiller vous rappelle et remplit l’annonce avec vous.</span></span>
+            </Link>
+          </>
         )}
 
-        <div className="field">
-          <span className="lbl">Photos et vidéo</span>
-          <div className="grid4">
-            {photos.map((p, i) => (p.startsWith('data:')
-              ? <Photo key={i} src={p} label={`Photo ${i + 1}`} h={76} radius={8} onRemove={() => setPhotos(photos.filter((_, j) => j !== i))} />
-              : <Photo key={i} label={p} h={76} radius={8} />))}
-            {photos.length < 8 && <PhotoAdd height={76} label="" icon="plus" onAdd={(p) => setPhotos((x) => (x.length < 8 ? [...x, p] : x))} />}
-          </div>
-          <span className="hint">Prenez l’animal de profil, en plein jour. Au moins 3 photos.</span>
-        </div>
+        {step === 2 && (
+          <>
+            <p className="small muted" style={{ lineHeight: 1.5 }}>D’où vient le produit ? Ces informations figurent sur la fiche de traçabilité.</p>
+            <div className="field">
+              <label htmlFor="pub-country">Pays d’origine</label>
+              <input id="pub-country" className="input" value={country} maxLength={40} onChange={(e) => setCountry(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-region">Région</label>
+              <select id="pub-region" className="input" value={region} onChange={(e) => { setRegion(e.target.value); setTown(''); }} aria-invalid={!!errors.region} style={{ color: region ? '#17201B' : '#5D6862' }}>
+                <option value="" disabled>Choisir la région…</option>
+                {CI_REGIONS.map((g) => <option key={g.region} value={g.region}>{g.region}</option>)}
+              </select>
+              <FieldError msg={errors.region} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-dep">Département</label>
+              <input id="pub-dep" className="input" placeholder="Ex. Bouaké" value={department} maxLength={40} onChange={(e) => setDepartment(e.target.value)} aria-invalid={!!errors.department} />
+              <FieldError msg={errors.department} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-town">Commune ou ville</label>
+              <select id="pub-town" className="input" value={town} disabled={!region} onChange={(e) => setTown(e.target.value)} aria-invalid={!!errors.town} style={{ color: town ? '#17201B' : '#5D6862' }}>
+                <option value="" disabled>{region ? 'Choisir la commune…' : 'Choisissez d’abord la région'}</option>
+                {(CI_REGIONS.find((g) => g.region === region)?.towns ?? []).map((t) => <option key={t}>{t}</option>)}
+              </select>
+              <FieldError msg={errors.town} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-loc">Village ou localité <span className="muted">(facultatif)</span></label>
+              <input id="pub-loc" className="input" value={locality} maxLength={60} onChange={(e) => setLocality(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-farm">Exploitation ou unité de production</label>
+              <input id="pub-farm" className="input" placeholder="Ex. ferme, champ, coopérative, atelier" value={farm} maxLength={80} onChange={(e) => setFarm(e.target.value)} aria-invalid={!!errors.farm} />
+              <FieldError msg={errors.farm} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-prod">{cat.live ? 'Date de naissance ou d’acquisition' : 'Date de production ou de récolte'} <span className="muted">(facultatif)</span></label>
+              <input id="pub-prod" className="input" type="date" value={producedOn} onChange={(e) => setProducedOn(e.target.value)} />
+            </div>
+          </>
+        )}
 
-        <div className="field">
-          <label htmlFor="pub-title">Titre</label>
-          <input id="pub-title" className="input" placeholder="Ex. Génisse N’Dama, 19 mois" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} />
-        </div>
-        <div className="grid2">
-          <div className="field">
-            <label htmlFor="pub-price">Prix (FCFA)</label>
-            <input id="pub-price" className="input num b" inputMode="numeric" placeholder="0" value={price ? fcfa(price) : ''} onChange={(e) => setPrice(parseAmount(e.target.value))} />
-          </div>
-          <div className="field">
-            <label htmlFor="pub-qty">Quantité</label>
-            <label className="input num" style={{ gap: 6 }}>
-              <input id="pub-qty" className="plain grow num" inputMode="numeric" style={bare} value={qty || ''} onChange={(e) => setQty(Math.min(999, parseAmount(e.target.value)))} />
-              <span className="muted" style={{ flex: 'none' }}>{unit}</span>
-            </label>
-          </div>
-        </div>
-        <ToggleRow on={neg} onClick={() => setNeg(!neg)} title="Prix négociable" sub="Les acheteurs peuvent faire une offre" />
-        <div className="field">
-          <label>Localisation</label>
-          <div className="input sel"><span className="ell">{shop.town}, Poro</span><Icon name="pin" size="sm" /></div>
-        </div>
-        <ToggleRow on={delivery} onClick={() => setDelivery(!delivery)} title="Livraison par un transporteur SAVAA" sub="Frais calculés et payés par l’acheteur" />
-        <Link className="card pad row" to="/assistance" style={{ background: '#E8F3EA', borderColor: '#CFE0D4' }}>
-          <Icon name="phone" style={{ color: '#145C3A' }} />
-          <span className="col grow"><span className="small b">Besoin d’aide pour publier ?</span><span className="xs muted">Un conseiller vous rappelle et remplit l’annonce avec vous.</span></span>
-        </Link>
-        <p className="hint">Chaque annonce est relue par l’équipe SAVAA avant sa mise en ligne, en général sous 24 h.</p>
+        {step === 3 && (
+          <>
+            <div className="grid2">
+              <div className="field">
+                <label htmlFor="pub-price">Prix (FCFA)</label>
+                <input id="pub-price" className="input num b" inputMode="numeric" placeholder="0" value={price ? fcfa(price) : ''} onChange={(e) => setPrice(parseAmount(e.target.value))} aria-invalid={!!errors.price} />
+                <FieldError msg={errors.price} />
+              </div>
+              <div className="field">
+                <label htmlFor="pub-unit">Unité de vente</label>
+                <select id="pub-unit" className="input" value={saleUnit} disabled={isHerd} onChange={(e) => setUnit(e.target.value)}>
+                  {UNITS.map((u) => <option key={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid2">
+              <div className="field">
+                <label htmlFor="pub-qty">Quantité disponible</label>
+                <input id="pub-qty" className="input num" inputMode="numeric" value={qty || ''} disabled={isHerd} onChange={(e) => setQty(Math.min(99999, parseAmount(e.target.value)))} aria-invalid={!!errors.qty} />
+                <FieldError msg={errors.qty} />
+              </div>
+              <div className="field">
+                <label htmlFor="pub-min">Commande minimale</label>
+                <input id="pub-min" className="input num" inputMode="numeric" value={minQty || ''} onChange={(e) => setMinQty(Math.min(99999, parseAmount(e.target.value)))} aria-invalid={!!errors.minQty} />
+                <FieldError msg={errors.minQty} />
+              </div>
+            </div>
+            <ToggleRow on={neg} onClick={() => setNeg(!neg)} title="Prix négociable" sub="Les acheteurs peuvent faire une offre" />
+            <div className="field">
+              <label htmlFor="pub-hand">Mode de remise</label>
+              <select id="pub-hand" className="input" value={handover} onChange={(e) => setHandover(e.target.value)}>
+                {HANDOVER.map((h) => <option key={h}>{h}</option>)}
+              </select>
+              <span className="hint">{delivery ? 'Frais de transport calculés et payés par l’acheteur.' : `L’acheteur vient chercher le produit à ${town || 'votre commune'}.`}</span>
+            </div>
+            <div className="field">
+              <label htmlFor="pub-avail">Disponible à partir du <span className="muted">(facultatif)</span></label>
+              <input id="pub-avail" className="input" type="date" value={available} onChange={(e) => setAvailable(e.target.value)} />
+            </div>
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <div className="field">
+              <label htmlFor="pub-seller">Nom du vendeur ou de l’exploitation</label>
+              <input id="pub-seller" className="input" value={sellerName} maxLength={80} onChange={(e) => setSellerName(e.target.value)} aria-invalid={!!errors.sellerName} />
+              <FieldError msg={errors.sellerName} />
+            </div>
+            <div className="field">
+              <label htmlFor="pub-actor">Type d’acteur</label>
+              <select id="pub-actor" className="input" value={actor} onChange={(e) => setActor(e.target.value)}>
+                {ACTORS.map((a) => <option key={a}>{a}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="pub-tel">Téléphone</label>
+              <div className="row" style={{ gap: 8 }}>
+                <div className="input" style={{ width: 92, flex: 'none', justifyContent: 'center', fontWeight: 500 }}>+225</div>
+                <input id="pub-tel" className="input num" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 14))} style={{ minWidth: 0 }} aria-invalid={!!errors.phone} />
+              </div>
+              <FieldError msg={errors.phone} />
+            </div>
+            <button className="row top" role="checkbox" aria-checked={attested} onClick={() => setAttested(!attested)} style={{ ...rowBtn, gap: 10 }}>
+              <Check on={attested} />
+              <span className="small" style={{ lineHeight: 1.45 }}>J’atteste que les informations de cette fiche sont exactes. Une fausse déclaration entraîne le retrait de l’annonce.</span>
+            </button>
+            <FieldError msg={errors.attested} />
+            <p className="hint">Chaque annonce est relue par l’équipe SAVAA avant sa mise en ligne, en général sous 24 h.</p>
+          </>
+        )}
       </div>
       <Foot>
         <button className="btn btn-s" style={{ flex: '0 0 auto' }} onClick={saveDraft}>Brouillon</button>
-        <button className="btn btn-p" disabled={!ready} onClick={() => setStep(2)}>Continuer</button>
+        <button className="btn btn-p" onClick={next}>{step === 4 ? 'Voir l’aperçu' : 'Continuer'}</button>
       </Foot>
     </div>
   );

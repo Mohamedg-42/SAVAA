@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useStore, type Species } from '../data';
+import { CI_REGIONS, useStore, type Species } from '../data';
 import { downloadICS } from '../device';
 import { showToast } from '../toast';
 import { Badge, Foot, Header, Icon, Photo, PhotoAdd, SectionHead, TabBar } from '../ui';
@@ -175,7 +175,8 @@ export function AddAnimal() {
   const navigate = useNavigate();
   const [species, setSpecies] = useState<Species>('bovin');
   const [sex, setSex] = useState('Femelle');
-  const [f, setF] = useState({ officialId: '', breed: '', birth: '', coat: '', marks: '', entry: '', mother: '', father: '' });
+  const [f, setF] = useState({ officialId: '', breed: '', birth: '', coat: '', marks: '', entry: '', mother: '', father: '', weight: '', weighedOn: '', size: '', condition: '', department: '', locality: '' });
+  const [purpose, setPurpose] = useState<'repro' | 'viande' | ''>('');
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const [photos, setPhotos] = useState<string[]>([]);
   const [docs, setDocs] = useState<string[]>([]);
@@ -184,6 +185,9 @@ export function AddAnimal() {
     e.target.value = '';
     setDocs((d) => [...d, ...names]);
   };
+  /* Origine : commune de la boutique ou du compte (données de l'éleveur), région déduite. */
+  const town = s.shop().town || s.session().town || '';
+  const region = CI_REGIONS.find((g) => g.towns.includes(town))?.region ?? '';
   /* Prochain n° interne libre (FK-0151 au départ, comme dans la maquette). */
   const id = s.nextAnimalId();
 
@@ -205,6 +209,14 @@ export function AddAnimal() {
       photo: photos[0] ?? defaultPhoto[species],
       docs,
       info: { breed: f.breed, coat: f.coat, marks: f.marks, entry: f.entry, mother: f.mother, father: f.father },
+      measure: {
+        weight: Number(f.weight.replace(',', '.')) || undefined,
+        weighedOn: f.weighedOn ? f.weighedOn.split('-').reverse().join('/') : undefined,
+        size: f.size.trim() || undefined,
+        condition: f.condition.trim() || undefined,
+        purpose: purpose || undefined,
+      },
+      origin: { country: 'Côte d’Ivoire', region, department: f.department.trim() || undefined, town, locality: f.locality.trim() || undefined },
     });
     navigate(`/animal/${id}`, { replace: true });
   };
@@ -247,6 +259,22 @@ export function AddAnimal() {
         </div>
 
         <div className="sec" style={{ gap: 12 }}>
+          <span className="eyebrow">Pesée et état</span>
+          <div className="grid2">
+            <div className="field"><label htmlFor="weight">Poids (kg)</label><input id="weight" className="input num" inputMode="decimal" value={f.weight} onChange={set('weight')} /></div>
+            <div className="field"><label htmlFor="weighed">Date de pesée</label><input id="weighed" className="input" type="date" value={f.weighedOn} onChange={set('weighedOn')} /></div>
+          </div>
+          <div className="field"><label htmlFor="size">Taille ou mensurations</label><input id="size" className="input" placeholder="Ex. 1,30 m au garrot" value={f.size} onChange={set('size')} /></div>
+          <div className="field"><label htmlFor="cond">État général observé</label><input id="cond" className="input" placeholder="Ex. bon état, vif" value={f.condition} onChange={set('condition')} /></div>
+          <div className="field">
+            <span className="lbl">Vocation</span>
+            <div className="seg">
+              {([['repro', 'Reproducteur'], ['viande', 'Viande'], ['', 'Non précisée']] as const).map(([v, t]) => <button key={t} className={purpose === v ? 'on' : ''} onClick={() => setPurpose(v)}>{t}</button>)}
+            </div>
+          </div>
+        </div>
+
+        <div className="sec" style={{ gap: 12 }}>
           <span className="eyebrow">Photos et justificatifs</span>
           <div className="grid3">
             {photos.length === 0 && <><Photo label="Profil gauche" h={96} radius={8} /><Photo label="Boucle" h={96} radius={8} /></>}
@@ -268,6 +296,14 @@ export function AddAnimal() {
 
         <div className="sec" style={{ gap: 12 }}>
           <span className="eyebrow">Origine et ascendance</span>
+          <div className="field">
+            <span className="lbl">Commune</span>
+            <div className="input" style={{ background: '#EEF0EE' }}>{town ? `${town}${region ? `, ${region}` : ''}` : 'Commune de votre boutique'}</div>
+          </div>
+          <div className="grid2">
+            <div className="field"><label htmlFor="dep">Département</label><input id="dep" className="input" value={f.department} onChange={set('department')} /></div>
+            <div className="field"><label htmlFor="loc">Village ou localité</label><input id="loc" className="input" value={f.locality} onChange={set('locality')} /></div>
+          </div>
           <div className="field"><label htmlFor="entry">Date d’entrée sur l’exploitation</label><input id="entry" className="input num" placeholder="Ex. née sur place" value={f.entry} onChange={set('entry')} /></div>
           <div className="grid2">
             <div className="field"><label htmlFor="mother">Mère</label><input id="mother" className="input num" placeholder="N° ou inconnue" value={f.mother} onChange={set('mother')} /></div>

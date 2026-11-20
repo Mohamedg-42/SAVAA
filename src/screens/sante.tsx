@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { nowTime, PROOF, today, useStore, type Animal, type EventKind, type HealthEvent } from '../data';
+import { nowTime, PROOF, today, useStore, type Animal, type EventKind, type HealthEvent, type TraceEvent } from '../data';
 import { printPage, share } from '../device';
-import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd } from '../ui';
+import { animalMeasure, animalOrigin, animalPurpose, animalStatus, animalUrl, ficheUrl, sheetOf } from '../trace';
+import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, Section } from '../ui';
+import { QrDialog, TraceTimeline } from './fiche';
 
 /* Seul le taurillon FK-0142 a une fiche complète dans la maquette (race, ascendance, mouvements…). */
 const DEMO_ID = 'FK-0142';
@@ -33,6 +35,8 @@ function TimelineItem({ dot = 'tld f', children }: { dot?: string; children: Rea
   );
 }
 
+const HEALTH_KIND = { obs: 'Observation sanitaire', trt: 'Traitement', vac: 'Vaccination' } as const;
+
 const dotFor = (e: HealthEvent) => (e.pending ? 'tld a' : e.kind === 'obs' ? 'tld' : 'tld f');
 
 /* Écran 07 : fiche individuelle et traçabilité avec galerie photos. */
@@ -53,6 +57,24 @@ function AnimalSheetInner({ a }: { a: Animal }) {
   const gallery = a.photos?.length ? a.photos : a.photo ? [a.photo] : ['/images/taurillon-goudali.jpg'];
   const [photoIdx, setPhotoIdx] = useState(0);
   const activePhoto = gallery[photoIdx] ?? gallery[0];
+  const [qr, setQr] = useState(false);
+
+  /* Fiche d'identité (sections 2.1 et 2.2) et historique de traçabilité. */
+  const listings = s.listings();
+  const status = animalStatus(a, listings, s.orders());
+  const measure = animalMeasure(a);
+  const origin = animalOrigin(a);
+  const ownFarm = a.mine && !s.session().demo;
+  const farm = ownFarm ? (s.shop().created ? s.shop().name : 'Non renseignée') : 'Ferme Koné & Fils';
+  const breeder = ownFarm ? s.session().name : 'Adama Koné';
+  const sheet = listings.filter((l) => l.animalIds?.includes(a.id)).map(sheetOf).find(Boolean);
+  const trace: TraceEvent[] = [
+    ...(sheet?.events ?? []),
+    ...s.eventsFor(a.id).filter((e) => !e.pending).map((e) => ({ date: e.date, kind: HEALTH_KIND[e.kind], text: e.title, by: 'Dossier sanitaire', proof: e.proof, file: e.file })),
+    ...(measure?.weight && measure.weighedOn && !sheet?.events.some((e) => e.kind === 'Pesée')
+      ? [{ date: measure.weighedOn, kind: 'Pesée', text: `${measure.weight} kg.`, by: breeder, proof: 'declared' as const }]
+      : []),
+  ];
 
   return (
     <div className="app">
@@ -68,6 +90,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
               <div className="wrap" style={{ marginTop: 4 }}>
                 <Badge tone={a.tone}>{a.status}</Badge>
                 {full && <Link className="badge bd-grey" to={`/annonce/${a.id}`}>Voir l’annonce</Link>}
+                <button className="badge bd-grey" style={{ border: 0, cursor: 'pointer', font: 'inherit' }} onClick={() => setQr(true)}>QR code</button>
               </div>
             </div>
           </div>
@@ -162,6 +185,36 @@ function AnimalSheetInner({ a }: { a: Animal }) {
               </div>
             </>
           )}
+          {tab === 0 && (
+            <>
+              <Section title="Identification et état" open>
+                <dl className="kv">
+                  <dt>Statut</dt><dd><Badge tone={status.tone}>{status.label}</Badge></dd>
+                  <dt>Vocation</dt><dd>{animalPurpose(a, listings)}</dd>
+                  <dt>Poids actuel</dt><dd className="num">{measure?.weight ? `${measure.weight} kg` : '—'}</dd>
+                  <dt>Dernière pesée</dt><dd className="num">{measure?.weighedOn ?? '—'}</dd>
+                  <dt>Mensurations</dt><dd>{measure?.size || '—'}</dd>
+                  <dt>État général observé</dt><dd>{measure?.condition || '—'}</dd>
+                </dl>
+                <p className="xs muted">Le numéro SAVAA ({a.id}) ne remplace pas le numéro officiel d’identification.</p>
+              </Section>
+              <Section title="Origine">
+                <dl className="kv">
+                  <dt>Pays</dt><dd>{origin?.country ?? 'Côte d’Ivoire'}</dd>
+                  <dt>Région</dt><dd>{origin?.region || '—'}</dd>
+                  <dt>Département</dt><dd>{origin?.department || '—'}</dd>
+                  <dt>Commune</dt><dd>{origin?.town || '—'}</dd>
+                  {origin?.locality && <><dt>Localité</dt><dd>{origin.locality}</dd></>}
+                  <dt>Exploitation</dt><dd>{farm}</dd>
+                  <dt>Éleveur</dt><dd>{breeder}</dd>
+                </dl>
+              </Section>
+              <Section title="Historique de traçabilité" aside={<span className="xs muted num">{trace.length}</span>}>
+                <TraceTimeline events={trace} />
+                {sheet && <Link className="link row between" to={`/fiche/${sheet.code}`}>Fiche produit {sheet.code}<Icon name="chevron" size="sm" /></Link>}
+              </Section>
+            </>
+          )}
           {tab === 1 && (
             <>
               {recent.length === 0 ? <Empty>Aucun événement sanitaire enregistré pour cet animal.</Empty> : <div className="card pad">
@@ -245,6 +298,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
           <p className="xs muted" style={{ lineHeight: 1.45 }}>Mise à jour le 14/11/2026. Ne remplace pas un certificat sanitaire officiel.</p>
         </div>
       </div>
+      {qr && <QrDialog code={sheet?.code ?? a.id} title={a.name} url={sheet ? ficheUrl(sheet.code) : animalUrl(a.id)} onClose={() => setQr(false)} />}
       <Foot>
         {owner && <Link className="btn btn-s" to={`/animal/${a.id}/observation`}>Observation</Link>}
         <Link className="btn btn-p" to={`/animal/${a.id}/sante`}>Dossier sanitaire</Link>
