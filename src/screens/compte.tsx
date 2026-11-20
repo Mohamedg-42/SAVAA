@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CI_REGIONS, today, useStore, type NotifCat, type Session } from '../data';
 import { Logo, LogoInline } from '../logo';
 import { showToast } from '../toast';
@@ -21,7 +21,23 @@ const checkRowStyle: React.CSSProperties = { border: 0, background: 'none', padd
 
 /* Écran Main : démarrage. */
 export function Splash() {
-  const logged = useStore().session().loggedIn;
+  const s = useStore();
+  const logged = s.session().loggedIn;
+  /* Déconnexion ou remise à zéro demandée depuis l'écran Compte. Elle se fait ici, une fois sorti de l'écran protégé :
+     faite là-bas, la garde renvoyait vers la connexion avec « next=/compte », et on revenait sur Mon compte en se reconnectant. */
+  const navigate = useNavigate();
+  const sortie = (useLocation().state as { sortie?: 'logout' | 'reset' } | null)?.sortie;
+  const [bye, setBye] = useState<'logout' | 'reset' | null>(null);
+  useEffect(() => {
+    if (!sortie) return;
+    if (s.session().loggedIn) {
+      if (sortie === 'reset') s.reset();
+      else s.logout();
+      setBye(sortie);
+    }
+    /* On efface la demande de l'historique : un retour arrière ne doit pas déconnecter une seconde fois. */
+    navigate('/demarrage', { replace: true, state: null });
+  }, [sortie, s, navigate]);
 
   /* Fond frais vert clair → blanc assorti à l'animation « Récolte & Marché ». */
   return (
@@ -33,6 +49,7 @@ export function Splash() {
         </div>
       </div>
       <div className="splash-after" style={{ padding: '0 24px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {bye && !logged && <p className="small" role="status" style={{ textAlign: 'center', color: '#145C3A', fontWeight: 500 }}>{bye === 'reset' ? 'Démo remise à zéro.' : 'Vous êtes déconnecté.'}</p>}
         <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, textAlign: 'center' }}>Acheter et vendre des animaux, des récoltes et des intrants. Chaque animal avec son origine et son suivi sanitaire.</p>
         <Link className="btn btn-p btn-block" to={logged ? '/accueil' : '/connexion'}>{logged ? 'Continuer' : 'Commencer'}</Link>
         {!logged && <Link className="btn btn-s btn-block" to="/accueil">Parcourir sans compte</Link>}
@@ -246,17 +263,14 @@ export function Profile() {
   const idSent = session.docs.length > 0;
   const level = session.demo ? 2 : 1;
   const [confirmKind, setConfirmKind] = useState<'logout' | 'reset' | null>(null);
+  /* La déconnexion elle-même est faite par l'écran de démarrage (voir Splash). */
   const doLogout = () => {
     setConfirmKind(null);
-    s.logout();
-    showToast('Vous êtes déconnecté.');
-    navigate('/demarrage', { replace: true });
+    navigate('/demarrage', { replace: true, state: { sortie: 'logout' } });
   };
   const doReset = () => {
     setConfirmKind(null);
-    s.reset();
-    showToast('Démo remise à zéro.');
-    navigate('/demarrage', { replace: true });
+    navigate('/demarrage', { replace: true, state: { sortie: 'reset' } });
   };
 
   return (
