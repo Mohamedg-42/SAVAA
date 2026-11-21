@@ -10,11 +10,11 @@ import { ID_FIELD, PRO_SECTIONS, idPhotoRequired, missingProfile, needsProfile, 
 import { Badge, Check, Header, Icon, Photo, PhotoAdd, TabBar, type IconName } from '../ui';
 
 /* Bouton retour des en-têtes blancs (connexion, rôle). */
-function WhiteHeader({ right }: { right: React.ReactNode }) {
+function WhiteHeader({ right, onBack }: { right: React.ReactNode; onBack?: () => void }) {
   const navigate = useNavigate();
   return (
     <div className="hdr" style={{ background: '#fff', color: '#17201B' }}>
-      <button className="iconbtn" aria-label="Retour" onClick={() => navigate(-1)}><Icon name="back" /></button>
+      <button className="iconbtn" aria-label="Retour" onClick={onBack ?? (() => navigate(-1))}><Icon name="back" /></button>
       <h1 />
       {right}
     </div>
@@ -27,6 +27,8 @@ const checkRowStyle: React.CSSProperties = { border: 0, background: 'none', padd
 export function Splash() {
   const s = useStore();
   const logged = s.session().loggedIn;
+  const pending = s.session();
+  const step = s.signupStep();
   /* Déconnexion ou remise à zéro demandée depuis l'écran Compte. Elle se fait ici, une fois sorti de l'écran protégé :
      faite là-bas, la garde renvoyait vers la connexion avec « next=/compte », et on revenait sur Mon compte en se reconnectant. */
   const navigate = useNavigate();
@@ -54,9 +56,23 @@ export function Splash() {
       </div>
       <div className="splash-after" style={{ padding: '0 24px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {bye && !logged && <p className="small" role="status" style={{ textAlign: 'center', color: '#145C3A', fontWeight: 500 }}>{bye === 'reset' ? 'Démo remise à zéro.' : 'Vous êtes déconnecté.'}</p>}
-        <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, textAlign: 'center' }}>Acheter et vendre des animaux, des récoltes et des intrants. Chaque animal avec son origine et son suivi sanitaire.</p>
-        <Link className="btn btn-p btn-block" to={logged ? s.home() : '/connexion'}>{logged ? 'Continuer' : 'Commencer'}</Link>
-        {!logged && <Link className="btn btn-s btn-block" to="/accueil">Parcourir sans compte</Link>}
+        {step ? (
+          /* Inscription commencée puis quittée : le compte n'existe pas encore, on propose de la finir ou de repartir de zéro. */
+          <>
+            <div className="card pad col" role="status" style={{ gap: 4, textAlign: 'center' }}>
+              <span className="b">Inscription en cours</span>
+              <span className="small muted">{pending.name}, +225 {pending.phone}. Il reste {pending.onboarding === 'profil' ? 'à compléter votre profil métier' : 'à choisir votre activité'}.</span>
+            </div>
+            <Link className="btn btn-p btn-block" to={step}>Reprendre mon inscription</Link>
+            <button className="btn btn-s btn-block" onClick={() => { s.logout(); navigate('/connexion'); }}>Recommencer l’inscription</button>
+          </>
+        ) : (
+          <>
+            <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, textAlign: 'center' }}>Acheter et vendre des animaux, des récoltes et des intrants. Chaque animal avec son origine et son suivi sanitaire.</p>
+            <Link className="btn btn-p btn-block" to={logged ? s.home() : '/connexion'}>{logged ? 'Continuer' : 'Commencer'}</Link>
+            {!logged && <Link className="btn btn-s btn-block" to="/accueil">Parcourir sans compte</Link>}
+          </>
+        )}
         <p className="xs muted" style={{ textAlign: 'center' }}>Prototype de démonstration v2.0, données fictives</p>
       </div>
     </div>
@@ -98,6 +114,7 @@ export function Login() {
   const digits = phoneDigits(phone);
   const telErr = phoneError(phone);
   const known = digits.length === 10 ? s.knownAccount(digits) : null;
+  const pendingStep = s.signupStep();
   const afterLogin = () => navigate(s.session().roles.length ? next ?? s.home() : `/role${next ? `?next=${encodeURIComponent(next)}` : ''}`, { replace: true });
 
   const sendCode = () => {
@@ -128,9 +145,10 @@ export function Login() {
     setTried(true);
     if (Object.values(errors).some(Boolean)) return;
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-    s.login({ phone: formatPhone(digits), name: fullName, town, prefs: { ...session.prefs, mkt } });
+    /* Le compte n'est créé qu'à la fin de l'inscription (métier et profil métier) : voir RolePicker et ProDetails. */
+    s.startSignup({ phone: formatPhone(digits), name: fullName, town, prefs: { ...session.prefs, mkt }, roles: [], pro: undefined, proPhotos: undefined, photo: undefined, docs: [] });
     if (!s.shop().created) s.setShop({ town });
-    afterLogin();
+    navigate(`/role${next ? `?next=${encodeURIComponent(next)}` : ''}`, { replace: true });
   };
   const demo = () => {
     s.loginDemo();
@@ -237,6 +255,12 @@ export function Login() {
           <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Connexion ou inscription</h2>
           <p className="muted">Un seul compte pour acheter, vendre et suivre votre cheptel partout en Côte d’Ivoire.</p>
         </div>
+        {pendingStep && (
+          <div className="notice n-info">
+            <Icon name="info" size="sm" />
+            <span>Inscription en cours pour {session.name} (+225 {session.phone}). <Link className="link" to={pendingStep}>Reprendre mon inscription</Link>, ou saisissez un numéro pour recommencer.</span>
+          </div>
+        )}
         <div className="field">
           <label htmlFor="login-tel">Numéro de téléphone</label>
           <div className="row" style={{ gap: 8 }}>
@@ -307,7 +331,9 @@ export function RolePicker() {
   const existing = s.session().roles;
   const [intent, setIntent] = useState<Intent | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
-  if (!s.session().loggedIn) return <Navigate to={`/connexion?next=${encodeURIComponent('/role')}`} replace />;
+  /* Accès : un compte connecté (ajout d'un métier) ou une inscription en cours. */
+  const signingUp = !s.session().loggedIn && !!s.session().onboarding;
+  if (!s.session().loggedIn && !signingUp) return <Navigate to={`/connexion?next=${encodeURIComponent('/role')}`} replace />;
   const group = INTENTS.find((g) => g.id === intent);
 
   const finish = (chosen: string[], g: (typeof INTENTS)[number]) => {
@@ -316,9 +342,12 @@ export function RolePicker() {
     s.setSession({ roles });
     const sess = s.session();
     if (!sess.demo && needsProfile(roles) && missingProfile(roles, sess.pro, sess.proPhotos).length) {
+      if (signingUp) s.setSession({ onboarding: 'profil' });
       navigate(`/profil-metier${back ? `?next=${encodeURIComponent(back)}` : ''}`, { replace: true });
       return;
     }
+    /* Inscription : le compte est créé maintenant que le métier est choisi. */
+    if (signingUp) s.finishSignup();
     navigate(back ?? s.home(), { replace: true });
   };
 
@@ -347,7 +376,7 @@ export function RolePicker() {
   if (!group) {
     return (
       <div className="app" style={{ background: '#fff' }}>
-        <WhiteHeader right={<span className="small" style={{ paddingRight: 12, color: '#5D6862' }}>2. Votre activité</span>} />
+        <WhiteHeader onBack={signingUp ? () => navigate('/demarrage') : undefined} right={<span className="small" style={{ paddingRight: 12, color: '#5D6862' }}>2. Votre activité</span>} />
         {steps}
         <div className="body" style={{ background: '#fff', padding: '16px 20px 20px', gap: 12 }}>
           <div className="col" style={{ gap: 6 }}>
@@ -421,7 +450,9 @@ export function ProDetails() {
   const [photos, setPhotos] = useState<Record<string, string>>(session.proPhotos ?? {});
   const [avatar, setAvatar] = useState(session.photo);
   const [tried, setTried] = useState(false);
-  if (!session.loggedIn) return <Navigate to={`/connexion?next=${encodeURIComponent('/profil-metier')}`} replace />;
+  /* Accès : un compte connecté, ou une inscription en cours arrivée à cette étape. */
+  const signingUp = !session.loggedIn && session.onboarding === 'profil';
+  if (!session.loggedIn && !signingUp) return <Navigate to={s.signupStep() ?? `/connexion?next=${encodeURIComponent('/profil-metier')}`} replace />;
   if (!sections.length) return <Navigate to={back ?? s.home()} replace />;
 
   const missing = missingProfile(roles, pro, photos);
@@ -447,7 +478,8 @@ export function ProDetails() {
     const known = new Set(session.docs.map((d) => d.name));
     const newDocs = Object.keys(photos).filter((k) => labels[k] && !known.has(labels[k])).map((k) => ({ name: labels[k], date: today(), status: 'review' as const }));
     s.setSession({ pro, proPhotos: photos, photo: avatar, docs: [...session.docs, ...newDocs] });
-    showToast('Profil enregistré. L’équipe SAVAA contrôle vos justificatifs.');
+    if (signingUp) s.finishSignup();
+    showToast(signingUp ? 'Compte créé. L’équipe SAVAA contrôle vos justificatifs.' : 'Profil enregistré. L’équipe SAVAA contrôle vos justificatifs.');
     navigate(back ?? s.home(), { replace: true });
   };
 
@@ -516,7 +548,7 @@ export function ProDetails() {
         <p className="hint">Vos justificatifs ne sont jamais montrés aux autres utilisateurs. Vous pourrez les modifier depuis votre compte.</p>
       </div>
       <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
-        {!strict && <button className="btn btn-s" style={{ flex: '0 0 auto' }} onClick={() => navigate(back ?? s.home(), { replace: true })}>Plus tard</button>}
+        {!strict && <button className="btn btn-s" style={{ flex: '0 0 auto' }} onClick={() => { if (signingUp) s.finishSignup(); navigate(back ?? s.home(), { replace: true }); }}>Plus tard</button>}
         <button className="btn btn-p" onClick={save}>Enregistrer</button>
       </div>
     </div>

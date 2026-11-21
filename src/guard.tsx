@@ -27,7 +27,11 @@ export function Guard({ need, shop, children }: { need: Need; shop?: boolean; ch
   const { pathname, search } = useLocation();
   const here = encodeURIComponent(pathname + search);
 
-  if (!s.session().loggedIn) return <Navigate to={`/connexion?next=${here}`} replace />;
+  if (!s.session().loggedIn) {
+    /* Inscription en cours : on la reprend là où elle s'est arrêtée. */
+    const step = s.signupStep();
+    return <Navigate to={step ? `${step}?next=${here}` : `/connexion?next=${here}`} replace />;
+  }
   if (!s.session().roles.length) return <Navigate to={`/role?next=${here}`} replace />;
 
   const ok =

@@ -1163,6 +1163,9 @@ export type Notif = { id: number; c: NotifCat; title: string; text: string; time
 
 export type Session = {
   loggedIn: boolean;
+  /** Inscription commencée mais pas terminée : il reste le choix du métier (`role`) ou le profil métier (`profil`).
+      Tant qu'elle est en cours, le compte n'existe pas : `loggedIn` reste faux. */
+  onboarding?: 'role' | 'profil';
   /** Compte de démonstration de la maquette (données d'Adama Koné). */
   demo?: boolean;
   name: string;
@@ -1327,8 +1330,19 @@ export const store = {
   /* Compte */
   session: () => state.session,
   login(patch: Partial<Session>) {
-    commit({ session: { ...state.session, ...patch, loggedIn: true } });
+    commit({ session: { ...state.session, ...patch, loggedIn: true, onboarding: undefined } });
   },
+  /** Début d'inscription (numéro vérifié, nom et ville saisis) : le compte n'est créé qu'à la fin, avec `finishSignup`. */
+  startSignup(patch: Partial<Session>) {
+    commit({ session: { ...state.session, ...patch, loggedIn: false, onboarding: 'role' } });
+  },
+  /** Fin d'inscription : métier choisi et profil métier enregistré (ou remis à plus tard). Le compte existe. */
+  finishSignup() {
+    commit({ session: { ...state.session, loggedIn: true, onboarding: undefined } });
+  },
+  /** Étape où reprendre une inscription en cours, sinon null. */
+  signupStep: (): string | null =>
+    state.session.loggedIn || !state.session.onboarding ? null : state.session.onboarding === 'profil' ? '/profil-metier' : '/role',
   /** Charge le compte de la maquette (Adama Koné) avec son cheptel, sa boutique, ses commandes… */
   loginDemo() {
     const base = initial();
