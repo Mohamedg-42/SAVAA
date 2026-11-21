@@ -54,7 +54,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
   const owner = !!a.mine && s.isBreeder();
   const [tab, setTab] = useState(0);
   const tabs = ['Identité', 'Santé', 'Ascendance', 'Mouvements', 'Historique'];
-  const gallery = a.photos?.length ? a.photos : a.photo ? [a.photo] : ['/images/taurillon-goudali.jpg'];
+  const gallery = a.photos?.length ? a.photos : a.photo ? [a.photo] : ['images/taurillon-goudali.jpg'];
   const [photoIdx, setPhotoIdx] = useState(0);
   const activePhoto = gallery[photoIdx] ?? gallery[0];
   const [qr, setQr] = useState(false);
@@ -258,14 +258,14 @@ function AnimalSheetInner({ a }: { a: Animal }) {
             <>
               <div className="grid2">
                 <div className="card pad col" style={{ gap: 4 }}>
-                  <Photo w="100%" h={76} radius={6} src="/images/taureau-reproducteur.jpg" />
+                  <Photo w="100%" h={76} radius={6} src="images/taureau-reproducteur.jpg" />
                   <span className="xs muted">Père</span>
                   <span className="b small">Taureau Goudali</span>
                   <span className="xs muted num">CI-BOV-2019-•••0233</span>
                   <Badge tone="blue" style={{ alignSelf: 'flex-start', marginTop: 4 }}>Documenté</Badge>
                 </div>
                 <div className="card pad col" style={{ gap: 4 }}>
-                  <Photo w="100%" h={76} radius={6} src="/images/taurillon-goudali-troupeau.jpg" />
+                  <Photo w="100%" h={76} radius={6} src="images/taurillon-goudali-troupeau.jpg" />
                   <span className="xs muted">Mère</span>
                   <span className="b small">FK-0041, Zébu</span>
                   <span className="xs muted">Née sur l’exploitation</span>

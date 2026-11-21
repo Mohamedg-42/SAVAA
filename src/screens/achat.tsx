@@ -292,12 +292,12 @@ export function Home() {
             <SectionHead title="En images dans le Poro" link="Explorer" to="/explorer" />
             <div className="grid3" style={{ gap: 8 }}>
               {[
-                ['L-REPRO-GOUD', '/images/taureau-reproducteur.jpg', 'Reproducteurs'],
-                ['L-CHEVRES-SAH', '/images/chevres-saheliennes.jpg', 'Caprins'],
-                ['L-BREBIS-LOT', '/images/troupeau-ovins.jpg', 'Ovins'],
-                ['L-MAIS', '/images/mais-jaune.jpg', 'Céréales'],
-                ['L-TOURTEAU', '/images/tourteau-coton.jpg', 'Provende'],
-                ['L-VETO-SRV', '/images/visite-veterinaire.jpg', 'Suivi véto'],
+                ['L-REPRO-GOUD', 'images/taureau-reproducteur.jpg', 'Reproducteurs'],
+                ['L-CHEVRES-SAH', 'images/chevres-saheliennes.jpg', 'Caprins'],
+                ['L-BREBIS-LOT', 'images/troupeau-ovins.jpg', 'Ovins'],
+                ['L-MAIS', 'images/mais-jaune.jpg', 'Céréales'],
+                ['L-TOURTEAU', 'images/tourteau-coton.jpg', 'Provende'],
+                ['L-VETO-SRV', 'images/visite-veterinaire.jpg', 'Suivi véto'],
               ].map(([id, img, lbl]) => (
                 <Link key={id} to={`/annonce/${id}`} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', height: 88, display: 'flex', alignItems: 'flex-end', padding: 6, backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.68)), url(${img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                   <span className="xs b ell" style={{ color: '#fff' }}>{lbl}</span>
@@ -626,7 +626,7 @@ function ListingDetailInner({ l }: { l: Listing }) {
             <div className="card pad col" style={{ gap: 12 }}>
               <div className="row">
                 {full ? (
-                  <Photo w={40} h={40} radius={20} src="/images/ferme-kone-logo.jpg" />
+                  <Photo w={40} h={40} radius={20} src="images/ferme-kone-logo.jpg" />
                 ) : (
                   <span className="av">{l.seller.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
                 )}

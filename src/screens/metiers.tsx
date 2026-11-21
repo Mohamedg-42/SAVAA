@@ -48,7 +48,7 @@ const INITIAL_VET_ALERTS: VetAlert[] = [
     sign: 'Boiterie antérieure gauche signalée ce matin par A. Koné',
     urgency: 'Moyenne',
     date: '18/11/2026, 09:58',
-    photo: '/images/brebis-djallonke.jpg',
+    photo: 'images/brebis-djallonke.jpg',
   },
   {
     id: 'VA-2',
@@ -58,20 +58,20 @@ const INITIAL_VET_ALERTS: VetAlert[] = [
     sign: 'Suivi post-traitement antiparasitaire et vitamines B',
     urgency: 'Faible',
     date: '16/11/2026, 14:20',
-    photo: '/images/beliers-saheliens.jpg',
+    photo: 'images/beliers-saheliens.jpg',
   },
 ];
 
 const VET_VALIDATIONS = [
-  { id: 'FK-0142', name: 'Taurillon Zébu Goudali', officialId: 'CI-BOV-2024-•••4817', farm: 'Ferme Koné & Fils', type: 'Boucle officielle & PPCB', photo: '/images/taurillon-goudali.jpg' },
-  { id: 'FK-0087', name: 'Vache N’Dama', officialId: 'CI-BOV-2021-•••1904', farm: 'Ferme Koné & Fils', type: 'Suivi gestation 7 mois', photo: '/images/vache-ndama.jpg' },
-  { id: 'FK-0136', name: 'Bouc reproducteur Djallonké', officialId: 'CI-CAP-2023-•••1145', farm: 'Élevage Ouattara, Boundiali', type: 'Vaccination PPR', photo: '/images/bouc-djallonke.jpg' },
+  { id: 'FK-0142', name: 'Taurillon Zébu Goudali', officialId: 'CI-BOV-2024-•••4817', farm: 'Ferme Koné & Fils', type: 'Boucle officielle & PPCB', photo: 'images/taurillon-goudali.jpg' },
+  { id: 'FK-0087', name: 'Vache N’Dama', officialId: 'CI-BOV-2021-•••1904', farm: 'Ferme Koné & Fils', type: 'Suivi gestation 7 mois', photo: 'images/vache-ndama.jpg' },
+  { id: 'FK-0136', name: 'Bouc reproducteur Djallonké', officialId: 'CI-CAP-2023-•••1145', farm: 'Élevage Ouattara, Boundiali', type: 'Vaccination PPR', photo: 'images/bouc-djallonke.jpg' },
 ];
 
 const VET_VISITS = [
-  { id: 'VV-1', day: '22', month: 'nov.', title: 'Vaccination PPR, 9 ovins', place: 'Ferme Koné & Fils, Sinématiali', photo: '/images/troupeau-ovins.jpg' },
-  { id: 'VV-2', day: '25', month: 'nov.', title: 'Visite de vérification d’exploitation', place: 'Ferme Koné & Fils, Sinématiali', photo: '/images/visite-veterinaire.jpg' },
-  { id: 'VV-3', day: '28', month: 'nov.', title: 'Contrôle bouclage et pesée, 12 bovins', place: 'Ranch Tuo, Ferkessédougou', photo: '/images/pesee-bovin.jpg' },
+  { id: 'VV-1', day: '22', month: 'nov.', title: 'Vaccination PPR, 9 ovins', place: 'Ferme Koné & Fils, Sinématiali', photo: 'images/troupeau-ovins.jpg' },
+  { id: 'VV-2', day: '25', month: 'nov.', title: 'Visite de vérification d’exploitation', place: 'Ferme Koné & Fils, Sinématiali', photo: 'images/visite-veterinaire.jpg' },
+  { id: 'VV-3', day: '28', month: 'nov.', title: 'Contrôle bouclage et pesée, 12 bovins', place: 'Ranch Tuo, Ferkessédougou', photo: 'images/pesee-bovin.jpg' },
 ];
 
 export function VetSpace() {
@@ -249,14 +249,14 @@ type MissionOffer = {
 };
 
 const MISSION_OFFERS: MissionOffer[] = [
-  { id: 'MS-204', title: 'Lot de 6 béliers Sahéliens', route: 'Ferkessédougou → Korhogo (54 km)', vehicle: 'Bétaillère', fee: 30000, when: 'Demain, 08:00', photo: '/images/beliers-saheliens.jpg' },
-  { id: 'MS-205', title: '10 sacs aliment bétail + tourteau', route: 'Korhogo ZI → Sinématiali (12 km)', vehicle: 'Pick-up / bâché', fee: 12000, when: 'Aujourd’hui, 15:00', photo: '/images/aliment-betail.jpg' },
-  { id: 'MS-206', title: 'Bouc reproducteur Djallonké', route: 'Boundiali → Korhogo (98 km)', vehicle: 'Bétaillère', fee: 18000, when: '21/11, 07:30', photo: '/images/bouc-djallonke.jpg' },
+  { id: 'MS-204', title: 'Lot de 6 béliers Sahéliens', route: 'Ferkessédougou → Korhogo (54 km)', vehicle: 'Bétaillère', fee: 30000, when: 'Demain, 08:00', photo: 'images/beliers-saheliens.jpg' },
+  { id: 'MS-205', title: '10 sacs aliment bétail + tourteau', route: 'Korhogo ZI → Sinématiali (12 km)', vehicle: 'Pick-up / bâché', fee: 12000, when: 'Aujourd’hui, 15:00', photo: 'images/aliment-betail.jpg' },
+  { id: 'MS-206', title: 'Bouc reproducteur Djallonké', route: 'Boundiali → Korhogo (98 km)', vehicle: 'Bétaillère', fee: 18000, when: '21/11, 07:30', photo: 'images/bouc-djallonke.jpg' },
 ];
 
 const MISSION_HISTORY = [
-  { id: 'SAV-2026-11-004501', title: '2 génisses métisses', route: 'Napiéolédougou → Korhogo', date: '15/11/2026', fee: 25000, photo: '/images/genisse-metisse.jpg' },
-  { id: 'SAV-2026-11-004218', title: '20 plateaux d’œufs frais', route: 'Korhogo Soba → Plateau', date: '12/11/2026', fee: 15000, photo: '/images/oeufs-plateaux.jpg' },
+  { id: 'SAV-2026-11-004501', title: '2 génisses métisses', route: 'Napiéolédougou → Korhogo', date: '15/11/2026', fee: 25000, photo: 'images/genisse-metisse.jpg' },
+  { id: 'SAV-2026-11-004218', title: '20 plateaux d’œufs frais', route: 'Korhogo Soba → Plateau', date: '12/11/2026', fee: 15000, photo: 'images/oeufs-plateaux.jpg' },
 ];
 
 export function CourierSpace() {
@@ -348,8 +348,8 @@ export function CourierSpace() {
               </Badge>
             </div>
             <div className="row" style={{ gap: 8 }}>
-              <Photo w={56} h={44} radius={6} src="/images/taurillon-goudali.jpg" />
-              <Photo w={56} h={44} radius={6} src="/images/aliment-betail.jpg" />
+              <Photo w={56} h={44} radius={6} src="images/taurillon-goudali.jpg" />
+              <Photo w={56} h={44} radius={6} src="images/aliment-betail.jpg" />
               <div className="col grow">
                 <span className="small b">Taurillon FK-0142 + 4 sacs aliment</span>
                 <span className="xs muted">Bétaillère · Rémunération 25 000 FCFA</span>
@@ -436,7 +436,7 @@ export function CourierSpace() {
           <div className="card list">
             {step === 'delivered' && (
               <div className="li">
-                <Photo w={48} h={48} radius={6} src="/images/taurillon-goudali.jpg" />
+                <Photo w={48} h={48} radius={6} src="images/taurillon-goudali.jpg" />
                 <div className="col grow"><span className="small b">SAV-2026-11-004812</span><span className="xs muted">Sinématiali → Korhogo, {today()}</span></div>
                 <span className="small b num" style={{ color: '#145C3A' }}>+25 000</span>
               </div>
@@ -472,9 +472,9 @@ type HarvestLot = {
 };
 
 const INITIAL_LOTS: HarvestLot[] = [
-  { id: 'REC-1', crop: 'Igname Kponan', qty: '5 000 kg (min. 200 kg)', price: 425, unit: 'le kg', status: 'Disponible', photo: '/images/igname-kponan.jpg', listingId: 'IGNAME' },
-  { id: 'REC-2', crop: 'Maïs grain jaune séché', qty: '240 sacs de 100 kg', price: 18500, unit: 'le sac', status: 'Disponible', photo: '/images/mais-jaune.jpg', listingId: 'L-MAIS' },
-  { id: 'REC-3', crop: 'Noix de cajou brutes (KOR 49)', qty: '4 000 kg séchés', price: 420, unit: 'le kg', status: 'Récolte en cours', photo: '/images/noix-cajou.jpg', listingId: 'L-CAJOU' },
+  { id: 'REC-1', crop: 'Igname Kponan', qty: '5 000 kg (min. 200 kg)', price: 425, unit: 'le kg', status: 'Disponible', photo: 'images/igname-kponan.jpg', listingId: 'IGNAME' },
+  { id: 'REC-2', crop: 'Maïs grain jaune séché', qty: '240 sacs de 100 kg', price: 18500, unit: 'le sac', status: 'Disponible', photo: 'images/mais-jaune.jpg', listingId: 'L-MAIS' },
+  { id: 'REC-3', crop: 'Noix de cajou brutes (KOR 49)', qty: '4 000 kg séchés', price: 420, unit: 'le kg', status: 'Récolte en cours', photo: 'images/noix-cajou.jpg', listingId: 'L-CAJOU' },
 ];
 
 const LOT_TONE: Record<HarvestLot['status'], Tone> = {
@@ -596,9 +596,9 @@ export function AgriSpace() {
         {tab === 'cal' && demo && (
           <div className="card list">
             {[
-              ['24', 'nov.', 'Collecte coopérative maïs jaune', 'Magasin Dikodougou · 120 sacs', '/images/mais-jaune.jpg'],
-              ['02', 'déc.', 'Récolte parcelle igname Kponan', 'Secteur Nord · ~3 tonnes', '/images/igname-kponan.jpg'],
-              ['15', 'déc.', 'Contrôle KOR anacarde brute', 'Union du Poro, Sinématiali', '/images/noix-cajou.jpg'],
+              ['24', 'nov.', 'Collecte coopérative maïs jaune', 'Magasin Dikodougou · 120 sacs', 'images/mais-jaune.jpg'],
+              ['02', 'déc.', 'Récolte parcelle igname Kponan', 'Secteur Nord · ~3 tonnes', 'images/igname-kponan.jpg'],
+              ['15', 'déc.', 'Contrôle KOR anacarde brute', 'Union du Poro, Sinématiali', 'images/noix-cajou.jpg'],
             ].map(([d, m, t, sub, img]) => (
               <div className="li" key={t}>
                 <span className="col" style={{ width: 38, alignItems: 'center', gap: 0 }}><span className="b num" style={{ fontSize: 17 }}>{d}</span><span className="xs muted">{m}</span></span>
@@ -619,9 +619,9 @@ export function AgriSpace() {
 /* ================================================================== */
 
 const SUPPLIER_QUOTES = [
-  { id: 'DQ-1', client: 'Ferme Koné & Fils', item: 'Aliment engraissement 50 kg + tourteau', qty: '40 sacs / mois', place: 'Sinématiali', suggested: 14000, photo: '/images/aliment-betail.jpg' },
-  { id: 'DQ-2', client: 'La Terrasse du Plateau', item: 'Œufs frais calibrés & provende', qty: '50 plateaux / sem.', place: 'Abidjan-Plateau', suggested: 2500, photo: '/images/oeufs-plateaux.jpg' },
-  { id: 'DQ-3', client: 'Couvoir du Nord', item: 'Couveuse automatique 528 œufs', qty: '2 unités', place: 'Korhogo', suggested: 370000, photo: '/images/couveuse-oeufs.jpg' },
+  { id: 'DQ-1', client: 'Ferme Koné & Fils', item: 'Aliment engraissement 50 kg + tourteau', qty: '40 sacs / mois', place: 'Sinématiali', suggested: 14000, photo: 'images/aliment-betail.jpg' },
+  { id: 'DQ-2', client: 'La Terrasse du Plateau', item: 'Œufs frais calibrés & provende', qty: '50 plateaux / sem.', place: 'Abidjan-Plateau', suggested: 2500, photo: 'images/oeufs-plateaux.jpg' },
+  { id: 'DQ-3', client: 'Couvoir du Nord', item: 'Couveuse automatique 528 œufs', qty: '2 unités', place: 'Korhogo', suggested: 370000, photo: 'images/couveuse-oeufs.jpg' },
 ];
 
 const SUPPLIER_INVOICES: [string, string, number, string, Tone][] = [

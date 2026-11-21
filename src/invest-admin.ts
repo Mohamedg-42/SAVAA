@@ -104,13 +104,13 @@ export const SEED_PROJECTS: Project[] = [
     id: 'PRJ-01', name: 'Ferme avicole de 10 000 poulets de chair (exemple)', filiere: 'Élevage de volailles', region: 'Agnéby-Tiassa', localisation: 'Azaguié',
     presentation: 'Bâtiments d’élevage et abattoir de proximité pour approvisionner les restaurants d’Abidjan.', superficie: '2 ha', capacite: '10 000 poulets par bande, 6 bandes par an',
     budget: 45000000, recherche: 25000000, finance: 12000000, duree: 'Moyen terme (2 à 5 ans)', risque: 'Risque modéré',
-    objectifs: 'Approvisionnement régulier des restaurants et hôtels.', besoins: 'Vétérinaire de suivi, chaîne du froid.', risques: 'Maladies aviaires, prix de l’aliment.', conditions: 'Participation à partir de 5 000 000 FCFA.', photo: '/images/poussins-chair.jpg', status: 'publie',
+    objectifs: 'Approvisionnement régulier des restaurants et hôtels.', besoins: 'Vétérinaire de suivi, chaîne du froid.', risques: 'Maladies aviaires, prix de l’aliment.', conditions: 'Participation à partir de 5 000 000 FCFA.', photo: 'images/poussins-chair.jpg', status: 'publie',
   },
   {
     id: 'PRJ-02', name: 'Unité de décorticage d’anacarde (exemple)', filiere: 'Anacarde', region: 'Gbêkê', localisation: 'Bouaké',
     presentation: 'Transformation locale de noix brutes en amandes pour l’export.', superficie: '1 ha bâti', capacite: '1 500 t de noix brutes par an',
     budget: 300000000, recherche: 150000000, finance: 60000000, duree: 'Long terme (plus de 5 ans)', risque: 'Risque élevé',
-    objectifs: 'Valoriser l’anacarde sur place et créer 80 emplois.', besoins: 'Décortiqueuses, séchoirs, certification.', risques: 'Cours mondiaux, approvisionnement.', conditions: 'Investisseurs institutionnels ou consortium.', photo: '/images/noix-cajou.jpg', status: 'publie',
+    objectifs: 'Valoriser l’anacarde sur place et créer 80 emplois.', besoins: 'Décortiqueuses, séchoirs, certification.', risques: 'Cours mondiaux, approvisionnement.', conditions: 'Investisseurs institutionnels ou consortium.', photo: 'images/noix-cajou.jpg', status: 'publie',
   },
   {
     id: 'PRJ-03', name: 'Plantation de banane plantain irriguée (exemple)', filiere: 'Banane plantain', region: 'Sud-Comoé', localisation: 'Aboisso',

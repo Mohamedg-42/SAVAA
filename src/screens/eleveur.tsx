@@ -62,12 +62,12 @@ export function Dashboard() {
           ))}
           {demo && <div className="card list">
             <Link className="li" to="/animal/FK-0119/sante" style={{ alignItems: 'flex-start' }}>
-              <Photo w={44} h={44} radius={6} src="/images/brebis-djallonke.jpg" />
+              <Photo w={44} h={44} radius={6} src="images/brebis-djallonke.jpg" />
               <div className="col grow" style={{ gap: 2 }}><span className="b small ell">FK-0119, Brebis Djallonké</span><span className="xs muted">Boiterie antérieure gauche, signalée ce matin par A. Koné</span></div>
               <Badge tone="amber">Moyenne</Badge>
             </Link>
             <Link className="li" to="/cheptel" style={{ alignItems: 'flex-start' }}>
-              <Photo w={44} h={44} radius={6} src="/images/troupeau-ovins.jpg" />
+              <Photo w={44} h={44} radius={6} src="images/troupeau-ovins.jpg" />
               <div className="col grow" style={{ gap: 2 }}><span className="b small ell">Rappel vaccinal PPR, 9 ovins</span><span className="xs muted">Échéance le 22/11/2026</span></div>
               <Badge>4 j</Badge>
             </Link>
@@ -203,9 +203,9 @@ export function AddAnimal() {
   const save = () => {
     const label = { bovin: 'Bovin', ovin: 'Ovin', caprin: 'Caprin' }[species];
     const defaultPhoto: Record<Species, string> = {
-      bovin: '/images/vache-ndama.jpg',
-      ovin: '/images/brebis-djallonke.jpg',
-      caprin: '/images/chevre-djallonke.jpg',
+      bovin: 'images/vache-ndama.jpg',
+      ovin: 'images/brebis-djallonke.jpg',
+      caprin: 'images/chevre-djallonke.jpg',
     };
     s.addAnimal({
       id,

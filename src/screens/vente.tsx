@@ -210,17 +210,17 @@ export function Shop() {
               })}
               {demo && <>
                 <Link className="li" to="/annonce/FK-0142">{thumb}<div className="col grow"><span className="small b ell">Taurillon Zébu Goudali</span><span className="xs muted num">650 000 FCFA, 214 vues, 9 contacts</span></div><Badge tone="blue">Vendu</Badge></Link>
-                <Link className="li" to="/campagne/stats"><Photo w={52} h={52} radius={6} src="/images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 / tête, stock 6</span></div><Badge tone="sp">Sponsorisé</Badge></Link>
-                <div className="li"><Photo w={52} h={52} radius={6} src="/images/genisse-metisse.jpg" /><div className="col grow"><span className="small b ell">Génisse métisse, 19 mois</span><span className="xs muted num">480 000 FCFA, en modération</span></div><Badge tone="amber">En revue</Badge></div>
-                <Link className="li" to="/annonce/L-FUMIER"><Photo w={52} h={52} radius={6} src="/images/fumier-composte.jpg" /><div className="col grow"><span className="small b ell">Fumier composté, sac 40 kg</span><span className="xs muted num">2 000 FCFA, stock 0</span></div><Badge tone="red">Rupture</Badge></Link>
+                <Link className="li" to="/campagne/stats"><Photo w={52} h={52} radius={6} src="images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 / tête, stock 6</span></div><Badge tone="sp">Sponsorisé</Badge></Link>
+                <div className="li"><Photo w={52} h={52} radius={6} src="images/genisse-metisse.jpg" /><div className="col grow"><span className="small b ell">Génisse métisse, 19 mois</span><span className="xs muted num">480 000 FCFA, en modération</span></div><Badge tone="amber">En revue</Badge></div>
+                <Link className="li" to="/annonce/L-FUMIER"><Photo w={52} h={52} radius={6} src="images/fumier-composte.jpg" /><div className="col grow"><span className="small b ell">Fumier composté, sac 40 kg</span><span className="xs muted num">2 000 FCFA, stock 0</span></div><Badge tone="red">Rupture</Badge></Link>
               </>}
             </div>
           )}
           {tab === 'orders' && demo && (
             <div className="card list">
-              <Link className="li" to="/commande"><Photo w={48} h={48} radius={6} src="/images/taurillon-goudali.jpg" /><div className="col grow"><span className="small b">SAV-2026-11-004812</span><span className="xs muted">Fatou Ouattara, taurillon, 650 000 FCFA</span></div><Badge tone="blue">En livraison</Badge></Link>
-              <div className="li"><Photo w={48} h={48} radius={6} src="/images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b">SAV-2026-11-004655</span><span className="xs muted">Maquis Le Carrefour, 2 béliers</span></div><Badge tone="amber">À préparer</Badge></div>
-              <div className="li"><Photo w={48} h={48} radius={6} src="/images/taureau-reproducteur.jpg" /><div className="col grow"><span className="small b">SAV-2026-10-003910</span><span className="xs muted">Boucherie Fofana, 1 bœuf</span></div><Badge tone="green">Livrée</Badge></div>
+              <Link className="li" to="/commande"><Photo w={48} h={48} radius={6} src="images/taurillon-goudali.jpg" /><div className="col grow"><span className="small b">SAV-2026-11-004812</span><span className="xs muted">Fatou Ouattara, taurillon, 650 000 FCFA</span></div><Badge tone="blue">En livraison</Badge></Link>
+              <div className="li"><Photo w={48} h={48} radius={6} src="images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b">SAV-2026-11-004655</span><span className="xs muted">Maquis Le Carrefour, 2 béliers</span></div><Badge tone="amber">À préparer</Badge></div>
+              <div className="li"><Photo w={48} h={48} radius={6} src="images/taureau-reproducteur.jpg" /><div className="col grow"><span className="small b">SAV-2026-10-003910</span><span className="xs muted">Boucherie Fofana, 1 bœuf</span></div><Badge tone="green">Livrée</Badge></div>
             </div>
           )}
           {tab === 'reviews' && demo && (
@@ -876,7 +876,7 @@ export function Campaign() {
       <div className="body" style={{ gap: 20 }}>
         {demo ? (
           <div className="card row" style={{ padding: '10px 12px' }}>
-            <Photo w={48} h={48} radius={6} src="/images/beliers-saheliens.jpg" />
+            <Photo w={48} h={48} radius={6} src="images/beliers-saheliens.jpg" />
             <div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 FCFA / tête, en ligne</span></div>
             <Link className="link" to="/boutique" style={{ flex: 'none' }}>Changer</Link>
           </div>
@@ -944,7 +944,7 @@ export function Campaign() {
         <div className="sec" style={{ gap: 8 }}>
           <span className="lbl">Aperçu dans les résultats</span>
           <div className="hc" style={{ borderStyle: 'dashed' }}>
-            <Photo label="Photo" w={84} h={84} src={demo ? '/images/beliers-saheliens.jpg' : l?.photos?.[0]} />
+            <Photo label="Photo" w={84} h={84} src={demo ? 'images/beliers-saheliens.jpg' : l?.photos?.[0]} />
             <div className="col grow" style={{ gap: 3 }}>
               <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>
               <span className="b small ell">{demo ? 'Béliers Sahéliens, lot de 6' : l?.title}</span>
@@ -1070,14 +1070,14 @@ export function CampaignStats() {
 /* Écran 24 : espace restaurant */
 
 const OFFERS = [
-  { n: 'Avicole Bingerville', kg: 2350, d: 'Livraison lundi 6 h, chaîne du froid', v: 'Vérifié', verified: true, note: '4,8, 61 avis', photo: '/images/poussins-chair.jpg' },
-  { n: 'Ferme Yao, Azaguié', kg: 2200, d: 'Livraison lundi 7 h 30, camion frigorifique', v: 'Vérifié', verified: true, note: '4,5, 18 avis', photo: '/images/poussins-lot.jpg' },
-  { n: 'Volailles du Sud', kg: 1950, d: 'Retrait à Yopougon uniquement', v: 'Non vérifié', verified: false, note: 'Nouveau', photo: '/images/oeufs-plateaux.jpg' },
+  { n: 'Avicole Bingerville', kg: 2350, d: 'Livraison lundi 6 h, chaîne du froid', v: 'Vérifié', verified: true, note: '4,8, 61 avis', photo: 'images/poussins-chair.jpg' },
+  { n: 'Ferme Yao, Azaguié', kg: 2200, d: 'Livraison lundi 7 h 30, camion frigorifique', v: 'Vérifié', verified: true, note: '4,5, 18 avis', photo: 'images/poussins-lot.jpg' },
+  { n: 'Volailles du Sud', kg: 1950, d: 'Retrait à Yopougon uniquement', v: 'Non vérifié', verified: false, note: 'Nouveau', photo: 'images/oeufs-plateaux.jpg' },
 ];
 const WEEKLY_KG = 120;
 const RECURRING = [
-  ['Tomates fraîches, 60 kg', 'Chaque lundi et jeudi, Coop. maraîchère d’Anyama', 'jeu. 20', '/images/igname-kponan.jpg'],
-  ['Mouton entier, 2 têtes', 'Chaque vendredi, Bergerie Soro', 'ven. 21', '/images/beliers-saheliens.jpg'],
+  ['Tomates fraîches, 60 kg', 'Chaque lundi et jeudi, Coop. maraîchère d’Anyama', 'jeu. 20', 'images/igname-kponan.jpg'],
+  ['Mouton entier, 2 têtes', 'Chaque vendredi, Bergerie Soro', 'ven. 21', 'images/beliers-saheliens.jpg'],
 ];
 const INVOICES: [string, string, number, string, 'green' | 'amber'][] = [
   ['FAC-2026-1104', 'Coop. d’Anyama', 186000, 'Payée', 'green'],

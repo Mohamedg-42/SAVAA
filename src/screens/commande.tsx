@@ -123,14 +123,14 @@ export function Cart() {
 }
 
 const MOMO = [
-  ['Orange Money', '/images/payments/orange-money-real.svg', 'Validation par code secret'],
-  ['MTN MoMo', '/images/payments/mtn-momo-real.png', 'Validation par code secret'],
-  ['Moov Money', '/images/payments/moov-money-real.png', 'Validation par code secret'],
-  ['Wave', '/images/payments/wave.svg', 'Validation dans l’application'],
+  ['Orange Money', 'images/payments/orange-money-real.svg', 'Validation par code secret'],
+  ['MTN MoMo', 'images/payments/mtn-momo-real.png', 'Validation par code secret'],
+  ['Moov Money', 'images/payments/moov-money-real.png', 'Validation par code secret'],
+  ['Wave', 'images/payments/wave.svg', 'Validation dans l’application'],
 ];
 const OTHER = [
-  ['Carte bancaire', '/images/payments/mastercard-real.svg', 'Visa, Mastercard, authentification 3-D Secure'],
-  ['Virement bancaire', '/images/payments/virement.svg', 'Achats professionnels, 24 à 72 h'],
+  ['Carte bancaire', 'images/payments/mastercard-real.svg', 'Visa, Mastercard, authentification 3-D Secure'],
+  ['Virement bancaire', 'images/payments/virement.svg', 'Achats professionnels, 24 à 72 h'],
 ];
 const PAY_LOGO: Record<string, string> = Object.fromEntries([...MOMO, ...OTHER].map(([n, logo]) => [n, logo]));
 const isMomo = (method: string) => MOMO.some((m) => m[0] === method);
@@ -201,8 +201,8 @@ export function Payment() {
               <span className="eyebrow">Autres moyens</span>
               <div className="card list">
                 {OTHER.map(methodRow)}
-                <div className="li" style={{ opacity: 0.55 }}><img src="/images/payments/livraison.svg" alt="Paiement à la livraison" width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, flex: 'none' }} /><span className="col grow"><span className="small b">Paiement à la livraison</span><span className="xs muted">Indisponible pour les animaux vivants</span></span></div>
-                <div className="li" style={{ opacity: 0.55 }}><img src="/favicon.svg" alt="Solde SAVAA" width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, flex: 'none', background: '#E8F3EA', padding: 4 }} /><span className="col grow"><span className="small b">Solde SAVAA</span><span className="xs muted">Fonction future, soumise à agrément</span></span><Badge>Bientôt</Badge></div>
+                <div className="li" style={{ opacity: 0.55 }}><img src="images/payments/livraison.svg" alt="Paiement à la livraison" width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, flex: 'none' }} /><span className="col grow"><span className="small b">Paiement à la livraison</span><span className="xs muted">Indisponible pour les animaux vivants</span></span></div>
+                <div className="li" style={{ opacity: 0.55 }}><img src="favicon.svg" alt="Solde SAVAA" width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, flex: 'none', background: '#E8F3EA', padding: 4 }} /><span className="col grow"><span className="small b">Solde SAVAA</span><span className="xs muted">Fonction future, soumise à agrément</span></span><Badge>Bientôt</Badge></div>
               </div>
             </div>
             <p className="xs muted">Paiement opéré par un prestataire agréé. SAVAA ne conserve aucune donnée de carte.</p>
