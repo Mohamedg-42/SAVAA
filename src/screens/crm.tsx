@@ -635,7 +635,7 @@ export function BackOffice() {
               <div className="card pad stat"><span className="l">1re réponse support</span><span className="v">1 h 40</span><span className="xs muted">objectif 2 h</span></div>
             </div>
             <div className="adm-grid" style={gridStyle}>
-              <section className="card" style={{ minWidth: 0 }}>
+              <section className="card adm-wide" style={{ minWidth: 0 }}>
                 <div className="cardh"><h2>Annonces à modérer</h2><span className="small muted">{pending} en attente</span></div>
                 <div className="scroll">
                   <table className="tbl">

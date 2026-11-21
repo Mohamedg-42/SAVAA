@@ -385,3 +385,5 @@ select.input{appearance:none;-webkit-appearance:none;height:46px;line-height:1.3
 }
 /* Écran de démarrage : colonne étroite, comme une carte d'accueil */
 @media (min-width:640px){.app:has(.splash-after){--page:440px}}
+/* Back-office : la file de modération, tableau le plus large, prend deux colonnes quand il y en a trois */
+@media (min-width:1300px){.adm-grid > .adm-wide{grid-column:span 2}}
