@@ -280,3 +280,6 @@ select.input{appearance:none;-webkit-appearance:none;height:46px;line-height:1.3
 .adm-catalog-title{line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding:0 2px}
 .adm-catalog-item .xs{padding:0 2px}
 @media (max-width:600px){.adm-catalog{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+
+/* Sur téléphone, Safari (iPhone) zoome sur un champ dont le texte fait moins de 16 px : tous les champs passent à 16 px sur écran tactile. */
+@media (hover:none) and (pointer:coarse){.input,input.plain,input:not([type]),input[type=text],input[type=tel],input[type=search],input[type=email],input[type=number],textarea,select{font-size:16px}}

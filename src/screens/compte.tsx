@@ -5,6 +5,7 @@ import { readImage } from '../device';
 import { Logo, LogoInline } from '../logo';
 import { showToast } from '../toast';
 import { Avatar } from '../dash';
+import { DEMO_CODE, formatPhone, nameOk, phoneDigits, phoneError } from '../phone';
 import { ID_FIELD, PRO_SECTIONS, idPhotoRequired, missingProfile, needsProfile, sectionsFor } from '../profils';
 import { Badge, Check, Header, Icon, Photo, PhotoAdd, TabBar, type IconName } from '../ui';
 
@@ -70,91 +71,189 @@ function useNext() {
   return next && next.startsWith('/') && !next.startsWith('//') ? next : null;
 }
 
+/* Connexion en trois temps : le numéro, le code reçu par SMS (simulé), puis, pour un nouveau compte seulement,
+   le nom et la ville. Un numéro déjà utilisé sur cet appareil retrouve son compte tel qu'il était. */
 export function Login() {
   const s = useStore();
   const session = s.session();
   const navigate = useNavigate();
   const next = useNext();
-  const parts = session.name.trim().split(/\s+/);
-  const [lastName, setLastName] = useState(parts.length > 1 ? parts.slice(1).join(' ') : '');
-  const [firstName, setFirstName] = useState(parts[0] ?? '');
-  const [town, setTown] = useState(session.town ?? '');
-  const [phone, setPhone] = useState(session.phone);
+  const [step, setStep] = useState<'tel' | 'code' | 'profil'>('tel');
+  const [phone, setPhone] = useState('');
+  const [telTried, setTelTried] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeErr, setCodeErr] = useState<string | null>(null);
+  const [lastName, setLastName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [town, setTown] = useState('');
   const [cgu, setCgu] = useState(false);
   const [mkt, setMkt] = useState(false);
+  const [legal, setLegal] = useState(false);
+  const [tried, setTried] = useState(false);
+  /* Déjà connecté en arrivant sur la page : rien à refaire ici. Lu une seule fois, sinon la connexion
+     qu'on vient de faire renverrait vers l'accueil avant le choix du métier. */
+  const [already] = useState(session.loggedIn);
+  if (already) return <Navigate to={next ?? s.home()} replace />;
 
-  const phoneOk = phone.replace(/\D/g, '').length === 10;
-  const ready = cgu && phoneOk && lastName.trim() !== '' && firstName.trim() !== '' && town !== '';
+  const digits = phoneDigits(phone);
+  const telErr = phoneError(phone);
+  const known = digits.length === 10 ? s.knownAccount(digits) : null;
+  const afterLogin = () => navigate(s.session().roles.length ? next ?? s.home() : `/role${next ? `?next=${encodeURIComponent(next)}` : ''}`, { replace: true });
 
-  const validate = () => {
+  const sendCode = () => {
+    setTelTried(true);
+    if (telErr) return;
+    setCode('');
+    setCodeErr(null);
+    setStep('code');
+  };
+  const checkCode = () => {
+    if (code.length < 4) { setCodeErr('Le code a 4 chiffres.'); return; }
+    if (code !== DEMO_CODE) { setCodeErr('Code incorrect. Vérifiez le SMS reçu, ou demandez un nouveau code.'); return; }
+    if (known && s.resumeAccount(digits)) {
+      showToast(`Bon retour, ${known.split(/\s+/)[0]}.`);
+      afterLogin();
+      return;
+    }
+    setStep('profil');
+  };
+
+  const errors = {
+    last: !lastName.trim() ? 'Indiquez votre nom.' : !nameOk(lastName) ? 'Le nom doit contenir des lettres.' : null,
+    first: !firstName.trim() ? 'Indiquez votre prénom.' : !nameOk(firstName) ? 'Le prénom doit contenir des lettres.' : null,
+    town: !town ? 'Choisissez votre commune ou ville.' : null,
+    cgu: !cgu ? 'Acceptez les conditions pour créer votre compte.' : null,
+  };
+  const create = () => {
+    setTried(true);
+    if (Object.values(errors).some(Boolean)) return;
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-    s.login({ phone: phone.trim(), name: fullName, town, prefs: { ...session.prefs, mkt } });
+    s.login({ phone: formatPhone(digits), name: fullName, town, prefs: { ...session.prefs, mkt } });
     if (!s.shop().created) s.setShop({ town });
-    navigate(s.session().roles.length ? next ?? s.home() : `/role${next ? `?next=${encodeURIComponent(next)}` : ''}`, { replace: true });
+    afterLogin();
   };
   const demo = () => {
     s.loginDemo();
     navigate(next ?? s.home(), { replace: true });
   };
+  const fieldErr = (msg: string | null) => tried && msg ? <span className="xs" role="alert" style={{ color: '#A0221A' }}>{msg}</span> : null;
+
+  const header = (
+    <div className="hdr" style={{ background: '#fff', color: '#17201B' }}>
+      <button className="iconbtn" aria-label="Retour" onClick={() => (step === 'tel' ? navigate(-1) : setStep('tel'))}><Icon name="back" /></button>
+      <h1 />
+      <span style={{ paddingRight: 12 }}><LogoInline height={30} name={false} /></span>
+    </div>
+  );
+
+  if (step === 'code') {
+    return (
+      <div className="app" style={{ background: '#fff' }}>
+        {header}
+        <div className="body" style={{ background: '#fff', padding: '8px 20px 20px', gap: 18 }}>
+          <div className="col" style={{ gap: 6 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Entrez le code reçu par SMS</h2>
+            <p className="muted">Envoyé au <span className="b num" style={{ color: '#17201B' }}>+225 {formatPhone(digits)}</span>. <button className="link" style={{ background: 'none', border: 0, padding: 0, font: 'inherit', cursor: 'pointer' }} onClick={() => setStep('tel')}>Modifier le numéro</button></p>
+          </div>
+          <div className="field">
+            <label htmlFor="login-code">Code à 4 chiffres</label>
+            <input id="login-code" className="input num" inputMode="numeric" autoComplete="one-time-code" maxLength={4} placeholder="• • • •" value={code}
+              onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 4)); setCodeErr(null); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') checkCode(); }}
+              aria-invalid={!!codeErr} style={{ fontSize: 22, letterSpacing: 8, fontWeight: 600 }} />
+            {codeErr && <span className="xs" role="alert" style={{ color: '#A0221A' }}>{codeErr}</span>}
+          </div>
+          <div className="notice"><Icon name="info" size="sm" /><span>Démonstration : aucun SMS n’est envoyé, le code est <b>{DEMO_CODE}</b>.</span></div>
+          <button className="link small" style={{ background: 'none', border: 0, padding: 0, alignSelf: 'flex-start', cursor: 'pointer', font: 'inherit' }} onClick={() => { setCode(''); setCodeErr(null); showToast('Nouveau code envoyé.'); }}>Je n’ai pas reçu le code</button>
+        </div>
+        <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
+          <button className="btn btn-p btn-block" onClick={checkCode}>{known ? 'Me connecter' : 'Valider le code'}</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'profil') {
+    return (
+      <div className="app" style={{ background: '#fff' }}>
+        {header}
+        <div className="body" style={{ background: '#fff', padding: '8px 20px 20px', gap: 18 }}>
+          <div className="col" style={{ gap: 6 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Créez votre compte</h2>
+            <p className="muted">Numéro vérifié : <span className="num">+225 {formatPhone(digits)}</span>. Encore quelques informations.</p>
+          </div>
+          <div className="grid2">
+            <div className="field">
+              <label htmlFor="login-last">Nom</label>
+              <input id="login-last" className="input" autoComplete="family-name" placeholder="Ex. Traoré" value={lastName} onChange={(e) => setLastName(e.target.value)} aria-invalid={tried && !!errors.last} />
+              {fieldErr(errors.last)}
+            </div>
+            <div className="field">
+              <label htmlFor="login-first">Prénom</label>
+              <input id="login-first" className="input" autoComplete="given-name" placeholder="Ex. Awa" value={firstName} onChange={(e) => setFirstName(e.target.value)} aria-invalid={tried && !!errors.first} />
+              {fieldErr(errors.first)}
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="login-town">Commune ou ville</label>
+            <select id="login-town" className="input" value={town} onChange={(e) => setTown(e.target.value)} aria-invalid={tried && !!errors.town} style={{ color: town ? '#17201B' : '#5D6862' }}>
+              <option value="" disabled>Choisir votre commune ou ville…</option>
+              {CI_REGIONS.map((g) => (
+                <optgroup key={g.region} label={g.region}>
+                  {g.towns.map((t) => <option key={t} value={t}>{t}</option>)}
+                </optgroup>
+              ))}
+            </select>
+            {fieldErr(errors.town)}
+          </div>
+          <div className="col" style={{ gap: 14 }}>
+            <div className="col" style={{ gap: 6 }}>
+              <button className="row top" role="checkbox" aria-checked={cgu} onClick={() => setCgu(!cgu)} style={checkRowStyle}>
+                <Check on={cgu} />
+                <span className="small" style={{ lineHeight: 1.45 }}>J’accepte les conditions d’utilisation et la politique de confidentialité.</span>
+              </button>
+              <button className="link xs" style={{ background: 'none', border: 0, padding: '0 0 0 34px', alignSelf: 'flex-start', cursor: 'pointer', font: 'inherit' }} aria-expanded={legal} onClick={() => setLegal(!legal)}>{legal ? 'Masquer' : 'Lire les conditions'}</button>
+              {legal && <p className="xs muted" style={{ paddingLeft: 34, lineHeight: 1.5 }}>Version de démonstration : les conditions d’utilisation et la politique de confidentialité complètes seront publiées avant l’ouverture du service. Vos données ne servent qu’au fonctionnement de SAVAA et ne sont pas vendues.</p>}
+              {fieldErr(errors.cgu)}
+            </div>
+            <button className="row top" role="checkbox" aria-checked={mkt} onClick={() => setMkt(!mkt)} style={checkRowStyle}>
+              <Check on={mkt} />
+              <span className="small" style={{ lineHeight: 1.45 }}>Recevoir les offres et informations de SAVAA par SMS ou WhatsApp. Facultatif, modifiable à tout moment.</span>
+            </button>
+          </div>
+        </div>
+        <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
+          <button className="btn btn-p btn-block" onClick={create}>Créer mon compte</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app" style={{ background: '#fff' }}>
-      <WhiteHeader right={<span style={{ paddingRight: 12 }}><LogoInline height={30} name={false} /></span>} />
+      {header}
       <div className="body" style={{ background: '#fff', padding: '8px 20px 20px', gap: 18 }}>
         <div className="col" style={{ gap: 6 }}>
           <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Connexion ou inscription</h2>
           <p className="muted">Un seul compte pour acheter, vendre et suivre votre cheptel partout en Côte d’Ivoire.</p>
         </div>
-        <div className="grid2">
-          <div className="field">
-            <label htmlFor="login-last">Nom</label>
-            <input id="login-last" className="input" autoComplete="family-name" placeholder="Ex. Traoré" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="login-first">Prénom</label>
-            <input id="login-first" className="input" autoComplete="given-name" placeholder="Ex. Awa" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          </div>
-        </div>
-        <div className="field">
-          <label htmlFor="login-town">Commune ou ville</label>
-          <select
-            id="login-town"
-            className="input"
-            value={town}
-            onChange={(e) => setTown(e.target.value)}
-            style={{ color: town ? '#17201B' : '#5D6862' }}
-          >
-            <option value="" disabled>Choisir votre commune ou ville…</option>
-            {CI_REGIONS.map((g) => (
-              <optgroup key={g.region} label={g.region}>
-                {g.towns.map((t) => <option key={t} value={t}>{t}</option>)}
-              </optgroup>
-            ))}
-          </select>
-          <p className="hint">Disponible sur toute l’étendue de la Côte d’Ivoire (14 districts).</p>
-        </div>
         <div className="field">
           <label htmlFor="login-tel">Numéro de téléphone</label>
           <div className="row" style={{ gap: 8 }}>
-            <div className="input" style={{ width: 92, flex: 'none', justifyContent: 'center', fontWeight: 500 }}>+225</div>
-            <input id="login-tel" className="input num" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="07 00 00 00 00" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, '').slice(0, 14))} style={{ fontWeight: 500, minWidth: 0 }} />
+            <div className="input" style={{ width: 80, flex: 'none', justifyContent: 'center', fontWeight: 500 }}>+225</div>
+            <input id="login-tel" className="input num" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="07 00 00 00 00" value={phone}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
+              onKeyDown={(e) => { if (e.key === 'Enter') sendCode(); }}
+              aria-invalid={telTried && !!telErr} style={{ fontWeight: 500, minWidth: 0 }} />
           </div>
-          <p className="hint">Numéro à 10 chiffres en Côte d’Ivoire.</p>
-        </div>
-        <div className="col" style={{ gap: 14 }}>
-          <button className="row top" role="checkbox" aria-checked={cgu} onClick={() => setCgu(!cgu)} style={checkRowStyle}>
-            <Check on={cgu} />
-            <span className="small" style={{ lineHeight: 1.45 }}>J’accepte les <span className="link" style={{ fontSize: 'inherit' }}>conditions d’utilisation</span> et la <span className="link" style={{ fontSize: 'inherit' }}>politique de confidentialité</span>.</span>
-          </button>
-          <button className="row top" role="checkbox" aria-checked={mkt} onClick={() => setMkt(!mkt)} style={checkRowStyle}>
-            <Check on={mkt} />
-            <span className="small" style={{ lineHeight: 1.45 }}>Recevoir les offres et informations de SAVAA par SMS ou WhatsApp. Facultatif, modifiable à tout moment.</span>
-          </button>
+          {telTried && telErr
+            ? <span className="xs" role="alert" style={{ color: '#A0221A' }}>{telErr}</span>
+            : <p className="hint">{known ? `Compte trouvé sur cet appareil : ${known}.` : 'Nous vous envoyons un code par SMS pour vérifier ce numéro.'}</p>}
         </div>
       </div>
       <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
         <div className="col" style={{ gap: 8, width: '100%' }}>
-          <button className="btn btn-p btn-block" style={{ flex: 'none' }} disabled={!ready} onClick={validate}>Continuer</button>
+          <button className="btn btn-p btn-block" style={{ flex: 'none' }} onClick={sendCode}>Recevoir le code</button>
           <button className="btn btn-ghost btn-block small" style={{ flex: 'none', height: 40 }} onClick={demo}>Essayer le compte de démonstration</button>
         </div>
       </div>

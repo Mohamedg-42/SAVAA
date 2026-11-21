@@ -1246,17 +1246,63 @@ const UNLISTED: Record<Species, number> = { bovin: 12, ovin: 17, caprin: 3 };
 
 const findListing = (id: string) => state.listings.find((l) => l.id === id);
 
+/* Comptes déjà créés sur cet appareil, rangés par numéro (démo sans serveur) : la déconnexion
+   les met de côté, la connexion avec le même numéro les retrouve. */
+const ACCOUNTS_KEY = 'savaa-comptes-v1';
+type Accounts = Record<string, State>;
+function readAccounts(): Accounts {
+  try {
+    return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) ?? '{}') as Accounts;
+  } catch {
+    return {};
+  }
+}
+function writeAccounts(a: Accounts) {
+  try {
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a));
+  } catch {
+    /* stockage plein : on garde au moins le compte sans ses photos */
+    try {
+      const light: Accounts = {};
+      for (const [k, v] of Object.entries(a)) light[k] = { ...v, session: { ...v.session, photo: undefined, proPhotos: undefined } };
+      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(light));
+    } catch {
+      /* pas de stockage : le compte ne sera pas retrouvé */
+    }
+  }
+}
+
+/** Remet l'appareil sur la maquette, sans toucher aux comptes mis de côté. */
+function clearCurrent() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* rien à effacer */
+  }
+  state = initial();
+  version++;
+  listeners.forEach((l) => l());
+}
+
 export const store = {
-  /** Efface tout ce qui a été saisi et revient aux données de la maquette. */
+  /** Efface tout ce qui a été saisi, y compris les comptes créés sur l'appareil, et revient aux données de la maquette. */
   reset() {
     try {
-      localStorage.removeItem(KEY);
+      localStorage.removeItem(ACCOUNTS_KEY);
     } catch {
       /* rien à effacer */
     }
-    state = initial();
-    version++;
-    listeners.forEach((l) => l());
+    clearCurrent();
+  },
+  /** Prénom et nom du compte déjà créé sur cet appareil avec ce numéro (10 chiffres), sinon null. */
+  knownAccount: (digits: string): string | null => readAccounts()[digits]?.session.name ?? null,
+  /** Reprend le compte créé avec ce numéro : métier, profil, cheptel, boutique, commandes. */
+  resumeAccount(digits: string): boolean {
+    const saved = readAccounts()[digits];
+    if (!saved) return false;
+    state = { ...initial(), ...saved, session: { ...saved.session, loggedIn: true } };
+    commit({});
+    return true;
   },
 
   /* Cheptel et santé */
@@ -1290,9 +1336,14 @@ export const store = {
     state = { ...base, ...demo, animals: base.animals.map((a) => ({ ...a, mine: true })), events: base.events, listings: base.listings };
     commit({});
   },
-  /** Déconnexion : les données de ce compte sont effacées de l'appareil (démo sans serveur). */
+  /** Déconnexion : le compte est mis de côté sous son numéro, puis l'appareil revient à l'état visiteur.
+      Le compte de démonstration n'est pas gardé : il se recharge à neuf. */
   logout() {
-    store.reset();
+    const digits = state.session.phone.replace(/\D/g, '');
+    if (state.session.loggedIn && !state.session.demo && digits.length === 10) {
+      writeAccounts({ ...readAccounts(), [digits]: { ...state, session: { ...state.session, loggedIn: false } } });
+    }
+    clearCurrent();
   },
   /** Rôles : éleveur, producteur agricole, vendeur, fournisseur, restaurant, acheteur… */
   has: (role: string) => state.session.loggedIn && state.session.roles.includes(role),
