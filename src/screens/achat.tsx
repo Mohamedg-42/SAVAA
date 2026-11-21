@@ -147,6 +147,7 @@ function SponsoredBanner({ items }: { items: Listing[] }) {
           <Link
             key={l.id}
             to={`/annonce/${l.id}`}
+            className="hero-slide"
             style={{
               flex: '0 0 100%', scrollSnapAlign: 'start', height: 168, position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 14, color: '#fff',
               backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.05) 30%, rgba(0,0,0,.72)), url(${l.photos?.[0] ?? photoFor(l.photo, l.tint)})`, backgroundSize: 'cover', backgroundPosition: 'center',
@@ -189,7 +190,7 @@ export function Home() {
 
   return (
     <div className="app">
-      <header className="hdr" style={{ padding: '10px 8px 10px 16px' }}>
+      <header className="hdr hdr-home" style={{ padding: '10px 8px 10px 16px' }}>
         <div className="col grow" style={{ gap: 2 }}>
           <LogoInline tone="white" height={34} animated name={false} />
           <span className="row xs" style={{ gap: 4, color: '#CFE0D4' }}>
@@ -201,10 +202,10 @@ export function Home() {
         <Link className="iconbtn" to="/panier" aria-label={`Panier, ${cartCount} article${cartCount > 1 ? 's' : ''}`}><Icon name="cart" />{cartCount > 0 && <span className="dot">{cartCount}</span>}</Link>
       </header>
       <div className="body flush">
-        <div style={{ background: '#145C3A', padding: '4px 16px 16px' }}>
+        <div className="home-search" style={{ background: '#145C3A', padding: '4px 16px 16px' }}>
           <Link className="search" to="/explorer?q=" style={{ borderColor: '#fff' }}><Icon name="search" /><span>Animal, récolte, aliment, matériel…</span></Link>
         </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="home-main" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Vendeurs : tuiles d'accès rapide. Acheteurs et visiteurs : bannière des annonces sponsorisées. */}
           {s.canSell() ? (
             <div className="grid4">
@@ -233,7 +234,7 @@ export function Home() {
               <div className="card pad"><span className="small muted">Aucune annonce dans cette catégorie pour l’instant.</span></div>
             ) : (
               /* Même présentation que « Près de vous » : petites cartes qui défilent. */
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px' }}>
+              <div className="rail" style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px' }}>
                 {catalog.map((l) => (
                   <Link key={l.id} className="pc" to={`/annonce/${l.id}`} style={{ flex: 'none', width: 152 }}>
                     <div style={{ position: 'relative' }}>
@@ -273,7 +274,7 @@ export function Home() {
 
           <div className="sec">
             <SectionHead title="Près de vous" link="Tout voir" to="/explorer?q=" />
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px', scrollbarWidth: 'none' }}>
+            <div className="rail" style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px', scrollbarWidth: 'none' }}>
               {NEAR.map(([id, t, p, place, ph, b, tone, tint]) => (
                 <Link key={id} className="pc" to={`/annonce/${id}`} style={{ flex: 'none', width: 152 }}>
                   <Photo label={ph} tint={tint} h={112} />
@@ -290,7 +291,7 @@ export function Home() {
 
           <div className="sec">
             <SectionHead title="En images dans le Poro" link="Explorer" to="/explorer" />
-            <div className="grid3" style={{ gap: 8 }}>
+            <div className="grid3 mosaic" style={{ gap: 8 }}>
               {[
                 ['L-REPRO-GOUD', 'images/taureau-reproducteur.jpg', 'Reproducteurs'],
                 ['L-CHEVRES-SAH', 'images/chevres-saheliennes.jpg', 'Caprins'],
@@ -299,7 +300,7 @@ export function Home() {
                 ['L-TOURTEAU', 'images/tourteau-coton.jpg', 'Provende'],
                 ['L-VETO-SRV', 'images/visite-veterinaire.jpg', 'Suivi véto'],
               ].map(([id, img, lbl]) => (
-                <Link key={id} to={`/annonce/${id}`} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', height: 88, display: 'flex', alignItems: 'flex-end', padding: 6, backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.68)), url(${img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                <Link key={id} to={`/annonce/${id}`} className="mosaic-item" style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', height: 88, display: 'flex', alignItems: 'flex-end', padding: 6, backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.68)), url(${img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                   <span className="xs b ell" style={{ color: '#fff' }}>{lbl}</span>
                 </Link>
               ))}
@@ -454,10 +455,12 @@ function ListingDetailInner({ l }: { l: Listing }) {
     .slice(0, 4);
 
   return (
-    <div className="app">
+    <div className="app wide">
       <div className="body flush">
+        <div className="detail">
+        <div className="detail-media">
         <div
-          className="ph"
+          className="ph detail-photo"
           style={{
             height: 270,
             alignItems: 'stretch',
@@ -506,6 +509,7 @@ function ListingDetailInner({ l }: { l: Listing }) {
           <div
             role="region"
             aria-label="Galerie photos de l’annonce"
+            className="detail-thumbs"
             style={{
               background: '#fff',
               padding: '10px 16px',
@@ -538,8 +542,10 @@ function ListingDetailInner({ l }: { l: Listing }) {
             ))}
           </div>
         )}
+        </div>
 
-        <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid #E3E7E4' }}>
+        <div className="detail-info">
+        <div className="detail-head" style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid #E3E7E4' }}>
           <span className="xs muted">{l.category}, publiée le {l.date}</span>
           <h1 style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{full ? 'Taurillon Zébu Goudali, 26 mois' : l.title}</h1>
           <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
@@ -560,7 +566,7 @@ function ListingDetailInner({ l }: { l: Listing }) {
             <Badge>{l.stock ? `Stock ${l.stock}` : animals.length > 1 ? `${animals.length} animaux` : l.category.startsWith('Animaux') ? '1 animal' : '1 lot'}</Badge>
           </div>
         </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="detail-body" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="card pad">
             {full ? (
               <dl className="kv">
@@ -654,7 +660,7 @@ function ListingDetailInner({ l }: { l: Listing }) {
           {similar.length > 0 && (
             <div className="sec">
               <SectionHead title="Annonces similaires" link="Tout voir" to="/explorer" />
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px' }}>
+              <div className="rail" style={{ display: 'flex', gap: 10, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 2px' }}>
                 {similar.map((item) => (
                   <Link key={item.id} className="pc" to={`/annonce/${item.id}`} style={{ flex: 'none', width: 146 }}>
                     <Photo label={item.photo} tint={item.tint} src={item.photos?.[0]} h={96} />
@@ -670,6 +676,8 @@ function ListingDetailInner({ l }: { l: Listing }) {
           )}
 
           {!l.mine && <Link className="row small" to="/assistance?onglet=reclamation" style={{ color: '#A0221A', gap: 6 }}><Icon name="flag" size="sm" />Signaler cette annonce</Link>}
+        </div>
+        </div>
         </div>
       </div>
       <Foot>

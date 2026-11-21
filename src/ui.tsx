@@ -78,7 +78,10 @@ export function Header({ title, sub, back, close, actions }: { title: ReactNode;
 /**
  * Onglets selon les rôles : chaque métier dispose de son onglet dédié (5 onglets max).
  */
-export function TabBar() {
+export type NavTab = { to: string; label: string; icon: IconName };
+
+/** Onglets du compte : les mêmes pour la barre du bas (téléphone) et la barre du haut (ordinateur). Le dernier est Compte ou Connexion. */
+export function useNavTabs(maxExtra = 2): NavTab[] {
   const s = useStore();
   const logged = s.session().loggedIn;
   /* « Accueil » mène à l'espace du métier principal ; le visiteur et l'acheteur gardent l'accueil marchand. */
@@ -111,12 +114,16 @@ export function TabBar() {
   }
   const extra = middle.filter((t, i) => t.to !== home && middle.findIndex((x) => x.to === t.to) === i);
 
-  const tabs: { to: string; label: string; icon: IconName }[] = [
+  return [
     { to: home, label: 'Accueil', icon: 'home' },
     { to: '/explorer', label: 'Explorer', icon: 'search' },
-    ...extra.slice(0, 2),
+    ...extra.slice(0, maxExtra),
     logged ? { to: '/compte', label: 'Compte', icon: 'user' } : { to: '/connexion', label: 'Connexion', icon: 'user' },
   ];
+}
+
+export function TabBar() {
+  const tabs = useNavTabs();
   return (
     <nav className="tabbar">
       {tabs.map((t) => (

@@ -11,6 +11,7 @@ import { ProductSheet } from './screens/fiche';
 import { AgriSpace, CourierSpace, SupplierSpace, VetSpace } from './screens/metiers';
 import { AnimalSheet, HealthRecord, Observation } from './screens/sante';
 import { Campaign, CampaignStats, CreateShop, Publish, Restaurant, Shop } from './screens/vente';
+import { DesktopNav } from './nav';
 import { Toaster } from './ui';
 
 /*
@@ -20,6 +21,8 @@ import { Toaster } from './ui';
 export default function App() {
   return (
     <HashRouter>
+      {/* Ordinateur : barre de navigation commune à toutes les pages (masquée sur téléphone et tablette). */}
+      <DesktopNav />
       <Routes>
         <Route path="/" element={<Navigate to="/demarrage" replace />} />
 
