@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CI_REGIONS, fcfa, useStore, type Listing } from '../data';
+import { CI_REGIONS, fcfa, proPriceOf, useStore, type Listing } from '../data';
 import { LogoInline } from '../logo';
 import { photoFor } from '../photos';
 import { sheetOf, sheetStatus } from '../trace';
@@ -20,6 +20,7 @@ const hasSheet = (l: Listing) => !!l.animalIds?.length || (/fiche/i.test(l.trace
 /** Carte d'annonce en grille (Explorer, Favoris) : photo en haut avec compteur multi-photos, deux cartes par ligne. */
 function GridCard({ l }: { l: Listing }) {
   const count = l.photos?.length ?? 1;
+  const price = useStore().priceFor(l);
   return (
     <Link className="pc" to={`/annonce/${l.id}`} style={{ minWidth: 0 }}>
       <div style={{ position: 'relative' }}>
@@ -50,7 +51,7 @@ function GridCard({ l }: { l: Listing }) {
       <div className="in" style={{ gap: 3 }}>
         {l.sponsored && <Badge tone="sp" style={{ alignSelf: 'flex-start' }}>Sponsorisé</Badge>}
         <span className="small b" style={{ lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{l.title}</span>
-        <span className="price">{fcfa(l.price)} FCFA{l.unit && <span className="xs muted" style={{ fontWeight: 400 }}> {l.unit}</span>}</span>
+        <span className="price">{fcfa(price)} FCFA{l.unit && <span className="xs muted" style={{ fontWeight: 400 }}> {l.unit}</span>}{price < l.price && <span className="xs" style={{ fontWeight: 600, color: '#1F5FA8' }}> pro</span>}</span>
         <span className="xs muted ell">{l.place.split(',')[0]}, {l.sellerShort ?? l.seller}</span>
         <span className="wrap" style={{ gap: 4, marginTop: 2 }}>
           {l.sellerVerified ? <Badge tone="green">Vérifié</Badge> : <Badge>Non vérifié</Badge>}
@@ -181,9 +182,10 @@ export function Home() {
   const [cat, setCat] = useState<string | null>(null);
   const catQuery = cat ? CATEGORY_SEARCH[cat] ?? cat : '';
   const catalog = s.listings().filter((l) => l.status === 'online' && matches(l, catQuery));
-  const activeTown = s.session().town || (s.shop().created ? s.shop().town : '') || 'Korhogo';
+  /* Sans commune connue (visiteur), on ne suppose aucune ville : SAVAA couvre tout le pays. */
+  const activeTown = s.session().town || (s.shop().created ? s.shop().town : '');
   const activeRegion = CI_REGIONS.find((g) => g.towns.includes(activeTown))?.region.replace(/^District d[’']/, '').replace(/\s*\(.+\)/, '');
-  const locationLabel = !activeRegion || activeRegion === activeTown ? activeTown : `${activeTown}, ${activeRegion}`;
+  const locationLabel = !activeTown ? 'Toute la Côte d’Ivoire' : !activeRegion || activeRegion === activeTown ? activeTown : `${activeTown}, ${activeRegion}`;
 
   return (
     <div className="app">
@@ -541,10 +543,16 @@ function ListingDetailInner({ l }: { l: Listing }) {
           <span className="xs muted">{l.category}, publiée le {l.date}</span>
           <h1 style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{full ? 'Taurillon Zébu Goudali, 26 mois' : l.title}</h1>
           <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-            <span className="num" style={{ fontSize: 24, fontWeight: 700, color: '#145C3A' }}>{fcfa(l.price)} FCFA</span>
+            <span className="num" style={{ fontSize: 24, fontWeight: 700, color: '#145C3A' }}>{fcfa(s.priceFor(l))} FCFA</span>
             {l.unit && <span className="small muted">{l.unit}</span>}
+            {s.priceFor(l) < l.price && <><Badge tone="blue">Prix pro</Badge><span className="small muted" style={{ textDecoration: 'line-through' }}>{fcfa(l.price)} FCFA</span></>}
             {(full || l.negotiable) && <span className="small muted">négociable</span>}
           </div>
+          {proPriceOf(l) && s.priceFor(l) === l.price && (
+            <span className="xs muted">
+              {s.has('resto') ? <>Un prix pro existe : <Link className="link" to={`/profil-metier?next=${encodeURIComponent(`/annonce/${l.id}`)}`}>renseignez votre RCCM</Link> pour en bénéficier.</> : 'Prix pro disponible pour les restaurants et hôtels vérifiés.'}
+            </span>
+          )}
           <div className="wrap">
             {l.sponsored && <Badge tone="sp">Sponsorisé</Badge>}
             <Badge tone={statusTone}>{status}</Badge>

@@ -4,6 +4,7 @@ import { Catalog, CatalogOffline, Home, ListingDetail } from './screens/achat';
 import { Cart, Orders, Payment, Receipt, Support, Tracking } from './screens/commande';
 import { Login, Notifications, ProDetails, Profile, RolePicker, Splash } from './screens/compte';
 import { VendorHome } from './screens/tableaux';
+import { InvestDossier, InvestHome, InvestProposalDetail, InvestProposals } from './screens/investir';
 import { BackOffice, ProspectRedirect } from './screens/crm';
 import { AddAnimal, Dashboard, Herd } from './screens/eleveur';
 import { ProductSheet } from './screens/fiche';
@@ -66,6 +67,12 @@ export default function App() {
         <Route path="/missions" element={<Guard need="coursier"><CourierSpace /></Guard>} />
         <Route path="/recoltes" element={<Guard need="agri"><AgriSpace /></Guard>} />
         <Route path="/fournisseur" element={<Guard need="fourn"><SupplierSpace /></Guard>} />
+
+        {/* Espace investisseur (dossier particulier ou entreprise, suivi, propositions de projets) */}
+        <Route path="/investir" element={<Guard need="invest"><InvestHome /></Guard>} />
+        <Route path="/investir/dossier" element={<Guard need="invest"><InvestDossier /></Guard>} />
+        <Route path="/investir/propositions" element={<Guard need="invest"><InvestProposals /></Guard>} />
+        <Route path="/investir/propositions/:id" element={<Guard need="invest"><InvestProposalDetail /></Guard>} />
 
         {/* Lot 6, outils de l’équipe SAVAA : code d’accès d’équipe ; les anciennes adresses de prospection renvoient au back-office */}
         <Route path="/prospection" element={<ProspectRedirect />} />

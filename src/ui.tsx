@@ -83,7 +83,7 @@ export function TabBar() {
   const logged = s.session().loggedIn;
   /* « Accueil » mène à l'espace du métier principal ; le visiteur et l'acheteur gardent l'accueil marchand. */
   const home = s.home();
-  const hasSpecial = s.canSell() || s.has('resto') || s.has('veto') || s.has('coursier');
+  const hasSpecial = s.canSell() || s.has('resto') || s.has('veto') || s.has('coursier') || s.has('invest');
   const pureBuyer = logged && !hasSpecial;
   const middle: { to: string; label: string; icon: IconName }[] = [];
 
@@ -98,6 +98,11 @@ export function TabBar() {
     if (s.has('resto')) middle.push({ to: '/restaurant', label: 'Pro', icon: 'calendar' });
     if (s.has('veto')) middle.push({ to: '/veto', label: 'Véto', icon: 'pulse' });
     if (s.has('coursier')) middle.push({ to: '/missions', label: 'Missions', icon: 'truck' });
+    if (s.has('invest')) {
+      middle.push({ to: '/investir', label: 'Investir', icon: 'flag' });
+      middle.push({ to: '/investir/dossier', label: 'Dossier', icon: 'file' });
+      middle.push({ to: '/investir/propositions', label: 'Projets', icon: 'flag' });
+    }
     if (s.canSell() && s.shop().created) middle.push({ to: '/boutique', label: 'Boutique', icon: 'cart' });
     if (s.has('resto')) {
       middle.push({ to: '/commandes', label: 'Commandes', icon: 'truck' });

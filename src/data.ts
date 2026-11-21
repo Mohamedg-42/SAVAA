@@ -65,6 +65,8 @@ export type Listing = {
   title: string;
   details: string;
   price: number;
+  /** Prix professionnel, réservé aux restaurants et hôtels vérifiés (RCCM renseigné). Toujours inférieur au prix normal. */
+  proPrice?: number;
   /** « le lot », « la tête », « le sac »… affiché après le prix. */
   unit?: string;
   negotiable?: boolean;
@@ -1093,7 +1095,7 @@ function initial() {
 
   /* Un nouveau compte part de zéro : rien de personnel n'est pré-rempli. */
   const session: Session = { loggedIn: false, name: '', phone: '', roles: [], prefs: { push: true, mkt: false }, docs: [] };
-  const shop: Shop = { created: false, name: '', desc: '', town: 'Korhogo' };
+  const shop: Shop = { created: false, name: '', desc: '', town: '' };
 
   return {
     animals, events, listings, session, shop,
@@ -1296,6 +1298,13 @@ export const store = {
   has: (role: string) => state.session.loggedIn && state.session.roles.includes(role),
   isBreeder: () => store.has('eleveur'),
   canSell: () => ['eleveur', 'agri', 'vendeur', 'fourn'].some((r) => store.has(r)),
+  /** Restaurant ou hôtel vérifié : il a renseigné son RCCM (contrôlé par l'équipe en production). Il voit les prix pro. */
+  isVerifiedPro: () => store.has('resto') && !!state.session.pro?.['resto.rccm']?.trim(),
+  /** Prix appliqué à ce compte : le prix pro pour un professionnel vérifié, sinon le prix normal. */
+  priceFor: (l: Listing): number => {
+    const pro = proPriceOf(l);
+    return store.isVerifiedPro() && pro && pro < l.price ? pro : l.price;
+  },
   /** Accueil du compte : l'espace de son métier principal. Seuls le visiteur et l'acheteur ont l'accueil marchand. */
   home: (): string =>
     store.has('eleveur') ? '/suivi'
@@ -1305,6 +1314,7 @@ export const store = {
             : store.has('resto') ? '/restaurant'
               : store.has('veto') ? '/veto'
                 : store.has('coursier') ? '/missions'
+                  : store.has('invest') ? '/investir'
                   : '/accueil',
   setSession(patch: Partial<Session>) {
     commit({ session: { ...state.session, ...patch } });
@@ -1367,7 +1377,7 @@ export const store = {
   cartLines() {
     return state.cart.items.flatMap((it) => {
       const l = findListing(it.listingId);
-      return l ? [{ listing: l, qty: it.qty, amount: l.price * it.qty }] : [];
+      return l ? [{ listing: l, qty: it.qty, amount: store.priceFor(l) * it.qty }] : [];
     });
   },
   addToCart(listingId: string, qty = 1) {
@@ -1429,7 +1439,7 @@ export const store = {
       shipping: t.shipping,
       total: t.total,
       code: String(Math.floor(Math.random() * 9000) + 1000),
-      lines: store.cartLines().map(({ listing, qty }) => ({ listingId: listing.id, title: listing.title, seller: listing.seller, qty, price: listing.price })),
+      lines: store.cartLines().map(({ listing, qty }) => ({ listingId: listing.id, title: listing.title, seller: listing.seller, qty, price: store.priceFor(listing) })),
     };
     /* Le stock baisse ; un animal ou un lot vendu passe en « vendu ». */
     const listings = state.listings.map((l) => {
@@ -1448,6 +1458,11 @@ export const store = {
 export const fcfa = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 /** Prix d'une annonce : « 117 500 FCFA la tête ». */
+/* Prix pro des annonces de démonstration (œufs, igname, maïs), lus à part pour ne pas changer les données gardées. */
+const DEMO_PRO: Record<string, number> = { 'L-OEUFS': 2400, IGNAME: 390, 'L-MAIS': 17000 };
+/** Prix pro d'une annonce, s'il existe. */
+export const proPriceOf = (l: Listing): number | undefined => l.proPrice ?? DEMO_PRO[l.id];
+
 export const priceLabel = (l: Listing) => `${fcfa(l.price)} FCFA${l.unit ? ` ${l.unit}` : ''}`;
 
 /** Re-rend le composant quand les données de démo changent. */

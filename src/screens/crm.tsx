@@ -5,6 +5,7 @@ import { downloadCSV } from '../device';
 import { LogoInline } from '../logo';
 import { showToast } from '../toast';
 import { Badge, Check, Icon } from '../ui';
+import { AdminInvestors, AdminProjects } from './admin-invest';
 
 /* Données de démo (prospection)                                       */
 
@@ -355,7 +356,7 @@ export function ProspectRedirect() {
 
 /* Écran 25 : back-office (page large) */
 
-type Sec = 'dash' | 'users' | 'camp' | 'stats' | 'prospects';
+type Sec = 'dash' | 'users' | 'camp' | 'stats' | 'prospects' | 'invest' | 'projects';
 type Res = 'ok' | 'ko';
 
 const NAV: { id: Sec; t: string; c: number | string }[] = [
@@ -363,6 +364,8 @@ const NAV: { id: Sec; t: string; c: number | string }[] = [
   { id: 'users', t: 'Utilisateurs', c: '1 284' },
   { id: 'camp', t: 'Campagnes', c: 3 },
   { id: 'prospects', t: 'Prospection', c: 48 },
+  { id: 'invest', t: 'Investisseurs', c: 0 },
+  { id: 'projects', t: 'Projets agricoles', c: 0 },
   { id: 'stats', t: 'Statistiques', c: 0 },
 ];
 
@@ -615,10 +618,12 @@ export function BackOffice() {
 
       <main className="adm-main">
         {sec === 'prospects' && <AdminProspects view={pview} onView={setPview} />}
+        {sec === 'invest' && <AdminInvestors />}
+        {sec === 'projects' && <AdminProjects />}
         {sec === 'dash' && (
           <>
             <div className="adm-top">
-              <div style={colStyle}><h1>Tableau de bord</h1><span className="small muted">Mardi 18 novembre 2026, zone pilote Poro et Tchologo</span></div>
+              <div style={colStyle}><h1>Tableau de bord</h1><span className="small muted">Mardi 18 novembre 2026, toute la Côte d’Ivoire</span></div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><span className="badge bd-grey" style={{ alignSelf: 'center' }}>Période : 7 derniers jours</span><button className="btn btn-p btn-sm" onClick={exportDash}>Exporter</button></div>
             </div>
             <div className="adm-kpis">

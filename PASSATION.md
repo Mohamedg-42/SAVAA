@@ -1,6 +1,6 @@
 # Passation du front SAVAA
 
-Mise à jour du 20/11/2026.
+Mise à jour du 21/11/2026.
 
 C'est le front de démonstration de SAVAA, fait à partir de la maquette v2. Il n'y a pas de backend : les données partent de la maquette et tout ce qu'on saisit est gardé dans le navigateur (localStorage). « Remettre la démo à zéro », en bas de l'écran Compte, revient aux données de départ.
 
@@ -11,6 +11,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # vérifie aussi les types
 npm run lint
+npm test         # tests Vitest (src/*.test.ts)
 ```
 
 ## Où trouver quoi
@@ -47,7 +48,8 @@ Les écrans sont rangés par thème dans `src/screens/` :
 - `compte.tsx` : démarrage, connexion par code, choix du rôle, profil, notifications
 - `vente.tsx` : boutique (création et vue vendeur), publication d'annonce avec sa fiche de traçabilité (4 étapes, puis un aperçu), campagne et ses statistiques, espace restaurant
 - `metiers.tsx` : espaces des autres métiers, vétérinaire (`/veto`), transporteur (`/missions`), producteur agricole (`/recoltes`) et fournisseur (`/fournisseur`)
-- `crm.tsx` : back-office (`/admin`) avec ses rubriques tableau de bord, utilisateurs, campagnes, statistiques et prospection (liste, fiche, journal, ajout) ; menu burger sur téléphone
+- `crm.tsx` : back-office (`/admin`) avec ses rubriques tableau de bord, utilisateurs, campagnes, statistiques, prospection, et les rubriques Investisseurs et Projets agricoles (`admin-invest.tsx`, logique dans `invest-admin.ts`) ; menu burger sur téléphone
+- `investir.tsx` : espace investisseur (tableau de bord, dossier en étapes, propositions)
 
 ## Où on en est
 
@@ -60,6 +62,27 @@ La traçabilité suit le cahier des charges des fiches d'identité.
 - **Fiche produit :** elle s'ouvre depuis l'annonce ou par son QR code, sans compte. Elle contient les sections Produit, Vendeur, Origine, Prix et vente, et une frise de traçabilité avec un niveau de preuve par événement.
 - **Fiche animale :** elle affiche le statut (disponible, réservé, vendu, en élevage, indisponible), la vocation, la pesée, l'origine complète, l'historique de traçabilité et un QR code.
 - **Annonces de démonstration :** le taurillon FK-0142, l'igname Kponan et le maïs de Dikodougou ont une fiche. Elle reprend uniquement ce que la maquette dit déjà d'eux.
+
+L'**espace investisseur** est en place.
+- **L'investisseur** (rôle « Investisseur ») constitue un dossier en étapes, particulier ou entreprise (`invest.ts`, `investir.tsx`). Il le suit sur une frise, puis consulte les projets qu'on lui propose sous forme de catalogue ; chaque projet a sa page de détail.
+- **Le back-office** a deux rubriques, Investisseurs et Projets agricoles (`admin-invest.tsx`, `invest-admin.ts`) :
+  - analyse du dossier, avec le contrôle des pièces ;
+  - décisions avec historique et notes internes ;
+  - rapprochement noté sur 100, qui aide à choisir sans décider ;
+  - envoi des propositions ;
+  - catalogue de projets avec photo.
+
+Sans serveur, l'administration ne voit que le dossier soumis sur le même appareil, plus des exemples fictifs.
+
+À l'inscription, le choix de l'activité se fait en deux temps.
+- **L'intention** d'abord, avec 4 cartes : Acheter, Vendre, Proposer un service, Investir.
+- **Le métier** ensuite, dans le groupe choisi. Deux métiers au maximum ; un fournisseur se choisit seul.
+
+Les documents à préparer sont annoncés dès qu'un métier est coché.
+
+Les restaurants et hôtels vérifiés (RCCM renseigné) voient le **prix pro** fixé par le vendeur (`proPrice`, `store.priceFor`), appliqué au panier.
+
+Chaque métier a son accueil et sa **carte du jour** (`dash.tsx`). L'inscription demande un **profil métier** selon le rôle (`profils.ts`).
 
 Aucun bouton n'affiche plus seulement un message. Le contact du transporteur passe par la messagerie de l'assistance (pas de numéro réel), et le back-office indique sa période (« 7 derniers jours », « depuis l'ouverture ») au lieu de proposer d'autres périodes : les données n'en couvrent qu'une, on n'invente pas d'autres chiffres.
 
@@ -86,6 +109,7 @@ Les accès sont gérés dans `src/guard.tsx`. La barre du bas montre au plus 5 o
 | Restaurant | Espace Pro (`/restaurant`) | Explorer, Commandes, Favoris | Demandes de devis, achats en volume |
 | Vétérinaire | Véto (`/veto`) | Explorer | Alertes et validations sanitaires, visites |
 | Transporteur | Missions (`/missions`) | Explorer | Missions de livraison |
+| Investisseur | Espace investisseur (`/investir`) | Explorer, Dossier, Projets | Dossier d’investissement particulier ou entreprise (`invest.ts`), suivi, propositions de projets |
 
 L’onglet Boutique n’apparaît qu’une fois la boutique créée. Pour un compte à plusieurs métiers, l’accueil suit l’ordre éleveur, producteur, fournisseur, vendeur, restaurant, vétérinaire, transporteur, et les espaces des autres métiers prennent les places libres de la barre.
 
@@ -97,27 +121,34 @@ Se déconnecter efface les données du compte sur l'appareil, puisqu'il n'y a pa
 
 ## Ce qu'il reste
 
-- Ajouter des tests. Il n'y en a aucun pour l'instant ; Vitest serait le plus simple avec Vite.
-- Comparer la mise en page à la maquette sur des captures. Les textes ont été vérifiés écran par écran, l'affichage seulement par endroits.
-- Alléger le premier chargement : le build signale un fichier JavaScript de plus de 500 Ko ; on peut charger les écrans à la demande.
-- Remplacer les photos de démonstration par les vraies images.
-- Brancher une vraie API à la place de `data.ts` : connexion par SMS, paiement, modération et accès de l'équipe contrôlés par le serveur.
+À faire dans le front :
 
-Décisions et corrections en attente, vues lors de la revue des comptes du 20/11/2026 :
+- **Tests des écrans :** `npm test` (Vitest, 47 tests) couvre seulement la logique (`trace`, `profils`, `invest`, `invest-admin`).
+- **Comparaison visuelle :** comparer la mise en page à la maquette sur des captures.
+- **Premier chargement :** le fichier JavaScript dépasse 500 Ko ; on peut charger les écrans à la demande.
+- **Photos :** remplacer les photos de démonstration par les vraies, y compris celles des projets agricoles d'exemple.
+- **Statut « archivée » des annonces :** il manque l'action pour archiver une annonce depuis la boutique.
+- **Graphiques du back-office investisseurs,** filtrables par période.
 
-- **Korhogo par défaut :** Korhogo apparaît encore alors que l'appli est nationale, à trois endroits : l'accueil sans compte (« Korhogo, Savanes »), le back-office (« zone pilote Poro et Tchologo ») et l'exemple du champ de livraison du restaurant.
-- **Écrans métiers :** l'espace vétérinaire, transporteur, producteur et fournisseur utilisent le même gabarit. Il faudrait un premier écran propre à chaque métier, par exemple la mission en cours pour le transporteur ou l'alerte la plus urgente pour le vétérinaire.
-- **Combinaisons de rôles :** les règles sont proposées mais pas codées.
-  - Éleveur, producteur et vendeur vont ensemble.
-  - Fournisseur et restaurant se choisissent seuls.
-  - Le vétérinaire peut être éleveur, mais ne valide pas ses propres animaux.
-  - Le transporteur ne prend pas de mission sur ses propres ventes.
-  - Deux métiers au maximum.
-- **Fiches des autres annonces de démonstration :** il faut leurs vraies informations (origine, dates) avant de leur créer une fiche.
-- **Statut « archivée » :** il n'existe pas encore d'action pour archiver une annonce.
-- **Cahier des charges de traçabilité :** il s'arrête à la section 2.2.
-  - Les sections 2.3 à 2.7 (santé, alimentation, reproduction, mouvements, historique commercial) s'appuient sur les onglets existants de la fiche animale.
-  - Les parties III à VIII ont seulement leurs champs principaux dans `trace.ts`. Les références réglementaires (agréments, certification des semences) restent à confirmer avec le texte officiel.
+À décider :
+
+- **Combinaisons de rôles :** deux métiers au maximum et le fournisseur seul sont codés à l'inscription. Il reste à coder deux règles : le transporteur ne livre pas ses propres ventes, et le contrôle des combinaisons entre groupes quand on ajoute un rôle depuis le compte. (Le vétérinaire qui ne voit pas ses propres animaux est déjà codé.)
+- **Prix pro :** en production, le RCCM doit être contrôlé par l'équipe avant d'ouvrir les prix pro.
+- **Plan financier :** à refaire à partir de `SAVAA_Devis_Revise_Synthese.pdf` (Téléchargements), en ajoutant un devis terrain, les revenus, le résultat et le besoin de financement, avec peu de commentaires.
+- **Documents demandés à l'inscription et au dossier investisseur** (RCCM, compte contribuable, inscription à l'Ordre, origine des fonds) : à valider par l'équipe ou un juriste.
+- **Fiches de traçabilité des autres annonces de démonstration :** il faut leurs vraies informations.
+- **Cahier des charges de traçabilité :** il s'arrête à la section 2.2. Les parties III à VIII n'ont que leurs champs principaux.
+
+Pour la production :
+
+- **API :** brancher une vraie API à la place de `data.ts`. Elle doit couvrir la connexion par SMS, le paiement Mobile Money, la modération, le contrôle des justificatifs, l'accès de l'équipe, les dossiers investisseurs, l'envoi d'e-mails et le journal d'audit.
+- **Stockage des fichiers :** photos et justificatifs sur un serveur sécurisé ; le navigateur est limité à quelques Mo.
+- **Cadre légal :**
+  - déclaration à l'ARTCI (loi 2013-450 sur les données personnelles) ;
+  - lutte contre le blanchiment, pour l'espace investisseur ;
+  - avis d'un juriste sur l'intermédiation financière.
+
+En pause : le plan financier (`Plan_Financier_SAVAA_v2.pdf`, hors dépôt).
 
 ## À respecter
 
@@ -125,6 +156,7 @@ Sur le contenu :
 
 - On n'invente pas de contact. Un numéro ou des horaires qu'on n'a pas restent `[à confirmer]`.
 - Le paiement, MIRAH et les capteurs sont simulés, et l'appli ne doit pas laisser croire le contraire.
+- L'espace investisseur n'est jamais une offre d'investissement. Une proposition n'engage aucun versement. Les montants et prévisions d'un projet sont ceux de son porteur. On ne demande jamais de mot de passe bancaire, de numéro de carte ni de code Mobile Money.
 - Une annonce payée affiche toujours « Sponsorisé ».
 - Une alerte sanitaire n'est jamais présentée comme un diagnostic.
 - Pas de « · » comme séparateur dans les textes, on met une virgule.

@@ -23,9 +23,11 @@ export function Avatar({ size = 44, name }: { size?: number; name: string }) {
 
 /** En-tête vert d'un espace métier : photo, métier, nom, et une action à droite. */
 export function DashHeader({ label, name, action }: { label: string; name: string; action?: ReactNode }) {
+  /* Les initiales sont celles de la personne connectée, pas du titre affiché (« Bonjour, … », nom de boutique). */
+  const person = useStore().session().name || name;
   return (
     <header className="hdr" style={{ paddingLeft: 16, gap: 12, minHeight: 72 }}>
-      <Link to="/compte" aria-label="Mon compte" style={{ flex: 'none', display: 'flex' }}><Avatar name={name} /></Link>
+      <Link to="/compte" aria-label="Mon compte" style={{ flex: 'none', display: 'flex' }}><Avatar name={person} /></Link>
       <div className="col grow" style={{ gap: 1, minWidth: 0 }}>
         <span className="xs" style={{ color: '#CFE0D4' }}>{label}</span>
         <span className="b ell" style={{ fontSize: 17 }}>{name}</span>
@@ -75,6 +77,24 @@ export function QuickActions({ items }: { items: QuickAction[] }) {
       ) : (
         <button key={a.label} className="tile" onClick={a.onClick} style={{ font: 'inherit', cursor: 'pointer' }}><Icon name={a.icon} size="lg" />{a.label}</button>
       ))}
+    </div>
+  );
+}
+
+/** Photo d'un projet agricole, ou un aplat avec sa filière quand il n'en a pas (jamais une photo d'un autre produit). */
+export function ProjectPhoto({ src, filiere, height = 140, radius = 10, children }: { src?: string; filiere: string; height?: number; radius?: number; children?: ReactNode }) {
+  return (
+    <div
+      style={{
+        position: 'relative', height, borderRadius: radius, overflow: 'hidden', flex: 'none',
+        background: src ? `#E8F3EA url(${src}) center / cover no-repeat` : '#E8F3EA',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      role={src ? 'img' : undefined}
+      aria-label={src ? `Photo du projet, ${filiere}` : undefined}
+    >
+      {!src && <span className="col" style={{ alignItems: 'center', gap: 6, color: '#145C3A' }}><Icon name="flag" size="lg" /><span className="small b">{filiere || 'Projet agricole'}</span></span>}
+      {children && <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 6 }}>{children}</div>}
     </div>
   );
 }

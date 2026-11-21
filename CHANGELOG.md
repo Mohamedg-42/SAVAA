@@ -206,3 +206,93 @@ Une 9e catégorie de traçabilité, hors des 8 du cahier des charges, est ajout�
 
 - **Sous-catégories :** engrais minéraux, engrais organiques et compost, herbicides, insecticides, fongicides.
 - **Champs :** fabricant ou marque, composition ou matière active, numéro d'homologation, numéro de lot, date de péremption.
+
+## Espace investisseur, côté investisseur
+
+**Ajouté**
+
+- **`src/invest.ts` :**
+  - le dossier, particulier ou entreprise, avec ses étapes, ses champs conditionnels et ses justificatifs ;
+  - les 33 régions de Côte d'Ivoire (31 régions et 2 districts autonomes), les filières, les tranches de budget, les objectifs et les modes de participation ;
+  - les contrôles : champs obligatoires, format de l'e-mail et du téléphone, montant minimum inférieur au maximum, documents ;
+  - le calcul de la complétude, la référence `INV-<année>-XXXXXX` et les 8 statuts du dossier.
+- **`src/screens/investir.tsx` :**
+  - **`/investir`**, le tableau de bord : « Bonjour », carte du jour, statut, complétude, référence, date de soumission, frise du suivi du dossier et liens vers les rubriques ;
+  - **`/investir/dossier`** :
+    - choix du statut (particulier ou entreprise), puis formulaire en étapes avec barre de progression ;
+    - sauvegarde automatique à chaque réponse, boutons Précédent et Suivant, erreurs sous chaque champ ;
+    - récapitulatif avec « Modifier » par étape, puis deux consentements : conditions d'utilisation, et traitement des données selon la loi 2013-450 ;
+    - à la soumission : une référence et une notification. Le dossier est ensuite verrouillé pendant l'examen, sauf si des compléments sont demandés.
+  - **`/investir/propositions`** : les propositions de projets. Elles sont vides tant que l'administration n'en a pas envoyé.
+- **Rôle « Investisseur »** au choix du rôle, marqué « Vérification ». Il a son propre accueil (`/investir`) et ses onglets : Accueil, Explorer, Dossier, Projets, Compte.
+- **`src/invest.test.ts`** : 11 tests.
+
+**À venir**
+
+Le côté administration, dans le back-office : liste des investisseurs, analyse des dossiers, changements de statut avec historique, catalogue de projets, rapprochement et envoi de propositions.
+
+## Espace investisseur, côté administration
+
+**Ajouté**
+
+- **`src/invest-admin.ts` :**
+  - dossiers d'exemple (fictifs) et catalogue de projets agricoles d'exemple ;
+  - statuts des projets et des propositions ;
+  - **rapprochement** `matchProject` : une note sur 100, avec les raisons et les points d'attention. Il tient compte du budget, des filières, des régions, de la durée, du risque, du mode de participation et de l'expérience. C'est une aide à la sélection : la décision reste à l'équipe.
+- **`src/screens/admin-invest.tsx`**, deux nouvelles rubriques du back-office :
+  - **Investisseurs :**
+    - chiffres clés : investisseurs, particuliers, entreprises, dossiers par statut, propositions envoyées et acceptées, budgets déclarés ;
+    - liste avec recherche, filtres (type, statut), tri, pagination et export CSV ;
+    - fiche d'un dossier : contrôle des informations et pièces obligatoires, toutes les réponses, justificatifs à voir et télécharger ;
+    - décisions : passer en analyse, accuser réception, demander des compléments ou refuser (motif obligatoire), valider, archiver. Chacune est enregistrée dans l'historique avec la date et l'auteur, et l'investisseur est prévenu ;
+    - notes internes, jamais visibles par l'investisseur ;
+    - projets correspondants classés, puis envoi d'une ou plusieurs propositions avec message, conditions et date limite.
+  - **Projets agricoles :** créer, modifier, publier, dépublier et archiver un projet, avec contrôle des champs.
+- **Propositions côté investisseur** (`/investir/propositions`) :
+  - détail du projet et message de l'équipe ;
+  - réponses : je suis intéressé, demander un rendez-vous, poursuivre les discussions, poser une question, décliner. Rien de tout cela n'engage à un versement.
+- **Tableau de bord investisseur :** il affiche le cas « dossier refusé » avec son motif.
+- **`src/invest-admin.test.ts`** : 6 tests.
+
+**Limites**
+
+- **Pas de serveur :** l'administration voit seulement le dossier soumis sur le même appareil, plus les exemples. En production, il faudra une API pour les dossiers, les fichiers, les rôles et le journal d'audit.
+- **Graphiques filtrables par période :** non faits. Les chiffres clés sont calculés en direct.
+
+## Projets en cartes avec photo, et mise en page du back-office
+
+- **Projets agricoles :**
+  - ils s'affichent en **cartes avec photo**, dans le back-office et dans les propositions de l'investisseur, sans barre de financement ;
+  - chaque carte montre le statut, la filière, la région, les montants recherché et restant, et la durée ;
+  - le formulaire du projet permet d'ajouter une photo ;
+  - un projet sans photo affiche un aplat avec sa filière, jamais la photo d'un autre produit (composant `ProjectPhoto`, `dash.tsx`).
+- **Back-office :**
+  - barre de filtres alignée, avec les mêmes hauteurs partout ;
+  - 6 chiffres clés au lieu de 11 ;
+  - contact sur deux lignes ;
+  - boutons d'action dans le même ordre et à la même largeur.
+- **Investisseur :**
+  - boutons de réponse rangés : action principale, puis deux actions secondaires, puis un lien pour décliner ;
+  - contrôle de la pièce d'identité (non expirée) et de l'âge (18 ans au moins).
+- **Projets en catalogue :**
+  - les projets s'affichent sous forme de catalogue, en cartes courtes : photo, statut, nom, filière et région ;
+  - un clic ouvre la fiche complète : présentation, montants, durée, risque, objectifs, besoins, risques et conditions, avec les actions ;
+  - côté investisseur, la fiche a sa page `/investir/propositions/:id` avec les réponses possibles ;
+  - côté back-office, la fiche propose Publier, Modifier et Archiver.
+
+## Inscription par intention, prix pro, formulaire investisseur compact
+
+- **Choix de l'activité à l'inscription :**
+  - 4 cartes d'intention (Acheter, Vendre, Proposer un service, Investir), puis le métier dans le groupe ;
+  - deux métiers au maximum, et un fournisseur se choisit seul, avec la raison affichée ;
+  - les documents à préparer sont annoncés dès le choix du métier.
+- **Prix pro :**
+  - le vendeur le fixe à la publication, inférieur au prix normal ;
+  - il est visible par les restaurants et hôtels dont le RCCM est renseigné, et appliqué au panier et à la commande ;
+  - les autres comptes voient seulement qu'il existe.
+- **Dossier investisseur :**
+  - champs courts deux par deux ;
+  - photo de la pièce à la place de son numéro ;
+  - sexe obligatoire ;
+  - date d'expiration facultative ;
+  - motivations, filières et régions en listes déroulantes à cases à cocher.

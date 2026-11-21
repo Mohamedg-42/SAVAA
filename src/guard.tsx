@@ -5,7 +5,7 @@ import { Header, Icon } from './ui';
 
 /* Accès selon la connexion et les rôles choisis à l'inscription. */
 
-type Need = 'login' | 'breeder' | 'seller' | 'resto' | 'veto' | 'coursier' | 'agri' | 'fourn';
+type Need = 'login' | 'breeder' | 'seller' | 'resto' | 'veto' | 'coursier' | 'agri' | 'fourn' | 'invest';
 
 const LABEL: Record<Exclude<Need, 'login'>, [string, string]> = {
   breeder: ['Réservé aux éleveurs', 'Le suivi du cheptel et des soins est ouvert aux comptes « Éleveur ».'],
@@ -15,6 +15,7 @@ const LABEL: Record<Exclude<Need, 'login'>, [string, string]> = {
   coursier: ['Réservé aux transporteurs', 'Les missions de livraison sont ouvertes aux comptes « Coursier / transporteur ».'],
   agri: ['Réservé aux producteurs', 'Le suivi des récoltes et disponibilités est ouvert aux comptes « Producteur agricole ».'],
   fourn: ['Réservé aux fournisseurs', 'Les devis et tarifs B2B sont ouverts aux comptes « Fournisseur / entreprise ».'],
+  invest: ['Réservé aux investisseurs', 'L’espace investisseur est ouvert aux comptes « Investisseur », particuliers ou entreprises.'],
 };
 
 /**
@@ -37,7 +38,8 @@ export function Guard({ need, shop, children }: { need: Need; shop?: boolean; ch
     (need === 'veto' && s.has('veto')) ||
     (need === 'coursier' && s.has('coursier')) ||
     (need === 'agri' && s.has('agri')) ||
-    (need === 'fourn' && s.has('fourn'));
+    (need === 'fourn' && s.has('fourn')) ||
+    (need === 'invest' && s.has('invest'));
   if (!ok) {
     const [title, text] = LABEL[need as Exclude<Need, 'login'>];
     return (

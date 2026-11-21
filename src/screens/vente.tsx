@@ -92,6 +92,7 @@ export function CreateShop() {
           <div className="field">
             <label htmlFor="shop-town">Commune ou ville</label>
             <select id="shop-town" className="input" value={town} onChange={(e) => setTown(e.target.value)}>
+              <option value="" disabled>Choisir la commune…</option>
               {CI_REGIONS.map((g) => (
                 <optgroup key={g.region} label={g.region}>
                   {g.towns.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -251,7 +252,7 @@ const DRAFT_KEY = 'savaa-brouillon-fiche';
 type Draft = {
   cat: string; sub: string; picked: string[]; photos: string[]; title: string; desc: string; brand: string; extra: Record<string, string>;
   country: string; region: string; department: string; town: string; locality: string; farm: string; producedOn: string;
-  price: number; unit: string; qty: number; minQty: number; available: string; handover: string; neg: boolean;
+  price: number; proPrice?: number; unit: string; qty: number; minQty: number; available: string; handover: string; neg: boolean;
   sellerName: string; phone: string; actor: string;
 };
 function loadDraft(): Partial<Draft> | null {
@@ -318,6 +319,7 @@ export function Publish() {
   const [available, setAvailable] = useState(draft?.available ?? '');
   const [handover, setHandover] = useState(draft?.handover ?? HANDOVER[0]);
   const [neg, setNeg] = useState(draft?.neg ?? false);
+  const [proPrice, setProPrice] = useState(draft?.proPrice ?? 0);
 
   /* Vendeur : nom et téléphone du compte et de la boutique, modifiables. */
   const defaultActor = breeder ? 'Éleveur' : s.has('agri') ? 'Producteur' : s.has('fourn') ? 'Distributeur' : 'Commerçant';
@@ -364,6 +366,7 @@ export function Publish() {
     if (n === 3) {
       if (!(price > 0)) e.price = 'Indiquez un prix en FCFA, en chiffres.';
       if (!(qty > 0)) e.qty = 'Indiquez la quantité disponible.';
+      if (proPrice && proPrice >= price) e.proPrice = 'Le prix pro doit être inférieur au prix normal.';
       if (!(minQty > 0) || minQty > qty) e.minQty = 'La commande minimale doit être comprise entre 1 et la quantité disponible.';
     }
     if (n === 4) {
@@ -397,7 +400,7 @@ export function Publish() {
     try {
       const d: Draft = {
         cat: catId, sub, picked, photos, title, desc, brand, extra, country, region, department, town, locality, farm, producedOn,
-        price, unit, qty, minQty, available, handover, neg, sellerName, phone, actor,
+        price, proPrice, unit, qty, minQty, available, handover, neg, sellerName, phone, actor,
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
       showToast('Brouillon enregistré sur le téléphone');
@@ -431,6 +434,7 @@ export function Publish() {
       title: title.trim(),
       details: isHerd ? (chosen.length === 1 ? chosen[0].details : `${chosen.length} animaux : ${chosen.map((a) => a.id).join(', ')}`) : `${sub}, ${unitQty(qty, saleUnit)} disponibles`,
       price,
+      proPrice: proPrice && proPrice < price ? proPrice : undefined,
       unit: isHerd && qty === 1 ? undefined : unitPrice(saleUnit),
       negotiable: neg,
       place: department.trim() && department.trim() !== town ? `${town}, ${department.trim()}` : town,
@@ -555,6 +559,7 @@ export function Publish() {
             <dl className="kv">
               <dt>Prix</dt><dd className="num">{fcfa(price)} FCFA {unitPrice(saleUnit)}</dd>
               <dt>Négociable</dt><dd>{neg ? 'Oui' : 'Non'}</dd>
+              {proPrice > 0 && <><dt>Prix pro</dt><dd className="num">{fcfa(proPrice)} FCFA {unitPrice(saleUnit)}</dd></>}
               <dt>Disponible</dt><dd className="num">{unitQty(qty, saleUnit)}</dd>
               <dt>Commande minimale</dt><dd className="num">{unitQty(minQty, saleUnit)}</dd>
               {available && <><dt>À partir du</dt><dd className="num">{frDate(available)}</dd></>}
@@ -754,6 +759,12 @@ export function Publish() {
               </div>
             </div>
             <ToggleRow on={neg} onClick={() => setNeg(!neg)} title="Prix négociable" sub="Les acheteurs peuvent faire une offre" />
+            <div className="field">
+              <label htmlFor="pub-pro">Prix pro (FCFA) <span className="muted">(facultatif)</span></label>
+              <input id="pub-pro" className="input num" inputMode="numeric" placeholder="Ex. 10 % de moins" value={proPrice ? fcfa(proPrice) : ''} onChange={(e) => setProPrice(parseAmount(e.target.value))} aria-invalid={!!errors.proPrice} />
+              <span className="hint">Réservé aux restaurants et hôtels vérifiés, qui achètent en volume. Les autres acheteurs voient le prix normal.</span>
+              <FieldError msg={errors.proPrice} />
+            </div>
             <div className="field">
               <label htmlFor="pub-hand">Mode de remise</label>
               <select id="pub-hand" className="input" value={handover} onChange={(e) => setHandover(e.target.value)}>

@@ -5,8 +5,8 @@ import { readImage } from '../device';
 import { Logo, LogoInline } from '../logo';
 import { showToast } from '../toast';
 import { Avatar } from '../dash';
-import { ID_FIELD, idPhotoRequired, missingProfile, needsProfile, sectionsFor } from '../profils';
-import { Badge, Check, Header, Icon, Photo, PhotoAdd, TabBar } from '../ui';
+import { ID_FIELD, PRO_SECTIONS, idPhotoRequired, missingProfile, needsProfile, sectionsFor } from '../profils';
+import { Badge, Check, Header, Icon, Photo, PhotoAdd, TabBar, type IconName } from '../ui';
 
 /* Bouton retour des en-têtes blancs (connexion, rôle). */
 function WhiteHeader({ right }: { right: React.ReactNode }) {
@@ -171,19 +171,50 @@ const ROLES: { id: string; t: string; d: string; v?: boolean }[] = [
   { id: 'achat', t: 'Acheteur particulier', d: 'Rechercher, comparer, commander' },
   { id: 'veto', t: 'Vétérinaire / agent habilité', d: 'Consultations et validations sanitaires', v: true },
   { id: 'coursier', t: 'Coursier / transporteur', d: 'Missions de livraison', v: true },
+  { id: 'invest', t: 'Investisseur', d: 'Particulier ou entreprise : financer des projets agricoles', v: true },
 ];
 
-/* Écran 04 : choix du ou des rôles. */
+/* Écran 04 : activité. D'abord l'intention (4 cartes), puis le métier dans ce groupe, avec les règles de combinaison. */
+type Intent = 'acheter' | 'vendre' | 'service' | 'investir';
+const INTENTS: { id: Intent; t: string; d: string; icon: IconName; roles: string[]; max: number }[] = [
+  { id: 'acheter', t: 'Acheter', d: 'Pour moi, ma famille, mon restaurant ou mon hôtel', icon: 'cart', roles: ['achat', 'resto'], max: 1 },
+  { id: 'vendre', t: 'Vendre', d: 'Mes animaux, mes récoltes, mes produits ou mon matériel', icon: 'sell', roles: ['eleveur', 'agri', 'vendeur', 'fourn'], max: 2 },
+  { id: 'service', t: 'Proposer un service', d: 'Vétérinaire, transporteur', icon: 'truck', roles: ['veto', 'coursier'], max: 1 },
+  { id: 'investir', t: 'Investir dans l’agriculture', d: 'Particulier ou entreprise, projets sélectionnés par SAVAA', icon: 'flag', roles: ['invest'], max: 1 },
+];
+const ROLE_TEXT: Record<string, [string, string]> = {
+  achat: ['Particulier', 'J’achète pour moi ou ma famille'],
+  resto: ['Restaurant ou hôtel', 'J’achète en volume, avec des commandes récurrentes'],
+  eleveur: ['Éleveur', 'Je vends les animaux que j’élève, avec leur fiche'],
+  agri: ['Producteur agricole', 'Je vends mes récoltes'],
+  vendeur: ['Commerçant', 'Je revends au détail'],
+  fourn: ['Fournisseur (entreprise)', 'Je vends en gros aux professionnels : aliments, intrants, matériel'],
+  veto: ['Vétérinaire ou agent habilité', 'Consultations et validations sanitaires'],
+  coursier: ['Transporteur', 'Missions de livraison'],
+};
+/** Ce qu'il faudra fournir, annoncé dès le choix du métier. */
+const toPrepare = (role: string) => {
+  const sec = PRO_SECTIONS.find((p) => p.role === role);
+  if (!sec) return '';
+  const docs = sec.docs.filter((d) => d.required).map((d) => d.label.toLowerCase());
+  const main = sec.fields.find((f) => f.required)?.label.toLowerCase();
+  return ['pièce d’identité', ...(main ? [main] : []), ...docs].join(', ');
+};
+
 export function RolePicker() {
   const s = useStore();
   const navigate = useNavigate();
   const back = useNext();
-  const [sel, setSel] = useState<Record<string, boolean>>(() => Object.fromEntries(s.session().roles.map((r) => [r, true])));
-  const count = Object.values(sel).filter(Boolean).length;
+  const existing = s.session().roles;
+  const [intent, setIntent] = useState<Intent | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
   if (!s.session().loggedIn) return <Navigate to={`/connexion?next=${encodeURIComponent('/role')}`} replace />;
-  const next = () => {
-    s.setSession({ roles: ROLES.filter((r) => sel[r.id]).map((r) => r.id) });
-    const roles = ROLES.filter((r) => sel[r.id]).map((r) => r.id);
+  const group = INTENTS.find((g) => g.id === intent);
+
+  const finish = (chosen: string[], g: (typeof INTENTS)[number]) => {
+    /* On garde les métiers d'autres groupes déjà présents (ajout d'un rôle depuis le compte). */
+    const roles = [...existing.filter((r) => !g.roles.includes(r)), ...chosen];
+    s.setSession({ roles });
     const sess = s.session();
     if (!sess.demo && needsProfile(roles) && missingProfile(roles, sess.pro, sess.proPhotos).length) {
       navigate(`/profil-metier${back ? `?next=${encodeURIComponent(back)}` : ''}`, { replace: true });
@@ -192,42 +223,91 @@ export function RolePicker() {
     navigate(back ?? s.home(), { replace: true });
   };
 
-  return (
-    <div className="app" style={{ background: '#fff' }}>
-      <WhiteHeader right={<span className="small muted" style={{ paddingRight: 12 }}>Étape 2 sur 3</span>} />
-      <div className="body" style={{ background: '#fff', padding: '4px 20px 20px', gap: 18 }}>
-        <div className="col" style={{ gap: 6 }}>
-          <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Que faites-vous sur SAVAA ?</h2>
-          <p className="muted">Choisissez un ou plusieurs profils. Vous pourrez en ajouter plus tard depuis votre compte.</p>
-        </div>
-        <div className="card list">
-          {ROLES.map((r) => (
-            <button
-              key={r.id}
-              className="li"
-              role="checkbox"
-              aria-checked={!!sel[r.id]}
-              onClick={() => setSel({ ...sel, [r.id]: !sel[r.id] })}
-              style={{ background: sel[r.id] ? '#E8F3EA' : '#fff' }}
-            >
-              <Check on={!!sel[r.id]} />
-              <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
-                <span className="b" style={{ fontSize: 14.5 }}>{r.t}</span>
-                <span className="small muted">{r.d}</span>
-              </span>
-              {r.v && <Badge tone="amber">Vérification</Badge>}
+  /* Raison pour laquelle un métier ne peut pas être ajouté au choix en cours. */
+  const blocked = (role: string): string | null => {
+    if (!group || picked.includes(role)) return null;
+    if (group.max === 1) return null;
+    if (role === 'fourn' && picked.length) return 'Un compte entreprise se choisit seul.';
+    if (picked.includes('fourn')) return 'Un compte entreprise se choisit seul.';
+    if (picked.length >= group.max) return 'Deux métiers maximum : décochez-en un pour choisir celui-ci.';
+    return null;
+  };
+  const toggle = (role: string) => {
+    if (!group) return;
+    if (group.max === 1) { setPicked([role]); return; }
+    if (blocked(role)) return;
+    setPicked(picked.includes(role) ? picked.filter((r) => r !== role) : [...picked, role]);
+  };
+
+  const steps = (
+    <div style={{ display: 'flex', gap: 6, padding: '0 20px', flex: 'none' }}>
+      {[0, 1, 2].map((i) => <span key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < 2 ? '#145C3A' : '#E3E7E4' }} />)}
+    </div>
+  );
+
+  if (!group) {
+    return (
+      <div className="app" style={{ background: '#fff' }}>
+        <WhiteHeader right={<span className="small" style={{ paddingRight: 12, color: '#5D6862' }}>2. Votre activité</span>} />
+        {steps}
+        <div className="body" style={{ background: '#fff', padding: '16px 20px 20px', gap: 12 }}>
+          <div className="col" style={{ gap: 6 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Que voulez-vous faire sur SAVAA ?</h2>
+            <p className="muted">Choisissez ce qui vous correspond le mieux. Vous pourrez ajouter une activité plus tard.</p>
+          </div>
+          {INTENTS.map((g) => (
+            <button key={g.id} className="card row" onClick={() => { if (g.id === 'investir') { finish(['invest'], g); return; } setIntent(g.id); setPicked(existing.filter((r) => g.roles.includes(r)).slice(0, g.max)); }} style={{ padding: 16, gap: 14, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer', borderWidth: 1.5 }}>
+              <span style={{ width: 48, height: 48, borderRadius: 12, background: '#E8F3EA', color: '#145C3A', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><Icon name={g.icon} /></span>
+              <span className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="b" style={{ fontSize: 16 }}>{g.t}</span><span className="small muted">{g.d}</span></span>
+              <Icon name="chevron" size="sm" />
             </button>
           ))}
+          <p className="xs muted" style={{ textAlign: 'center' }}>Tout compte peut acheter sur SAVAA, quelle que soit son activité.</p>
         </div>
-        <p className="hint">Les profils marqués « Vérification » demandent un justificatif avant d’accéder aux fonctions réservées.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app" style={{ background: '#fff' }}>
+      <div className="hdr" style={{ background: '#fff', color: '#17201B' }}>
+        <button className="iconbtn" aria-label="Retour" onClick={() => setIntent(null)}><Icon name="back" /></button>
+        <h1 />
+        <span className="small" style={{ paddingRight: 12, color: '#5D6862' }}>2. Votre activité</span>
+      </div>
+      {steps}
+      <div className="body" style={{ background: '#fff', padding: '16px 20px 20px', gap: 10 }}>
+        <div className="col" style={{ gap: 6 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.25 }}>{group.id === 'acheter' ? 'Vous achetez en tant que…' : group.id === 'vendre' ? 'Que vendez-vous ?' : 'Quel service proposez-vous ?'}</h2>
+          <p className="small muted">{group.max > 1 ? 'Un métier, ou deux au maximum.' : 'Choisissez une option.'}</p>
+        </div>
+        {group.roles.map((r) => {
+          const on = picked.includes(r);
+          const why = blocked(r);
+          const prep = on ? toPrepare(r) : '';
+          return (
+            <button key={r} className="card row top" role={group.max > 1 ? 'checkbox' : 'radio'} aria-checked={on} aria-disabled={!!why} onClick={() => toggle(r)}
+              style={{ padding: '12px 14px', gap: 12, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: why ? 'not-allowed' : 'pointer', borderWidth: 1.5, borderColor: on ? '#145C3A' : undefined, background: on ? '#E8F3EA' : why ? '#F4F6F4' : '#fff', opacity: why ? 0.6 : 1 }}>
+              <Check on={on} />
+              <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
+                <span className="b">{ROLE_TEXT[r][0]}</span>
+                <span className="small muted">{ROLE_TEXT[r][1]}</span>
+                {why && <span className="xs muted" style={{ marginTop: 2 }}>{why}</span>}
+                {prep && <span className="xs" style={{ color: '#8A4B00', marginTop: 2 }}>À préparer : {prep}</span>}
+              </span>
+            </button>
+          );
+        })}
+        {group.id !== 'acheter' && (
+          <div className="notice"><Icon name="info" size="sm" /><span>Vous pourrez aussi acheter sur SAVAA : aliment, semences, matériel…</span></div>
+        )}
       </div>
       <div className="foot" style={{ borderTop: 0, paddingBottom: 24 }}>
-        <button className="btn btn-p" disabled={count === 0} onClick={next}>Continuer ({count})</button>
+        <button className="btn btn-p" disabled={!picked.length} onClick={() => finish(picked, group)}>{picked.length > 1 ? `Continuer avec ${picked.length} métiers` : 'Continuer'}</button>
       </div>
     </div>
   );
 }
-
 
 /* Écran 04b : profil métier. Les informations demandées dépendent du ou des rôles choisis (voir profils.ts). */
 export function ProDetails() {
@@ -287,7 +367,7 @@ export function ProDetails() {
 
   return (
     <div className="app" style={{ background: '#fff' }}>
-      <WhiteHeader right={<span className="small muted" style={{ paddingRight: 12 }}>Étape 3 sur 3</span>} />
+      <WhiteHeader right={<span className="small" style={{ paddingRight: 12, color: '#5D6862' }}>Étape 3 sur 3</span>} />
       <div className="body" style={{ background: '#fff', padding: '4px 20px 20px', gap: 20 }}>
         <div className="col" style={{ gap: 6 }}>
           <h2 style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.25 }}>Complétez votre profil</h2>

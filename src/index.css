@@ -257,3 +257,26 @@ select.input{appearance:none;-webkit-appearance:none;height:46px;line-height:1.3
 .adm .tbl td:first-child::before{content:none}
 .adm .tbl td > .bar{flex:1 1 auto}
 }
+
+/* Back-office : barre de filtres alignée, cellules sur deux lignes, groupes d'actions */
+.adm-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.adm-filters .adm-filter-search{flex:2 1 260px;min-width:0;height:44px;margin:0}
+.adm-filters .adm-filter-search input{outline:none;min-width:0;font:inherit;color:#17201B}
+.adm-filters .adm-filter{flex:1 1 170px;min-width:0;height:44px;width:auto}
+.adm .tbl td .stack{display:flex;flex-direction:column;gap:2px}
+.adm-actions{display:flex;gap:6px;flex-wrap:nowrap}
+.adm-actions .btn{min-width:92px;white-space:nowrap}
+@media (max-width:600px){
+  .adm .tbl td .stack{align-items:flex-end;text-align:right}
+  .adm-filters .adm-filter{flex:1 1 calc(50% - 4px)}
+  .adm-actions{justify-content:flex-end;flex-wrap:wrap}
+  .adm-actions .btn{min-width:0;flex:1 1 0}
+}
+
+/* Back-office : catalogue de projets (cartes courtes, détail au clic) */
+.adm-catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:14px}
+.adm-catalog-item{display:flex;flex-direction:column;gap:6px;padding:8px 8px 12px;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:border-color .15s}
+.adm-catalog-item:hover{border-color:#145C3A}
+.adm-catalog-title{line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding:0 2px}
+.adm-catalog-item .xs{padding:0 2px}
+@media (max-width:600px){.adm-catalog{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
