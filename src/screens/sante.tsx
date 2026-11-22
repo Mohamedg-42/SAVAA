@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { nowTime, PROOF, today, useStore, type Animal, type EventKind, type HealthEvent, type TraceEvent } from '../data';
 import { printPage, share } from '../device';
+import { showToast } from '../toast';
 import { animalMeasure, animalOrigin, animalPurpose, animalStatus, animalUrl, ficheUrl, sheetOf } from '../trace';
 import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, Section } from '../ui';
 import { QrDialog, TraceTimeline } from './fiche';
@@ -58,6 +59,8 @@ function AnimalSheetInner({ a }: { a: Animal }) {
   const [photoIdx, setPhotoIdx] = useState(0);
   const activePhoto = gallery[photoIdx] ?? gallery[0];
   const [qr, setQr] = useState(false);
+  /* Vérification de la fiche demandée aux vétérinaires (réseau de l'appareil). */
+  const check = owner ? s.validationOf(a.id) : undefined;
 
   /* Fiche d'identité (sections 2.1 et 2.2) et historique de traçabilité. */
   const listings = s.listings();
@@ -133,9 +136,18 @@ function AnimalSheetInner({ a }: { a: Animal }) {
                 <span className="xs muted">Identifiant officiel</span>
                 <span className="b num ell">{a.officialId ?? 'À renseigner'}</span>
               </span>
-              <Badge tone={a.officialId ? 'amber' : 'grey'}>{a.officialId ? 'À vérifier' : 'À renseigner'}</Badge>
+              {check?.status === 'verified' ? <Badge tone="green">Vérifié</Badge> : check ? <Badge tone="blue">Demande envoyée</Badge> : <Badge tone={a.officialId ? 'amber' : 'grey'}>{a.officialId ? 'À vérifier' : 'À renseigner'}</Badge>}
             </div>
-            <p className="xs muted" style={{ marginTop: 8, lineHeight: 1.45 }}>{a.officialId ? 'Saisi par l’éleveur, en attente de contrôle par un agent.' : 'Numéro de boucle officiel pas encore saisi.'}</p>
+            <p className="xs muted" style={{ marginTop: 8, lineHeight: 1.45 }}>
+              {check?.status === 'verified' && check.vet
+                ? `Fiche contrôlée par ${check.vet.name} le ${check.answeredAt}.`
+                : check
+                  ? `Demande de vérification envoyée aux vétérinaires le ${check.date}.`
+                  : a.officialId ? 'Saisi par l’éleveur, en attente de contrôle par un agent.' : 'Numéro de boucle officiel pas encore saisi.'}
+            </p>
+            {owner && a.officialId && !check && (
+              <button className="btn btn-s btn-sm" style={{ marginTop: 8 }} onClick={() => { s.askValidation(a.id); showToast('Demande envoyée aux vétérinaires de la zone.'); }}>Demander la vérification</button>
+            )}
           </div>
           <div className="wrap" style={{ gap: '6px 10px' }}>
             <span className="xs muted" style={{ width: '100%' }}>Niveaux de preuve</span>

@@ -313,6 +313,12 @@ export function Tracking() {
   const title = o.demo
     ? 'Taurillon FK-0142 + 4 sacs d’aliment'
     : o.lines.map((l) => (l.qty > 1 ? `${l.qty} × ${l.title}` : l.title)).join(' + ');
+  /* Livraison : l'avancement vient de la mission du transporteur (réseau de l'appareil). */
+  const mission = o.demo ? undefined : s.net().missions.find((m) => m.orderRef === o.ref);
+  const stage = mission ? ({ open: 0, accepted: 1, picked: 2, route: 3, delivered: 4 } as const)[mission.status] : 0;
+  /* Préparation : faite quand tous les vendeurs connus ont marqué leur part prête. */
+  const sales = o.demo ? [] : s.salesOf(o.ref);
+  const prepared = sales.length > 0 && sales.every((x) => x.status !== 'new');
   const orderPhotos = o.lines.map((l) => s.listing(l.listingId)?.photos?.[0]).filter(Boolean) as string[];
   const steps: [string, string, string][] = o.demo
     ? [
@@ -322,10 +328,18 @@ export function Tracking() {
         ['tld a', 'En route', 'Dernière position partagée il y a 6 min'],
         ['tld o', 'Livrée et remise confirmée', ''],
       ]
-    : [
+    : o.delivery && mission
+      ? [
+          ['tld f', 'Paiement confirmé', `${o.date.slice(0, 5)}, ${o.time}, ${o.method}`],
+          [stage >= 2 || prepared ? 'tld f' : 'tld a', 'Préparation par les vendeurs', stage >= 2 ? 'Remise au transporteur' : prepared ? 'Prête, en attente du transporteur' : 'En attente des vendeurs'],
+          [stage >= 2 ? 'tld f' : stage === 1 ? 'tld a' : 'tld o', 'Prise en charge par le transporteur', mission.courier ? `${mission.courier.name}, +225 ${mission.courier.phone}` : 'Recherche d’un transporteur'],
+          [stage >= 4 ? 'tld f' : stage === 3 ? 'tld a' : 'tld o', 'En route', stage === 3 ? 'Le transporteur est en chemin' : ''],
+          [stage >= 4 ? 'tld f' : 'tld o', 'Livrée et remise confirmée', stage >= 4 ? mission.deliveredAt ?? '' : ''],
+        ]
+      : [
         ['tld f', 'Paiement confirmé', `${o.date.slice(0, 5)}, ${o.time}, ${o.method}`],
-        ['tld a', 'Préparation par les vendeurs', 'En attente des vendeurs'],
-        ['tld o', o.delivery ? 'Prise en charge par le transporteur' : 'Retrait chez le vendeur', ''],
+        [prepared ? 'tld f' : 'tld a', 'Préparation par les vendeurs', prepared ? (o.delivery ? 'Prête' : 'Prête, vous pouvez passer la retirer') : 'En attente des vendeurs'],
+        [sales.length > 0 && sales.every((x) => x.status === 'handed') ? 'tld f' : 'tld o', o.delivery ? 'Prise en charge par le transporteur' : 'Retrait chez le vendeur', ''],
         ...(o.delivery ? [['tld o', 'En route', ''] as [string, string, string]] : []),
         ['tld o', o.delivery ? 'Livrée et remise confirmée' : 'Remise confirmée', ''],
       ];
@@ -336,7 +350,7 @@ export function Tracking() {
       <div className="body">
         <div className="card pad col" style={{ gap: 8 }}>
           <div className="row between">
-            {o.demo ? <Badge tone="blue">En route</Badge> : <Badge tone="green">Payée</Badge>}
+            {o.demo ? <Badge tone="blue">En route</Badge> : stage >= 4 ? <Badge tone="green">Livrée</Badge> : stage === 3 ? <Badge tone="blue">En route</Badge> : stage >= 1 ? <Badge tone="blue">Transporteur trouvé</Badge> : <Badge tone="green">Payée</Badge>}
             <span className="small muted">{o.demo ? 'Arrivée estimée 10:30' : 'Créneau confirmé par le vendeur'}</span>
           </div>
           {orderPhotos.length > 0 && (

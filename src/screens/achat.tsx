@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CI_REGIONS, fcfa, proPriceOf, useStore, type Listing } from '../data';
 import { LogoInline } from '../logo';
 import { photoFor } from '../photos';
+import { ReliefIcon } from '../relief';
+import type { ReliefName } from '../relief-icons';
 import { sheetOf, sheetStatus } from '../trace';
 import { Badge, Foot, Icon, NotFound, Photo, SectionHead, TabBar, type Tone } from '../ui';
 
@@ -112,6 +114,11 @@ const NEAR: [string, string, string, string, string, string, Tone, 'w' | 's' | u
 ];
 const CATEGORY_SEARCH: Record<string, string> = { 'Ovins et caprins': 'ovins', 'Volailles et poussins': 'volailles', 'Aliments et intrants': 'aliment', Reproducteurs: 'reproducteur' };
 const CATEGORIES = ['Bovins', 'Ovins et caprins', 'Volailles et poussins', 'Reproducteurs', 'Récoltes', 'Aliments et intrants', 'Matériel', 'Services'];
+/* Icône en relief de chaque catégorie, dans la puce de l'accueil vu sans compte. */
+const CATEGORY_ICON: Record<string, ReliefName> = {
+  Bovins: 'bovin', 'Ovins et caprins': 'mouton', 'Volailles et poussins': 'volaille', Reproducteurs: 'certifie',
+  'Récoltes': 'mais', 'Aliments et intrants': 'sac', 'Matériel': 'daba', Services: 'veto',
+};
 
 /** Bannière des annonces sponsorisées (acheteurs) : défile seule toutes les 4 s, ou au doigt. */
 function SponsoredBanner({ items }: { items: Listing[] }) {
@@ -177,6 +184,8 @@ function SponsoredBanner({ items }: { items: Listing[] }) {
 /* Écran 02 : accueil. */
 export function Home() {
   const s = useStore();
+  /* Visiteur sans compte : les puces de catégories portent leur icône en relief. */
+  const visitor = !s.session().loggedIn;
   const cartCount = s.cartLines().length;
   const unread = s.unread();
   const sponsored = s.listings().filter((l) => l.sponsored && l.status === 'online');
@@ -222,7 +231,10 @@ export function Home() {
             <SectionHead title="Catégories" />
             <div className="chips">
               {CATEGORIES.map((c) => (
-                <button key={c} className={`chip${cat === c ? ' on' : ''}`} aria-pressed={cat === c} onClick={() => setCat(cat === c ? null : c)}>{c}</button>
+                <button key={c} className={`chip${cat === c ? ' on' : ''}`} aria-pressed={cat === c} onClick={() => setCat(cat === c ? null : c)} style={visitor ? { paddingLeft: 7 } : undefined}>
+                  {visitor && <span className="chip-ic"><ReliefIcon name={CATEGORY_ICON[c]} size={24} shadow={false} /></span>}
+                  {c}
+                </button>
               ))}
             </div>
           </div>
@@ -419,6 +431,7 @@ const STATUS: Record<Listing['status'], [string, Tone]> = {
   review: ['En revue', 'amber'],
   sold: ['Vendu', 'blue'],
   out: ['Rupture', 'red'],
+  archived: ['Retirée de la vente', 'grey'],
 };
 
 /* Écran 06 : détail de l'annonce avec galerie multi-photos interactive. */

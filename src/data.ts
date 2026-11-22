@@ -58,7 +58,8 @@ export type HealthEvent = {
   summary?: { title?: string; sub: string } | false;
 };
 
-export type ListingStatus = 'online' | 'review' | 'sold' | 'out';
+/** `archived` : retirée par le vendeur, plus visible des acheteurs, gardée dans sa boutique. */
+export type ListingStatus = 'online' | 'review' | 'sold' | 'out' | 'archived';
 
 export type Listing = {
   id: string;
@@ -75,6 +76,8 @@ export type Listing = {
   /** Nom court affiché sur les cartes, ex. « Ferme Koné ». */
   sellerShort?: string;
   sellerVerified: boolean;
+  /** Numéro du compte vendeur (annonce publiée depuis un compte) : sert à lui faire parvenir les commandes. */
+  ownerPhone?: string;
   category: string;
   photo: string;
   tint?: 'w' | 's';
@@ -1247,7 +1250,7 @@ export const nowTime = () => {
 /* Effectifs de la maquette (18, 22, 6) : animaux non listés + animaux listés (6, 5, 3). */
 const UNLISTED: Record<Species, number> = { bovin: 12, ovin: 17, caprin: 3 };
 
-const findListing = (id: string) => state.listings.find((l) => l.id === id);
+const findListing = (id: string) => mergedListings().find((l) => l.id === id);
 
 /* Comptes déjà créés sur cet appareil, rangés par numéro (démo sans serveur) : la déconnexion
    les met de côté, la connexion avec le même numéro les retrouve. */
@@ -1275,6 +1278,73 @@ function writeAccounts(a: Accounts) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Réseau de l'appareil : ce que les comptes s'envoient (démo sans serveur).
+   Un éleveur signale un problème → l'alerte arrive chez les vétérinaires.
+   Un acheteur paie une commande livrée → la mission arrive chez les transporteurs.
+   Un restaurant demande un devis → la demande arrive chez les fournisseurs.
+   Ces échanges survivent à la déconnexion, comme sur un vrai serveur ; « Réinitialiser la démo » les efface. */
+
+const NET_KEY = 'savaa-reseau-v1';
+export type NetPerson = { name: string; phone: string };
+export type NetAlert = {
+  id: string; animalId: string; animal: string; photo?: string; photos?: string[]; sign: string; text: string;
+  urgency: 'Élevée' | 'Moyenne' | 'Faible'; farm: string; from: NetPerson; date: string;
+  status: 'open' | 'taken' | 'done'; vet?: NetPerson;
+};
+export type NetMission = {
+  id: string; orderRef: string; title: string; photo?: string; pickup: string; dropoff: string; buyer: NetPerson;
+  fee: number; code: string; date: string; status: 'open' | 'accepted' | 'picked' | 'route' | 'delivered'; courier?: NetPerson; deliveredAt?: string;
+};
+export type NetOffer = { id: string; supplier: NetPerson & { org?: string }; price: number; delay: string; date: string };
+export type NetQuote = {
+  id: string; product: string; qty: string; place: string; from: NetPerson & { org?: string }; date: string;
+  status: 'open' | 'closed'; offers: NetOffer[];
+};
+/** Ligne d'une commande, vue par son vendeur. */
+export type NetSale = {
+  id: string; orderRef: string; listingId: string; title: string; photo?: string; qty: number; price: number;
+  buyer: NetPerson; delivery: boolean; address?: string; date: string; sellerName: string; sellerPhone: string;
+  status: 'new' | 'ready' | 'handed';
+};
+/** Demande de vérification d'une fiche animale, de l'éleveur vers les vétérinaires. */
+export type NetValidation = {
+  id: string; animalId: string; animal: string; photo?: string; officialId?: string; details: string; care: string; farm: string;
+  from: NetPerson; date: string; status: 'open' | 'verified'; vet?: NetPerson; answeredAt?: string;
+};
+export type Net = { alerts: NetAlert[]; missions: NetMission[]; quotes: NetQuote[]; listings: Listing[]; sales: NetSale[]; validations: NetValidation[] };
+const EMPTY_NET: Net = { alerts: [], missions: [], quotes: [], listings: [], sales: [], validations: [] };
+/** Vendeur de la maquette (Ferme Koné & Fils) : ses ventes arrivent au compte de démonstration. */
+const DEMO_SELLER = { name: 'Ferme Koné & Fils', phone: '07 48 12 33 90' };
+/** Annonces de l'appareil et annonces publiées par les autres comptes ; la copie partagée fait foi (validation, stock). */
+function mergedListings(): Listing[] {
+  const net = readNet().listings;
+  const byId = new Map(net.map((l) => [l.id, l]));
+  const own = state.listings.map((l) => { const n = byId.get(l.id); return n ? { ...n, mine: l.mine } : l; });
+  /* Une annonce publiée depuis ce compte (même numéro) reste la sienne quand il revient. */
+  const others = net.filter((n) => !state.listings.some((l) => l.id === n.id)).map((n) => ({ ...n, mine: !!n.ownerPhone && n.ownerPhone === state.session.phone }));
+  return [...own, ...others];
+}
+function readNet(): Net {
+  try {
+    return { ...EMPTY_NET, ...(JSON.parse(localStorage.getItem(NET_KEY) ?? '{}') as Partial<Net>) };
+  } catch {
+    return EMPTY_NET;
+  }
+}
+function writeNet(n: Net) {
+  try {
+    localStorage.setItem(NET_KEY, JSON.stringify(n));
+  } catch {
+    /* stockage plein : l'échange n'est pas gardé */
+  }
+  version++;
+  listeners.forEach((l) => l());
+}
+const netId = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 4).toUpperCase()}`;
+/** Personne connectée, telle que les autres comptes la voient. */
+const me = (): NetPerson => ({ name: state.session.name || 'Compte SAVAA', phone: state.session.phone });
+
 /** Remet l'appareil sur la maquette, sans toucher aux comptes mis de côté. */
 function clearCurrent() {
   try {
@@ -1292,10 +1362,48 @@ export const store = {
   reset() {
     try {
       localStorage.removeItem(ACCOUNTS_KEY);
+      localStorage.removeItem(NET_KEY);
     } catch {
       /* rien à effacer */
     }
     clearCurrent();
+  },
+
+  /* Réseau de l'appareil (voir plus haut) */
+  net: (): Net => readNet(),
+  /** Le vétérinaire prend en charge ou clôture une alerte d'éleveur. */
+  answerAlert(id: string, status: 'taken' | 'done') {
+    const n = readNet();
+    writeNet({ ...n, alerts: n.alerts.map((a) => (a.id === id ? { ...a, status, vet: me() } : a)) });
+  },
+  /** Le transporteur accepte une mission ou fait avancer la livraison. */
+  moveMission(id: string, status: NetMission['status']) {
+    const n = readNet();
+    const ref = n.missions.find((m) => m.id === id)?.orderRef;
+    /* Prise en charge par le transporteur : les ventes de la commande passent à « remise » chez leurs vendeurs. */
+    const handed = status === 'picked' || status === 'route' || status === 'delivered';
+    writeNet({
+      ...n,
+      missions: n.missions.map((m) => (m.id === id ? { ...m, status, courier: m.courier ?? me(), deliveredAt: status === 'delivered' ? `${today()}, ${nowTime()}` : m.deliveredAt } : m)),
+      sales: handed ? n.sales.map((x) => (x.orderRef === ref ? { ...x, status: 'handed' } : x)) : n.sales,
+    });
+  },
+  /** Un restaurant ou un acheteur pro publie une demande de devis pour les fournisseurs. Renvoie son identifiant. */
+  askQuote(q: { product: string; qty: string; place: string; org?: string }): string {
+    const n = readNet();
+    const id = netId('NQ');
+    writeNet({ ...n, quotes: [{ id, product: q.product, qty: q.qty, place: q.place, from: { ...me(), org: q.org }, date: today(), status: 'open', offers: [] }, ...n.quotes] });
+    return id;
+  },
+  closeQuote(id: string) {
+    const n = readNet();
+    writeNet({ ...n, quotes: n.quotes.map((q) => (q.id === id ? { ...q, status: 'closed' } : q)) });
+  },
+  /** Un fournisseur répond à une demande de devis avec son prix. */
+  offerQuote(id: string, price: number, delay: string, org?: string) {
+    const n = readNet();
+    const offer: NetOffer = { id: netId('OF'), supplier: { ...me(), org }, price, delay, date: today() };
+    writeNet({ ...n, quotes: n.quotes.map((q) => (q.id === id ? { ...q, offers: [...q.offers.filter((o) => o.supplier.phone !== offer.supplier.phone), offer] } : q)) });
   },
   /** Prénom et nom du compte déjà créé sur cet appareil avec ce numéro (10 chiffres), sinon null. */
   knownAccount: (digits: string): string | null => readAccounts()[digits]?.session.name ?? null,
@@ -1324,7 +1432,19 @@ export const store = {
   },
   addEvent(e: HealthEvent) {
     commit({ events: [e, ...state.events] });
-    if (e.kind === 'obs') store.notify({ c: 'alr', title: `Alerte sanitaire, ${e.animalId}`, text: `${e.title}. ${e.pending ? 'Envoi au vétérinaire dès le retour du réseau.' : ''}`.trim(), to: `/animal/${e.animalId}/sante` });
+    if (e.kind === 'obs') {
+      store.notify({ c: 'alr', title: `Alerte sanitaire, ${e.animalId}`, text: `${e.title}. Envoyée aux vétérinaires de la zone.`, to: `/animal/${e.animalId}/sante` });
+      /* L'observation part chez les vétérinaires (réseau de l'appareil), avec ce qu'il faut pour agir sans la fiche. */
+      const a = state.animals.find((x) => x.id === e.animalId);
+      const lvl = /urgence (élevée|moyenne|faible)/i.exec(e.text)?.[1]?.toLowerCase();
+      const urgency = lvl === 'élevée' ? 'Élevée' : lvl === 'faible' ? 'Faible' : 'Moyenne';
+      const farm = [state.shop.created ? state.shop.name : state.session.pro?.['eleveur.ferme'] || state.session.name, state.session.town].filter(Boolean).join(', ');
+      const n = readNet();
+      writeNet({ ...n, alerts: [{
+        id: netId('AL'), animalId: e.animalId, animal: a?.name ?? e.animalId, photo: a?.photo, photos: e.photos,
+        sign: e.title.replace(/^Observation : /, '').replace(/^./, (c) => c.toUpperCase()), text: e.text, urgency, farm, from: me(), date: `${e.date}, ${nowTime()}`, status: 'open',
+      }, ...n.alerts] });
+    }
   },
 
   /* Compte */
@@ -1409,14 +1529,21 @@ export const store = {
   },
 
   /* Annonces */
-  listings: () => state.listings,
+  listings: () => mergedListings(),
   listing: (id: string): Listing | undefined => findListing(id),
   addListing(l: Listing) {
     commit({ listings: [l, ...state.listings] });
+    /* Publiée depuis un compte : visible des autres comptes de l'appareil, avec le numéro du vendeur. */
+    if (l.mine && !state.session.demo) {
+      const n = readNet();
+      writeNet({ ...n, listings: [{ ...l, mine: false, ownerPhone: state.session.phone }, ...n.listings.filter((x) => x.id !== l.id)] });
+    }
     if (l.mine) store.notify({ c: 'cmp', title: 'Annonce envoyée en relecture', text: `« ${l.title} » sera vérifiée par l’équipe SAVAA, en général sous 24 h.`, to: `/annonce/${l.id}` });
   },
   updateListing(id: string, patch: Partial<Listing>) {
     commit({ listings: state.listings.map((l) => (l.id === id ? { ...l, ...patch } : l)) });
+    const n = readNet();
+    if (n.listings.some((l) => l.id === id)) writeNet({ ...n, listings: n.listings.map((l) => (l.id === id ? { ...l, ...patch, mine: false } : l)) });
   },
 
   /* Boutique du vendeur */
@@ -1424,7 +1551,34 @@ export const store = {
   setShop(patch: Partial<Shop>) {
     commit({ shop: { ...state.shop, ...patch } });
   },
-  myListings: () => state.listings.filter((l) => l.mine),
+  myListings: () => mergedListings().filter((l) => l.mine),
+  /** Ventes reçues par ce compte (lignes de commandes passées sur ses annonces). */
+  mySales: (): NetSale[] => readNet().sales.filter((x) => x.sellerPhone === state.session.phone),
+  /** Le vendeur fait avancer une vente : prête à remettre, puis remise. */
+  moveSale(id: string, status: NetSale['status']) {
+    const n = readNet();
+    writeNet({ ...n, sales: n.sales.map((x) => (x.id === id ? { ...x, status } : x)) });
+  },
+  /** L'éleveur demande aux vétérinaires de vérifier la fiche d'un animal (identifiant officiel, soins). */
+  askValidation(animalId: string) {
+    const a = state.animals.find((x) => x.id === animalId);
+    if (!a) return;
+    const ev = state.events.filter((e) => e.animalId === animalId);
+    const count = (k: EventKind, mot: string) => { const c = ev.filter((e) => e.kind === k).length; return `${c} ${mot}${c > 1 ? 's' : ''}`; };
+    const care = [count('vac', 'vaccin'), count('trt', 'traitement'), count('obs', 'observation')].join(', ');
+    const farm = [state.shop.created ? state.shop.name : state.session.pro?.['eleveur.ferme'] || state.session.name, state.session.town].filter(Boolean).join(', ');
+    const n = readNet();
+    writeNet({ ...n, validations: [{ id: netId('VF'), animalId, animal: a.name, photo: a.photo, officialId: a.officialId, details: a.details, care, farm, from: me(), date: `${today()}, ${nowTime()}`, status: 'open' }, ...n.validations.filter((v) => !(v.animalId === animalId && v.from.phone === state.session.phone))] });
+  },
+  /** Dernière demande de vérification envoyée par ce compte pour cet animal. */
+  validationOf: (animalId: string): NetValidation | undefined => readNet().validations.find((v) => v.animalId === animalId && v.from.phone === state.session.phone),
+  /** Le vétérinaire valide la fiche demandée. */
+  answerValidation(id: string) {
+    const n = readNet();
+    writeNet({ ...n, validations: n.validations.map((v) => (v.id === id ? { ...v, status: 'verified', vet: me(), answeredAt: `${today()}, ${nowTime()}` } : v)) });
+  },
+  /** Ventes d'une commande, pour le suivi de l'acheteur. */
+  salesOf: (ref: string): NetSale[] => readNet().sales.filter((x) => x.orderRef === ref),
 
   /* Favoris */
   favorites: () => state.favorites,
@@ -1507,13 +1661,40 @@ export const store = {
       lines: store.cartLines().map(({ listing, qty }) => ({ listingId: listing.id, title: listing.title, seller: listing.seller, qty, price: store.priceFor(listing) })),
     };
     /* Le stock baisse ; un animal ou un lot vendu passe en « vendu ». */
-    const listings = state.listings.map((l) => {
+    const sold = (l: Listing): Listing => {
       const line = order.lines.find((x) => x.listingId === l.id);
       if (!line) return l;
       const left = (l.stock ?? 1) - line.qty;
       return left > 0 ? { ...l, stock: l.stock === undefined ? undefined : left } : { ...l, stock: l.stock === undefined ? undefined : 0, status: l.stock === undefined ? 'sold' : 'out' } as Listing;
-    });
+    };
+    const listings = state.listings.map(sold);
+    /* Commande livrée : la mission part chez les transporteurs, avec le code de remise que l'acheteur donnera à l'arrivée. */
+    const lines = store.cartLines();
     commit({ orders: [order, ...state.orders], listings, cart: { ...state.cart, items: [] } });
+    /* Chaque vendeur connu reçoit sa ligne de commande à préparer ; la copie partagée de l'annonce suit le stock. */
+    {
+      const n = readNet();
+      const sales: NetSale[] = lines.flatMap(({ listing, qty }) => {
+        const seller = listing.ownerPhone ? { name: listing.seller, phone: listing.ownerPhone } : listing.seller === DEMO_SELLER.name ? DEMO_SELLER : null;
+        if (!seller || seller.phone === state.session.phone) return [];
+        return [{
+          id: netId('VT'), orderRef: order.ref, listingId: listing.id, title: listing.title, photo: listing.photos?.[0], qty, price: store.priceFor(listing),
+          buyer: me(), delivery: order.delivery, address: order.address, date: `${order.date}, ${order.time}`, sellerName: seller.name, sellerPhone: seller.phone, status: 'new',
+        }];
+      });
+      writeNet({ ...n, sales: [...sales, ...n.sales], listings: n.listings.map(sold) });
+    }
+    if (order.delivery) {
+      const first = lines[0]?.listing;
+      const n = readNet();
+      writeNet({ ...n, missions: [{
+        id: netId('MS'), orderRef: order.ref,
+        title: order.lines.map((l) => (l.qty > 1 ? `${l.qty} × ${l.title}` : l.title)).join(' + '),
+        photo: first?.photos?.[0], pickup: [...new Set(lines.map((x) => x.listing.place.split(',')[0]))].join(', '),
+        dropoff: order.address || (state.session.demo ? 'Ferme Ouattara, route de Dikodougou, Korhogo' : state.session.town) || 'Adresse de l’acheteur', buyer: me(), fee: order.shipping, code: order.code,
+        date: `${order.date}, ${order.time}`, status: 'open',
+      }, ...n.missions] });
+    }
     store.notify({ c: 'pay', title: 'Paiement confirmé (simulation)', text: `${order.ref}, ${fcfa(order.total)} FCFA, statut transmis par le prestataire.`, to: `/recu?ref=${order.ref}` });
     return order;
   },

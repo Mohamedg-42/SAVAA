@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fcfa, today, useStore } from '../data';
+import { fcfa, today, useStore, type NetAlert, type NetMission, type NetValidation } from '../data';
 import { downloadCSV } from '../device';
 import { showToast } from '../toast';
 import type { ReactNode } from 'react';
@@ -37,6 +37,8 @@ type VetAlert = {
   urgency: 'Moyenne' | 'Élevée' | 'Faible';
   date: string;
   photo: string;
+  /** Alerte envoyée par un éleveur depuis son compte (réseau de l'appareil). */
+  net?: NetAlert;
 };
 
 const INITIAL_VET_ALERTS: VetAlert[] = [
@@ -85,18 +87,34 @@ export function VetSpace() {
 
   /* Un vétérinaire ne traite ni ne valide ses propres animaux : ils passent à un autre vétérinaire. */
   const own = new Set(s.animals().filter((a) => a.mine).map((a) => a.id));
-  const alerts = INITIAL_VET_ALERTS.filter((a) => !own.has(a.animalId));
-  const validations = VET_VALIDATIONS.filter((v) => !own.has(v.id));
-  const openAlerts = alerts.filter((a) => handled[a.id] !== 'done').length;
-  const pendingVal = validations.filter((v) => !validated[v.id]).length;
+  /* Alertes reçues des éleveurs (les siennes n'y figurent pas), puis celles de la maquette. */
+  const received: VetAlert[] = s.net().alerts.filter((a) => a.from.phone !== s.session().phone).map((a) => ({
+    id: a.id, animalId: a.animalId, animal: a.animal, farm: a.farm, sign: a.sign, urgency: a.urgency, date: a.date, photo: a.photo ?? 'images/visite-veterinaire.jpg', net: a,
+  }));
+  const alerts = [...received, ...INITIAL_VET_ALERTS.filter((a) => !own.has(a.animalId))];
+  const statusOf = (a: VetAlert) => (a.net ? (a.net.status === 'open' ? undefined : a.net.status) : handled[a.id]);
+  /* Demandes de vérification envoyées par les éleveurs (réseau de l'appareil), puis celles de la maquette. */
+  type Val = { id: string; animalId: string; name: string; officialId: string; farm: string; type: string; photo: string; net?: NetValidation };
+  const validations: Val[] = [
+    ...s.net().validations.filter((v) => v.from.phone !== s.session().phone).map((v) => ({
+      id: v.id, animalId: v.animalId, name: v.animal, officialId: v.officialId ?? 'Identifiant non saisi', farm: v.farm, type: v.care, photo: v.photo ?? 'images/visite-veterinaire.jpg', net: v,
+    })),
+    ...VET_VALIDATIONS.filter((v) => !own.has(v.id)).map((v) => ({ ...v, animalId: v.id })),
+  ];
+  const isValidated = (v: Val) => (v.net ? v.net.status === 'verified' : !!validated[v.id]);
+  const openAlerts = alerts.filter((a) => statusOf(a) !== 'done').length;
+  const pendingVal = validations.filter((v) => !isValidated(v)).length;
   const RANK = { Élevée: 0, Moyenne: 1, Faible: 2 } as const;
-  const urgent = alerts.filter((a) => !handled[a.id]).sort((x, y) => RANK[x.urgency] - RANK[y.urgency])[0];
+  const urgent = alerts.filter((a) => !statusOf(a)).sort((x, y) => RANK[x.urgency] - RANK[y.urgency])[0];
 
   const markAlert = (id: string, status: 'taken' | 'done', label: string) => {
-    s.put('vet.handled', { ...handled, [id]: status });
+    if (alerts.find((a) => a.id === id)?.net) s.answerAlert(id, status);
+    else s.put('vet.handled', { ...handled, [id]: status });
     showToast(label);
   };
   const validateSheet = (id: string, name: string) => {
+    const v = validations.find((x) => x.id === id);
+    if (v?.net) { s.answerValidation(id); showToast(`Fiche ${v.animalId} vérifiée : l’éleveur est prévenu.`); return; }
     s.put('vet.validated', { ...validated, [id]: true });
     s.notify({ c: 'alr', title: `Fiche ${id} vérifiée`, text: `${name} validée par le vétérinaire mandaté.`, to: `/animal/${id}` });
     showToast(`Fiche ${id} passée au statut « Vérifié ».`);
@@ -121,7 +139,7 @@ export function VetSpace() {
         {urgent ? (
           <TodayCard alert eyebrow="Alerte la plus urgente" title={`${urgent.animalId}, ${urgent.animal}`} text={`${urgent.sign}. ${urgent.farm}, ${urgent.date}.`}>
             <button className="btn btn-p" onClick={() => markAlert(urgent.id, 'taken', 'Prise en charge signalée à l’éleveur.')}>Prendre en charge</button>
-            <Link className="btn btn-s" to={`/animal/${urgent.animalId}/sante`}>Dossier</Link>
+            {urgent.net ? <button className="btn btn-s" onClick={() => setTab('alerts')}>Détails</button> : <Link className="btn btn-s" to={`/animal/${urgent.animalId}/sante`}>Dossier</Link>}
           </TodayCard>
         ) : pendingVal ? (
           <TodayCard eyebrow="Aujourd’hui" title={`${pendingVal} fiche${pendingVal > 1 ? 's' : ''} à valider`} text="Aucune alerte en attente de prise en charge. Les éleveurs attendent la validation de leurs fiches.">
@@ -140,7 +158,7 @@ export function VetSpace() {
           <div className="col" style={{ gap: 10 }}>
             {alerts.length === 0 && <div className="card pad"><span className="small muted">Aucune alerte dans votre zone.</span></div>}
             {alerts.map((a) => {
-              const st = handled[a.id];
+              const st = statusOf(a);
               return (
                 <div key={a.id} className="card pad col" style={{ gap: 10 }}>
                   <div className="row top" style={{ gap: 12 }}>
@@ -155,8 +173,16 @@ export function VetSpace() {
                     </div>
                   </div>
                   <p className="small" style={{ lineHeight: 1.45 }}>{a.sign}</p>
+                  {a.net && (
+                    <div className="col" style={{ gap: 6 }}>
+                      {a.net.text.trim() && <p className="xs muted" style={{ lineHeight: 1.45 }}>{a.net.text}</p>}
+                      {!!a.net.photos?.length && <div className="row" style={{ gap: 6 }}>{a.net.photos.map((p, i) => <Photo key={i} w={56} h={44} radius={6} src={p} />)}</div>}
+                      <span className="xs"><b>Éleveur :</b> {a.net.from.name}, <span className="num" style={{ userSelect: 'all' }}>+225 {a.net.from.phone}</span></span>
+                      <Badge tone="grey" style={{ alignSelf: 'flex-start' }}>Reçue par SAVAA</Badge>
+                    </div>
+                  )}
                   <div className="row" style={{ gap: 8 }}>
-                    <Link className="btn btn-s btn-sm grow" to={`/animal/${a.animalId}/sante`}>Dossier</Link>
+                    {!a.net && <Link className="btn btn-s btn-sm grow" to={`/animal/${a.animalId}/sante`}>Dossier</Link>}
                     {st !== 'done' && (
                       <button
                         className="btn btn-p btn-sm grow"
@@ -176,20 +202,20 @@ export function VetSpace() {
           <div className="col" style={{ gap: 10 }}>
             {validations.length === 0 && <div className="card pad"><span className="small muted">Aucune fiche à valider.</span></div>}
             {validations.map((v) => {
-              const ok = !!validated[v.id];
+              const ok = isValidated(v);
               return (
                 <div key={v.id} className="card pad col" style={{ gap: 10 }}>
                   <div className="row" style={{ gap: 12 }}>
                     <Photo w={52} h={52} radius={8} src={v.photo} />
                     <div className="col grow" style={{ gap: 2 }}>
-                      <span className="b small ell">{v.id}, {v.name}</span>
+                      <span className="b small ell">{v.animalId}, {v.name}</span>
                       <span className="xs muted num">{v.officialId}</span>
                       <span className="xs muted">{v.farm} · {v.type}</span>
                     </div>
                     <Badge tone={ok ? 'green' : 'amber'}>{ok ? 'Vérifié' : 'À vérifier'}</Badge>
                   </div>
                   <div className="row" style={{ gap: 8 }}>
-                    <Link className="btn btn-s btn-sm grow" to={`/animal/${v.id}`}>Voir la fiche</Link>
+                    {v.net ? <span className="xs grow" style={{ alignSelf: 'center' }}><b>Éleveur :</b> {v.net.from.name}, <span className="num">+225 {v.net.from.phone}</span></span> : <Link className="btn btn-s btn-sm grow" to={`/animal/${v.id}`}>Voir la fiche</Link>}
                     <button className="btn btn-p btn-sm grow" disabled={ok} onClick={() => validateSheet(v.id, v.name)}>
                       {ok ? 'Validée' : 'Valider la fiche'}
                     </button>
@@ -259,6 +285,55 @@ const MISSION_HISTORY = [
   { id: 'SAV-2026-11-004218', title: '20 plateaux d’œufs frais', route: 'Korhogo Soba → Plateau', date: '12/11/2026', fee: 15000, photo: 'images/oeufs-plateaux.jpg' },
 ];
 
+const MISSION_STEP: Record<NetMission['status'], [string, Tone]> = {
+  open: ['Disponible', 'grey'], accepted: ['Acceptée', 'blue'], picked: ['Prise en charge', 'blue'], route: ['En route', 'blue'], delivered: ['Livrée', 'green'],
+};
+
+/** Mission venue d'une vraie commande (réseau de l'appareil) : étapes et code de remise de l'acheteur. */
+function NetMissionCard({ m }: { m: NetMission }) {
+  const s = useStore();
+  const [code, setCode] = useState('');
+  const [label, tone] = MISSION_STEP[m.status];
+  const deliver = () => {
+    if (code !== m.code) { showToast('Code incorrect. Demandez à l’acheteur le code à 4 chiffres de sa commande.'); return; }
+    s.moveMission(m.id, 'delivered');
+    s.notify({ c: 'cmd', title: 'Livraison confirmée', text: `${m.orderRef} remise avec le code de l’acheteur. Rémunération de ${fcfa(m.fee)} FCFA validée.`, to: '/missions' });
+    showToast('Remise horodatée et confirmée.');
+  };
+  return (
+    <div className="card pad col" style={{ gap: 10 }}>
+      <div className="row between" style={{ gap: 8 }}><span className="b small num">{m.orderRef}</span><Badge tone={tone}>{label}</Badge></div>
+      <div className="row" style={{ gap: 10 }}>
+        {m.photo && <Photo w={56} h={44} radius={6} src={m.photo} />}
+        <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b">{m.title}</span><span className="xs muted">Rémunération {fcfa(m.fee)} FCFA</span></div>
+      </div>
+      <dl className="kv">
+        <dt>Enlèvement</dt><dd>{m.pickup}</dd>
+        <dt>Livraison</dt><dd>{m.dropoff}</dd>
+        <dt>Destinataire</dt><dd>{m.buyer.name}, <span className="num">+225 {m.buyer.phone}</span></dd>
+      </dl>
+      {m.status === 'delivered' ? (
+        <div className="notice n-info"><Icon name="check" size="sm" /><span>Livrée le {m.deliveredAt}. Rémunération de {fcfa(m.fee)} FCFA validée.</span></div>
+      ) : (
+        <>
+          <div className="seg">
+            <button className={m.status === 'picked' ? 'on' : ''} onClick={() => { s.moveMission(m.id, 'picked'); showToast('Statut : prise en charge'); }}>Pris en charge</button>
+            <button className={m.status === 'route' ? 'on' : ''} onClick={() => { s.moveMission(m.id, 'route'); showToast('Statut : en route'); }}>En route</button>
+          </div>
+          <div className="field">
+            <label htmlFor={`code-${m.id}`}>Code de remise de l’acheteur</label>
+            <div className="row" style={{ gap: 8 }}>
+              <input id={`code-${m.id}`} className="input num grow" inputMode="numeric" maxLength={4} placeholder="4 chiffres" value={code} onChange={(e) => setCode(e.target.value.replace(/D/g, '').slice(0, 4))} />
+              <button className="btn btn-p" disabled={code.length < 4} onClick={deliver}>Confirmer la remise</button>
+            </div>
+            <span className="hint">L’acheteur trouve ce code dans le suivi de sa commande. Le paiement du vendeur est libéré à la remise.</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function CourierSpace() {
   const s = useStore();
   const [tab, setTab] = useState<'active' | 'offers' | 'history'>('active');
@@ -268,12 +343,18 @@ export function CourierSpace() {
   const unread = s.unread();
   const demo = !!s.session().demo;
 
-  const availableCount = MISSION_OFFERS.filter((m) => !accepted[m.id]).length;
+  /* Missions créées par les vraies commandes livrées (réseau de l'appareil). */
+  const myPhone = s.session().phone;
+  const netOpen = s.net().missions.filter((m) => m.status === 'open' && m.buyer.phone !== myPhone);
+  const mine = s.net().missions.filter((m) => m.status !== 'open' && m.courier?.phone === myPhone);
+  const myActive = mine.filter((m) => m.status !== 'delivered');
+  const myDone = mine.filter((m) => m.status === 'delivered');
+  const availableCount = MISSION_OFFERS.filter((m) => !accepted[m.id]).length + netOpen.length;
   /* Compte neuf : les missions en cours sont celles qu'il a acceptées ; ni historique ni gains tant qu'il n'a rien livré. */
   const acceptedOffers = MISSION_OFFERS.filter((m) => accepted[m.id]);
-  const activeCount = demo ? (step === 'delivered' ? 0 : 1) : acceptedOffers.length;
-  const deliveredCount = demo ? MISSION_HISTORY.length + (step === 'delivered' ? 1 : 0) : 0;
-  const earned = demo ? 40000 + (step === 'delivered' ? 25000 : 0) : 0;
+  const activeCount = (demo ? (step === 'delivered' ? 0 : 1) : acceptedOffers.length) + myActive.length;
+  const deliveredCount = (demo ? MISSION_HISTORY.length + (step === 'delivered' ? 1 : 0) : 0) + myDone.length;
+  const earned = (demo ? 40000 + (step === 'delivered' ? 25000 : 0) : 0) + myDone.reduce((t, m) => t + m.fee, 0);
 
   const validateCode = () => {
     if (codeInput.trim() !== '4827') {
@@ -297,7 +378,11 @@ export function CourierSpace() {
         <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'on' : ''} onClick={() => setTab('history')}>Historique ({deliveredCount})</button>
       </div>
       <div className="body">
-        {demo && step !== 'delivered' ? (
+        {myActive[0] ? (
+          <TodayCard eyebrow="Mission en cours" title={myActive[0].title} text={`${myActive[0].pickup} → ${myActive[0].dropoff}. À la remise, demandez le code à 4 chiffres à ${myActive[0].buyer.name}.`}>
+            <button className="btn btn-p" onClick={() => setTab('active')}>Voir la mission</button>
+          </TodayCard>
+        ) : demo && step !== 'delivered' ? (
           <TodayCard eyebrow="Mission en cours" title="Taurillon FK-0142 et 4 sacs d’aliment" text="Livrer à Fatou Ouattara, route de Dikodougou. À la remise, demandez le code à 4 chiffres à l’acheteur.">
             <button className="btn btn-p" onClick={() => setTab('active')}>Voir la mission</button>
           </TodayCard>
@@ -316,7 +401,8 @@ export function CourierSpace() {
           <div className="stat" style={{ padding: 12 }}><span className="v">{fcfa(earned)}</span><span className="l">FCFA (7 j)</span></div>
         </div>
 
-        {tab === 'active' && !demo && (
+        {tab === 'active' && myActive.map((m) => <NetMissionCard key={m.id} m={m} />)}
+        {tab === 'active' && !demo && !myActive.length && (
           acceptedOffers.length ? (
             <div className="col" style={{ gap: 10 }}>
               {acceptedOffers.map((m) => (
@@ -394,6 +480,22 @@ export function CourierSpace() {
 
         {tab === 'offers' && (
           <div className="col" style={{ gap: 10 }}>
+            {netOpen.map((m) => (
+              <div key={m.id} className="card pad col" style={{ gap: 10 }}>
+                <div className="row" style={{ gap: 12 }}>
+                  <Photo w={56} h={56} radius={8} src={m.photo ?? 'images/aliment-betail.jpg'} />
+                  <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
+                    <span className="b small">{m.title}</span>
+                    <span className="xs muted">{m.pickup} → {m.dropoff}</span>
+                    <span className="xs muted">Commande {m.orderRef}, payée le {m.date}</span>
+                  </div>
+                </div>
+                <div className="row between">
+                  <span className="price">{fcfa(m.fee)} FCFA</span>
+                  <button className="btn btn-p btn-sm" onClick={() => { s.moveMission(m.id, 'accepted'); showToast(`Mission ${m.orderRef} acceptée. L’acheteur est prévenu.`); setTab('active'); }}>Accepter la mission</button>
+                </div>
+              </div>
+            ))}
             {MISSION_OFFERS.map((m) => {
               const ok = !!accepted[m.id];
               return (
@@ -428,7 +530,10 @@ export function CourierSpace() {
           </div>
         )}
 
-        {tab === 'history' && !demo && (
+        {tab === 'history' && myDone.map((m) => (
+          <div className="card list" key={m.id}><div className="li">{m.photo && <Photo w={48} h={48} radius={6} src={m.photo} />}<div className="col grow"><span className="small b">{m.title}</span><span className="xs muted">{m.pickup} → {m.dropoff}, {m.deliveredAt}</span></div><span className="small b num" style={{ color: '#145C3A' }}>+{fcfa(m.fee)}</span></div></div>
+        ))}
+        {tab === 'history' && !demo && !myDone.length && (
           <EmptyState title="Aucune livraison pour l’instant" text="Vos livraisons terminées et leur rémunération apparaîtront ici." />
         )}
 
@@ -636,16 +741,25 @@ export function SupplierSpace() {
   const demo = !!s.session().demo;
   const sent = s.get<Record<string, number>>('fourn.sent', {});
   const [offers, setOffers] = useState<Record<string, string>>({});
-  /* Devis reçus et factures : ceux de la démo seulement ; un fournisseur neuf n'en a pas encore. */
-  const quotes = demo ? SUPPLIER_QUOTES : [];
+  /* Demandes reçues des restaurants et acheteurs pros (réseau de l'appareil), puis celles de la démo. Factures : démo seulement. */
+  const myPhone = s.session().phone;
+  const received = s.net().quotes.filter((q) => q.status === 'open' && q.from.phone !== myPhone);
+  const netSent: Record<string, number> = Object.fromEntries(received.flatMap((q) => q.offers.filter((o) => o.supplier.phone === myPhone).map((o) => [q.id, o.price])));
+  const quotes = [
+    ...received.map((q) => ({ id: q.id, client: q.from.org || q.from.name, item: q.product, qty: q.qty, place: q.place, suggested: 0, photo: 'images/aliment-betail.jpg', net: true })),
+    ...(demo ? SUPPLIER_QUOTES.map((q) => ({ ...q, net: false })) : []),
+  ];
+  const sentOf = (id: string): number | undefined => netSent[id] ?? sent[id];
   const invoices = demo ? SUPPLIER_INVOICES : [];
-  const pendingQuotes = quotes.filter((q) => !sent[q.id]).length;
+  const pendingQuotes = quotes.filter((q) => !sentOf(q.id)).length;
   /* Références : ses propres annonces d'aliments, d'intrants et de matériel (en démo, celles de la maquette). */
   const stockItems = s.listings().filter((l) => (demo || l.mine) && (l.category.includes('Aliments') || l.category === 'Matériel'));
 
-  const sendQuote = (id: string, fallback: number, client: string) => {
+  const sendQuote = (id: string, fallback: number, client: string, net = false) => {
     const val = Number((offers[id] ?? '').replace(/\D/g, '')) || fallback;
-    s.put('fourn.sent', { ...sent, [id]: val });
+    if (!val) { showToast('Indiquez votre prix avant de répondre.'); return; }
+    if (net) s.offerQuote(id, val, 'à convenir avec le client', s.shop().created ? s.shop().name : undefined);
+    else s.put('fourn.sent', { ...sent, [id]: val });
     showToast(`Offre de ${fcfa(val)} FCFA envoyée à ${client}.`);
   };
 
@@ -659,7 +773,7 @@ export function SupplierSpace() {
       </div>
       <div className="body">
         {pendingQuotes ? (
-          <TodayCard eyebrow="Aujourd’hui" title={`${pendingQuotes} demande${pendingQuotes > 1 ? 's' : ''} de devis à traiter`} text={`${quotes.find((q) => !sent[q.id])?.client ?? ''} attend votre tarif.`}>
+          <TodayCard eyebrow="Aujourd’hui" title={`${pendingQuotes} demande${pendingQuotes > 1 ? 's' : ''} de devis à traiter`} text={`${quotes.find((q) => !sentOf(q.id))?.client ?? ''} attend votre tarif.`}>
             <button className="btn btn-p" onClick={() => setTab('quotes')}>Répondre</button>
           </TodayCard>
         ) : stockItems.length ? (
@@ -685,7 +799,7 @@ export function SupplierSpace() {
         {tab === 'quotes' && !!quotes.length && (
           <div className="col" style={{ gap: 10 }}>
             {quotes.map((q) => {
-              const sentPrice = sent[q.id];
+              const sentPrice = sentOf(q.id);
               return (
                 <div key={q.id} className="card pad col" style={{ gap: 10 }}>
                   <div className="row" style={{ gap: 12 }}>
@@ -702,18 +816,18 @@ export function SupplierSpace() {
                   {sentPrice ? (
                     <div className="notice n-info">
                       <Icon name="check" size="sm" />
-                      <span>Votre tarif proposé : <b>{fcfa(sentPrice)} FCFA</b> / unité. En attente de confirmation client.</span>
+                      <span>Votre tarif proposé : <b>{fcfa(sentPrice)} FCFA</b> {q.net ? '/ kg' : '/ unité'}. En attente de confirmation client.</span>
                     </div>
                   ) : (
                     <div className="row" style={{ gap: 8 }}>
                       <input
                         className="input num grow"
                         inputMode="numeric"
-                        placeholder={`Tarif unitaire (ex. ${fcfa(q.suggested)})`}
+                        placeholder={q.suggested ? `Tarif unitaire (ex. ${fcfa(q.suggested)})` : 'Votre prix au kg, en FCFA'}
                         value={offers[q.id] ?? ''}
                         onChange={(e) => setOffers({ ...offers, [q.id]: e.target.value })}
                       />
-                      <button className="btn btn-p btn-sm" onClick={() => sendQuote(q.id, q.suggested, q.client)}>Répondre</button>
+                      <button className="btn btn-p btn-sm" onClick={() => sendQuote(q.id, q.suggested, q.client, q.net)}>Répondre</button>
                     </div>
                   )}
                 </div>

@@ -14,6 +14,85 @@ const DUE = [
   ['03', 'déc.', 'Mise bas prévue, FK-0087', 'Vache N’Dama, gestation documentée', '20261203'],
 ];
 
+/* Échéances saisies par l'éleveur (gardées dans son compte). */
+type Due = { id: string; date: string; type: string; what: string };
+const DUE_TYPES = ['Pesée', 'Vaccination', 'Traitement', 'Déparasitage', 'Mise bas prévue', 'Visite du vétérinaire'];
+const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+
+/** Échéances de l'exploitation : celles de la maquette (démo) et celles que l'éleveur ajoute, triées par date. */
+function Echeances({ demo }: { demo: boolean }) {
+  const s = useStore();
+  const mine = s.get<Due[]>('eleveur.due', []);
+  const [adding, setAdding] = useState(false);
+  const [type, setType] = useState(DUE_TYPES[0]);
+  const [what, setWhat] = useState('');
+  const [date, setDate] = useState('');
+  const [tried, setTried] = useState(false);
+  type Row = { key: string; day: string; d: string; m: string; title: string; text: string; own?: Due };
+  const rows: Row[] = [
+    ...(demo ? DUE.map(([d, m, t, x, day]) => ({ key: t, day, d, m, title: t, text: x })) : []),
+    ...mine.map((e) => ({ key: e.id, day: e.date.replace(/-/g, ''), d: e.date.slice(8, 10), m: MONTHS[Number(e.date.slice(5, 7)) - 1] ?? '', title: `${e.type}, ${e.what}`, text: 'Ajoutée par vous', own: e })),
+  ].sort((a, b) => a.day.localeCompare(b.day));
+
+  const add = () => {
+    setTried(true);
+    if (!what.trim() || !date) return;
+    s.put('eleveur.due', [...mine, { id: `DU-${Date.now().toString(36)}`, date, type, what: what.trim() }]);
+    showToast(`Échéance ajoutée : ${type.toLowerCase()} le ${date.slice(8, 10)}/${date.slice(5, 7)}.`);
+    setAdding(false); setWhat(''); setDate(''); setTried(false);
+  };
+  const exportAll = () => {
+    downloadICS('echeances-savaa.ics', rows.map((r) => ({ day: r.day, title: r.title, text: r.text })));
+    showToast('Échéances exportées : ouvrez le fichier pour les ajouter à votre agenda.');
+  };
+
+  return (
+    <div className="sec">
+      <div className="sech">
+        <h2>Échéances</h2>
+        <span className="row" style={{ gap: 14 }}>
+          {rows.length > 0 && <button className="link plain" onClick={exportAll}>Calendrier</button>}
+          <button className="link plain" aria-expanded={adding} onClick={() => setAdding(!adding)}>{adding ? 'Fermer' : '+ Ajouter'}</button>
+        </span>
+      </div>
+      {adding && (
+        <div className="card pad col" style={{ gap: 10 }}>
+          <div className="field">
+            <label htmlFor="due-type">Type</label>
+            <select id="due-type" className="input" value={type} onChange={(e) => setType(e.target.value)}>{DUE_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+          </div>
+          <div className="field">
+            <label htmlFor="due-what">Animal ou lot</label>
+            <input id="due-what" className="input" placeholder="Ex. FK-0087, ou 9 ovins du parc 2" value={what} onChange={(e) => setWhat(e.target.value)} aria-invalid={tried && !what.trim()} />
+            {tried && !what.trim() && <span className="xs" role="alert" style={{ color: '#A0221A' }}>Indiquez l’animal ou le lot concerné.</span>}
+          </div>
+          <div className="field">
+            <label htmlFor="due-date">Date</label>
+            <input id="due-date" className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={tried && !date} />
+            {tried && !date && <span className="xs" role="alert" style={{ color: '#A0221A' }}>Choisissez la date.</span>}
+          </div>
+          <button className="btn btn-p" onClick={add}>Ajouter l’échéance</button>
+        </div>
+      )}
+      {rows.length === 0 && !adding ? (
+        <div className="card pad"><span className="small muted">Aucune échéance. Ajoutez vos pesées, vaccins et mises bas prévues pour ne rien oublier.</span></div>
+      ) : rows.length > 0 && (
+        <div className="card list">
+          {rows.map((r) => (
+            <div className="li" key={r.key}>
+              <span className="col" style={{ width: 40, alignItems: 'center', gap: 0 }}><span className="b num" style={{ fontSize: 17 }}>{r.d}</span><span className="xs muted">{r.m}</span></span>
+              <div className="col grow" style={{ minWidth: 0 }}><span className="small b">{r.title}</span><span className="xs muted ell">{r.text}</span></div>
+              {r.own && (
+                <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => { s.put('eleveur.due', mine.filter((e) => e.id !== r.own?.id)); showToast('Échéance marquée comme faite.'); }}>Fait</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* Écran 08 : tableau de bord de l'exploitation. */
 export function Dashboard() {
   const s = useStore();
@@ -24,6 +103,20 @@ export function Dashboard() {
   const herd = s.animals();
   const alerts = herd.flatMap((a) => s.eventsFor(a.id).filter((e) => e.kind === 'obs' && e.pending).slice(0, 1).map((e) => ({ a, e })));
   const first = herd[0]?.id;
+  /* Alertes envoyées aux vétérinaires et leur réponse (réseau de l'appareil) ; la plus récente par animal. */
+  const myAlerts = s.net().alerts.filter((x) => x.from.phone === s.session().phone);
+  const netOf = (animalId: string) => myAlerts.find((x) => x.animalId === animalId);
+  /* En démo, les alertes de la maquette sont fixes : on ajoute celles envoyées depuis ce compte. */
+  const sentAlerts = demo ? myAlerts.filter((x, i) => myAlerts.findIndex((y) => y.animalId === x.animalId) === i) : [];
+  const vetBadge = (animalId: string) => {
+    const n = netOf(animalId);
+    return n?.status === 'done' ? <Badge tone="green">Clôturée</Badge> : n?.status === 'taken' ? <Badge tone="blue">Prise en charge</Badge> : <Badge tone="amber">Envoyée</Badge>;
+  };
+  const vetLine = (animalId: string) => {
+    const n = netOf(animalId);
+    if (!n?.vet || n.status === 'open') return null;
+    return <span className="xs" style={{ color: '#145C3A' }}>{n.status === 'done' ? 'Clôturée' : 'Prise en charge'} par {n.vet.name}, +225 {n.vet.phone}</span>;
+  };
   /* Animaux en vente, réservés ou vendus (statut déduit des annonces et commandes). */
   const selling = herd.filter((a) => a.mine).map((a) => ({ a, st: animalStatus(a, s.listings(), s.orders()) })).filter(({ st }) => st.label !== 'En élevage' && st.label !== 'Indisponible').slice(0, 4);
   return (
@@ -54,8 +147,8 @@ export function Dashboard() {
               {alerts.map(({ a, e }) => (
                 <Link key={a.id} className="li" to={`/animal/${a.id}/sante`} style={{ alignItems: 'flex-start' }}>
                   <Icon name="alert" style={{ color: '#B42318', marginTop: 2 }} />
-                  <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="b small ell">{a.id}, {a.name}</span><span className="xs muted ell">{e.title}, {e.date}</span></div>
-                  <Badge tone="amber">En attente</Badge>
+                  <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="b small ell">{a.id}, {a.name}</span><span className="xs muted ell">{e.title}, {e.date}</span>{vetLine(a.id)}</div>
+                  {vetBadge(a.id)}
                 </Link>
               ))}
             </div>
@@ -71,6 +164,13 @@ export function Dashboard() {
               <div className="col grow" style={{ gap: 2 }}><span className="b small ell">Rappel vaccinal PPR, 9 ovins</span><span className="xs muted">Échéance le 22/11/2026</span></div>
               <Badge>4 j</Badge>
             </Link>
+            {sentAlerts.map((n) => (
+              <Link key={n.id} className="li" to={`/animal/${n.animalId}/sante`} style={{ alignItems: 'flex-start' }}>
+                <Photo w={44} h={44} radius={6} src={n.photo ?? 'images/visite-veterinaire.jpg'} />
+                <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="b small ell">{n.animalId}, {n.animal}</span><span className="xs muted ell">{n.sign}, {n.date}</span>{vetLine(n.animalId)}</div>
+                {vetBadge(n.animalId)}
+              </Link>
+            ))}
           </div>}
         </div>
 
@@ -84,29 +184,13 @@ export function Dashboard() {
           </div>
         </div>
 
-        {!demo && (
-          <div className="sec">
-            <SectionHead title="Échéances" />
-            <div className="card pad"><span className="small muted">Aucune échéance. Les rappels de vaccins et de pesées apparaîtront ici.</span></div>
-          </div>
-        )}
-        {demo && <div className="sec">
-          <SectionHead title="Échéances" link="Calendrier" onClick={() => { downloadICS('echeances-savaa.ics', DUE.map(([, , t, x, day]) => ({ day, title: t, text: x }))); showToast('Échéances exportées : ouvrez le fichier pour les ajouter à votre agenda.'); }} />
-          <div className="card list">
-            {DUE.map(([d, m, t, x]) => (
-              <div className="li" key={t}>
-                <span className="col" style={{ width: 40, alignItems: 'center', gap: 0 }}><span className="b num" style={{ fontSize: 17 }}>{d}</span><span className="xs muted">{m}</span></span>
-                <div className="col grow"><span className="small b ell">{t}</span><span className="xs muted ell">{x}</span></div>
-              </div>
-            ))}
-          </div>
-        </div>}
+        <Echeances demo={demo} />
 
         <div className="sec">
           <SectionHead title="Ventes" link={s.shop().created ? 'Ma boutique' : 'Créer ma boutique'} to="/boutique" />
           <div className="grid2">
             <Link className="card pad stat" to="/boutique"><span className="v">{(demo ? 3 : 0) + online}</span><span className="l">Annonces en ligne</span></Link>
-            <div className="card pad stat"><span className="v">{demo ? 1 : 0}</span><span className="l">Commande à préparer</span></div>
+            <div className="card pad stat"><span className="v">{(demo ? 1 : 0) + s.mySales().filter((x) => x.status === 'new').length}</span><span className="l">Commande à préparer</span></div>
           </div>
           {selling.length > 0 && (
             <div className="card list">

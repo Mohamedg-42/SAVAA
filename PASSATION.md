@@ -119,15 +119,29 @@ Le back-office (`/#/admin`) est réservé à l'équipe SAVAA. Sans le compte de 
 
 Se déconnecter efface les données du compte sur l'appareil, puisqu'il n'y a pas de serveur. La déconnexion et la remise à zéro passent par l'écran de démarrage, qui affiche « Vous êtes déconnecté ». Elles se font une fois sorti de l'écran Compte : faites depuis l'écran Compte, la garde d'accès renvoyait vers la connexion avec un retour prévu sur Mon compte.
 
+## Liaisons entre les rôles (réseau de l’appareil)
+
+Sans serveur, les comptes d’un même appareil échangent par un espace commun, `savaa-reseau-v1` (dans `data.ts` : `store.net()`, `answerAlert`, `moveMission`, `askQuote`, `offerQuote`, `closeQuote`). Il survit à la déconnexion, comme un vrai serveur ; « Réinitialiser la démo » le vide.
+
+- **Éleveur → vétérinaire :** une observation (« Enregistrer et alerter ») crée une alerte chez tous les vétérinaires, avec le texte, les photos et le numéro de l’éleveur. Le vétérinaire la prend en charge puis la clôture ; l’éleveur voit « Prise en charge par Dr … » sur son tableau de bord.
+- **Acheteur → transporteur :** une commande payée avec livraison crée une mission (enlèvement, livraison, destinataire, rémunération = frais de livraison). Le transporteur l’accepte, la fait avancer, et la remise n’est confirmée qu’avec le code à 4 chiffres de l’acheteur. Le suivi de commande de l’acheteur suit ces étapes.
+- **Restaurant → fournisseurs :** la demande de devis du restaurant arrive chez les fournisseurs ; leur prix au kg revient dans l’espace du restaurant, à la place des offres de démonstration.
+- **Acheteur → vendeur :** chaque commande crée une vente chez le vendeur concerné (boutique et tableau de bord, « Commandes reçues »). Il la marque « prête », puis « remise faite » si l’acheteur vient la chercher ; avec une livraison, la vente passe à « remise » dès que le transporteur l’enlève.
+- **Éleveur → vétérinaire (fiches) :** sur la fiche d’un animal, « Demander la vérification » envoie la fiche dans l’onglet Validations des vétérinaires. Une fois validée, l’éleveur voit « Vérifié », avec le nom du vétérinaire et la date.
+- **Annonces partagées :** une annonce publiée par un vrai compte est visible par les autres comptes de l’appareil. L’archiver la retire du catalogue ; « Remettre en vente » la renvoie en relecture.
+
+Dans l’espace de l’éleveur, le bloc **Échéances** (vaccination, pesée, vermifuge…) s’enregistre par compte : ajout avec contrôle des champs, « Fait » pour la retirer, export vers l’agenda (.ics).
+
+Pour une démonstration : faire l’observation et la commande avec le compte de démonstration, se déconnecter, créer un compte vétérinaire puis un compte transporteur, et revenir.
+
 ## Ce qu'il reste
 
 À faire dans le front :
 
-- **Tests des écrans :** `npm test` (Vitest, 47 tests) couvre seulement la logique (`trace`, `profils`, `invest`, `invest-admin`).
+- **Tests des écrans :** `npm test` (Vitest, 53 tests) couvre seulement la logique (`trace`, `profils`, `invest`, `invest-admin`).
 - **Comparaison visuelle :** comparer la mise en page à la maquette sur des captures.
 - **Premier chargement :** le fichier JavaScript dépasse 500 Ko ; on peut charger les écrans à la demande.
 - **Photos :** remplacer les photos de démonstration par les vraies, y compris celles des projets agricoles d'exemple.
-- **Statut « archivée » des annonces :** il manque l'action pour archiver une annonce depuis la boutique.
 - **Graphiques du back-office investisseurs,** filtrables par période.
 
 À décider :

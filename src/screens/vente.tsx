@@ -7,6 +7,7 @@ import { DashHeader, Kpis, TodayCard } from '../dash';
 import { downloadCSV } from '../device';
 import { clearToast, showToast } from '../toast';
 import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd, TabBar } from '../ui';
+import { SalesList } from './tableaux';
 
 /* Lot 5 : vente (boutique, publication, campagne, statistiques, espace restaurant). */
 
@@ -134,11 +135,12 @@ export function CreateShop() {
 type ShopTab = 'ads' | 'orders' | 'reviews';
 
 const thumb = <Photo w={52} h={52} radius={6} />;
-const LISTING_BADGE: Record<Listing['status'], [string, 'green' | 'amber' | 'blue' | 'red']> = {
+const LISTING_BADGE: Record<Listing['status'], [string, 'green' | 'amber' | 'blue' | 'red' | 'grey']> = {
   online: ['En ligne', 'green'],
   review: ['En revue', 'amber'],
   sold: ['Vendu', 'blue'],
   out: ['Rupture', 'red'],
+  archived: ['Archivée', 'grey'],
 };
 
 export function Shop() {
@@ -150,7 +152,7 @@ export function Shop() {
   const initials = shop.name.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   /* Le compte de démonstration garde l'historique de la maquette ; un nouveau vendeur part de zéro. */
   const demo = !!s.session().demo;
-  const tabs: [ShopTab, string][] = [['ads', `Annonces (${(demo ? 4 : 0) + mine.length})`], ['orders', `Commandes (${demo ? 3 : 0})`], ['reviews', `Avis (${demo ? 23 : 0})`]];
+  const tabs: [ShopTab, string][] = [['ads', `Annonces (${(demo ? 4 : 0) + mine.length})`], ['orders', `Commandes (${(demo ? 3 : 0) + s.mySales().length})`], ['reviews', `Avis (${demo ? 23 : 0})`]];
   const buyerView = demo ? '/annonce/FK-0142' : mine[0] ? `/annonce/${mine[0].id}` : null;
   const empty = (t: string) => <div className="card pad"><span className="small muted">{t}</span></div>;
 
@@ -188,7 +190,8 @@ export function Shop() {
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {tab === 'ads' && !demo && mine.length === 0 && empty('Aucune annonce pour l’instant. Touchez « Publier » pour mettre en vente.')}
-          {tab === 'orders' && !demo && empty('Aucune commande reçue pour l’instant.')}
+          {tab === 'orders' && s.mySales().length > 0 && <SalesList sales={s.mySales()} />}
+          {tab === 'orders' && !demo && !s.mySales().length && empty('Aucune commande reçue pour l’instant.')}
           {tab === 'reviews' && !demo && empty('Aucun avis : ils arrivent après les premières ventes livrées.')}
           {tab === 'ads' && (demo || mine.length > 0) && (
             <div className="card list">
@@ -203,7 +206,14 @@ export function Shop() {
                     {l.status === 'review' ? (
                       <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => { s.updateListing(l.id, { status: 'online' }); showToast('Annonce validée et mise en ligne.'); }} title="En démonstration, valide l’annonce comme le ferait l’équipe SAVAA">Valider</button>
                     ) : (
-                      <Badge tone={tone}>{label}</Badge>
+                      <span className="col" style={{ alignItems: 'flex-end', gap: 4, flex: 'none' }}>
+                        <Badge tone={tone}>{label}</Badge>
+                        {l.status === 'archived' ? (
+                          <button className="link plain xs" onClick={() => { s.updateListing(l.id, { status: 'review' }); showToast('Annonce renvoyée en relecture avant sa remise en vente.'); }}>Remettre en vente</button>
+                        ) : (
+                          <button className="link plain xs" style={{ color: '#5D6862' }} onClick={() => { s.updateListing(l.id, { status: 'archived' }); showToast(`« ${l.title} » archivée : elle n’est plus visible des acheteurs.`); }}>Archiver</button>
+                        )}
+                      </span>
                     )}
                   </div>
                 );
@@ -1084,7 +1094,8 @@ const INVOICES: [string, string, number, string, 'green' | 'amber'][] = [
   ['FAC-2026-1098', 'Bergerie Soro', 240000, 'À régler le 25/11', 'amber'],
 ];
 
-type RestoRequest = { product: string; kg: number; place: string };
+/** `quoteId` : la demande envoyée aux fournisseurs (réseau de l'appareil), dont on lit les offres. */
+type RestoRequest = { product: string; kg: number; place: string; quoteId?: string };
 
 /** Haut du tableau de bord restaurant : prochaine livraison ou demande en cours, dépenses, origine des produits reçus. */
 function RestoOverview({ req }: { req: RestoRequest | null }) {
@@ -1159,7 +1170,12 @@ export function Restaurant() {
   const [product, setProduct] = useState('');
   const [kg, setKg] = useState(0);
   const [place, setPlace] = useState('');
-  const chosen = OFFERS[sel];
+  /* Offres : celles de la maquette pour la démo ; sinon les réponses des fournisseurs à la demande envoyée. */
+  const quote = !demo && req?.quoteId ? s.net().quotes.find((q) => q.id === req.quoteId) : undefined;
+  const offers = demo ? OFFERS : (quote?.offers ?? []).map((o) => ({
+    n: o.supplier.org || o.supplier.name, kg: o.price, d: `Délai : ${o.delay}. Contact +225 ${o.supplier.phone}`, v: 'Fournisseur', verified: false, note: `Reçue le ${o.date}`, photo: 'images/aliment-betail.jpg',
+  }));
+  const chosen = offers[Math.min(sel, offers.length - 1)] ?? offers[0];
 
   if (!req) {
     return (
@@ -1179,7 +1195,11 @@ export function Restaurant() {
           <div className="field"><label htmlFor="rq-place">Lieu de livraison</label><input id="rq-place" className="input" placeholder="Ex. Cocody, Riviera 3" value={place} onChange={(e) => setPlace(e.target.value)} /></div>
           <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Elles apparaîtront ici après votre première commande.</span></div>
         </div>
-        <Foot><button className="btn btn-p" disabled={!product.trim() || kg <= 0 || !place.trim()} onClick={() => s.put('resto.request', { product: product.trim(), kg, place: place.trim() } satisfies RestoRequest)}>Envoyer la demande</button></Foot>
+        <Foot><button className="btn btn-p" disabled={!product.trim() || kg <= 0 || !place.trim()} onClick={() => {
+          const quoteId = s.askQuote({ product: product.trim(), qty: `${fcfa(kg)} kg / semaine`, place: place.trim(), org: s.session().pro?.['resto.nom'] });
+          s.put('resto.request', { product: product.trim(), kg, place: place.trim(), quoteId } satisfies RestoRequest);
+          showToast('Demande envoyée aux fournisseurs. Leurs offres apparaîtront ici.');
+        }}>Envoyer la demande</button></Foot>
         <TabBar />
       </div>
     );
@@ -1196,15 +1216,19 @@ export function Restaurant() {
         </label>
 
         <div className="sec">
-          <div className="sech"><h2>Demande de devis</h2><Badge tone="blue">{OFFERS.length} offres</Badge></div>
+          <div className="sech"><h2>Demande de devis</h2><Badge tone={offers.length ? 'blue' : 'grey'}>{offers.length} offre{offers.length > 1 ? 's' : ''}</Badge></div>
           <div className="card pad col" style={{ gap: 4 }}>
             <span className="b small">{req.product}, {fcfa(req.kg)} kg / semaine</span>
             <span className="xs muted">Livraison {req.place}{demo ? ', lundi avant 8 h, réponse avant le 20/11' : ''}</span>
-            {!demo && <span className="xs muted">Offres de démonstration : les prix seront ceux des fournisseurs qui répondent.</span>}
-            {!demo && <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => s.put('resto.request', null)}>Modifier la demande</button>}
+            {!demo && <span className="xs muted">Envoyée aux fournisseurs de SAVAA. Chaque réponse arrive ici avec son prix au kg.</span>}
+            {!demo && <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => { if (req.quoteId) s.closeQuote(req.quoteId); s.put('resto.request', null); }}>Modifier la demande</button>}
           </div>
+          {!offers.length && (
+            <div className="card pad col" style={{ gap: 4 }}><span className="b small">En attente des fournisseurs</span><span className="small muted">Les fournisseurs reçoivent votre demande dans leur espace. Leurs offres s’afficheront ici dès leur réponse.</span></div>
+          )}
+          {!!offers.length && <>
           <div className="card list" role="radiogroup">
-            {OFFERS.map((o, i) => (
+            {offers.map((o, i) => (
               <button key={o.n} className="li" role="radio" aria-checked={sel === i} onClick={() => { setSel(i); setOrdered(null); }} style={{ background: sel === i ? '#E8F3EA' : '#fff', alignItems: 'flex-start' }}>
                 <span className={`radio${sel === i ? ' on' : ''}`} style={{ marginTop: 2 }} />
                 <Photo w={44} h={44} radius={6} src={o.photo} />
@@ -1220,13 +1244,14 @@ export function Restaurant() {
           {ordered === chosen.n ? (
             <div className="notice n-info" role="status">
               <Icon name="check" size="sm" />
-              <span><b>Commande transmise à {chosen.n}.</b> Le fournisseur confirme le créneau de lundi. Paiement simulé à la livraison des premiers {fcfa(req.kg)} kg.</span>
+              <span><b>Commande transmise à {chosen.n}.</b> {demo ? 'Le fournisseur confirme le créneau de lundi.' : 'Le fournisseur vous confirme le créneau de livraison.'} Paiement simulé à la livraison des premiers {fcfa(req.kg)} kg.</span>
             </div>
           ) : (
             <button className="btn btn-p btn-block" style={{ whiteSpace: 'normal', height: 'auto', minHeight: 48, padding: '8px 18px', lineHeight: 1.25 }} onClick={() => setOrdered(chosen.n)}>
               Commander chez {chosen.n}
             </button>
           )}
+          </>}
         </div>
 
         {!demo && (

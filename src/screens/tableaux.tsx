@@ -1,12 +1,40 @@
 import { Link } from 'react-router-dom';
-import { fcfa, useStore } from '../data';
+import { fcfa, useStore, type NetSale } from '../data';
+import { showToast } from '../toast';
 import { DashHeader, Kpis, QuickActions, TodayCard } from '../dash';
-import { Badge, Icon, TabBar } from '../ui';
+import { Badge, Icon, Photo, TabBar } from '../ui';
 
 /* Tableau de bord du vendeur / commerçant (accueil de son espace). */
 
 /* Ventes des 4 dernières semaines, en milliers de FCFA : compte de démonstration seulement. */
 const DEMO_WEEKS: [string, number][] = [['S44', 258], ['S45', 352], ['S46', 301], ['S47', 412]];
+
+/** Commandes reçues sur ses annonces : à préparer, prêtes, remises (réseau de l'appareil). */
+export function SalesList({ sales }: { sales: NetSale[] }) {
+  const s = useStore();
+  return (
+    <div className="card list">
+      {sales.map((x) => (
+        <div className="li" key={x.id} style={{ alignItems: 'flex-start' }}>
+          {x.photo && <Photo w={44} h={44} radius={6} src={x.photo} />}
+          <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
+            <span className="small b">{x.qty > 1 ? `${x.qty} × ` : ''}{x.title}</span>
+            <span className="xs muted num">{x.orderRef}, payée le {x.date}</span>
+            <span className="xs muted">{x.buyer.name}, <span className="num">+225 {x.buyer.phone}</span> · {x.delivery ? 'livraison par transporteur' : 'retrait chez vous'}</span>
+            <span className="xs b num">{fcfa(x.price * x.qty)} FCFA</span>
+          </div>
+          {x.status === 'new' ? (
+            <button className="btn btn-p btn-sm" style={{ flex: 'none' }} onClick={() => { s.moveSale(x.id, 'ready'); showToast(x.delivery ? 'Commande prête : le transporteur peut passer.' : 'Commande prête : l’acheteur est prévenu.'); }}>Marquer prête</button>
+          ) : x.status === 'ready' && !x.delivery ? (
+            <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => { s.moveSale(x.id, 'handed'); showToast('Remise confirmée.'); }}>Remise faite</button>
+          ) : (
+            <Badge tone={x.status === 'ready' ? 'blue' : 'green'}>{x.status === 'ready' ? 'Prête' : 'Remise'}</Badge>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function VendorHome() {
   const s = useStore();
@@ -19,6 +47,12 @@ export function VendorHome() {
   const lowStock = online.filter((l) => l.stock !== undefined && l.stock < 10);
   const unread = s.unread();
   const max = Math.max(...DEMO_WEEKS.map(([, v]) => v));
+  /* Commandes reçues des acheteurs (réseau de l'appareil). */
+  const sales = s.mySales();
+  const toPrep = sales.filter((x) => x.status === 'new');
+  const inProgress = sales.filter((x) => x.status !== 'handed');
+  const salesTotal = sales.reduce((t, x) => t + x.price * x.qty, 0);
+  const orderCount = new Set(sales.map((x) => x.orderRef)).size;
 
   return (
     <div className="app">
@@ -28,7 +62,9 @@ export function VendorHome() {
         action={<Link className="iconbtn" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}><Icon name="bell" />{unread > 0 && <span className="dot">{unread}</span>}</Link>}
       />
       <div className="body">
-        {demo ? (
+        {toPrep.length ? (
+          <TodayCard eyebrow="Aujourd’hui" title={`${toPrep.length} commande${toPrep.length > 1 ? 's' : ''} à préparer`} text={`${toPrep.map((x) => (x.qty > 1 ? `${x.qty} × ${x.title}` : x.title)).join(', ')}. Marquez-les prêtes dès qu’elles sont emballées.`} />
+        ) : demo ? (
           <TodayCard eyebrow="Aujourd’hui" title="3 commandes à préparer avant 15 h" text="Le transporteur passe à 15 h 30 : 10 sacs d’aliment, 2 plateaux d’œufs, 1 lot de poussins.">
             <Link className="btn btn-p" to="/boutique">Préparer les commandes</Link>
           </TodayCard>
@@ -53,8 +89,8 @@ export function VendorHome() {
             { label: 'Annonces en ligne', value: 12, sub: '1 en modération' },
             { label: 'Stock bas', value: 2, sub: 'produits sous 10 unités', tone: 'red' },
           ] : [
-            { label: 'Ventes de la semaine', value: 0, sub: 'FCFA' },
-            { label: 'Commandes en cours', value: 0 },
+            { label: 'Ventes reçues', value: fcfa(salesTotal), sub: `FCFA, ${orderCount} commande${orderCount > 1 ? 's' : ''}` },
+            { label: 'Commandes en cours', value: inProgress.length, sub: toPrep.length ? `dont ${toPrep.length} à préparer` : undefined },
             { label: 'Annonces en ligne', value: online.length, sub: `${review.length} en modération` },
             { label: 'Stock bas', value: lowStock.length, sub: 'produits sous 10 unités', tone: lowStock.length ? 'red' : undefined },
           ]}
@@ -72,6 +108,13 @@ export function VendorHome() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {sales.length > 0 && (
+          <div className="sec">
+            <div className="sech"><h2>Commandes reçues</h2><Badge tone={toPrep.length ? 'amber' : 'green'}>{toPrep.length ? `${toPrep.length} à préparer` : 'À jour'}</Badge></div>
+            <SalesList sales={sales} />
           </div>
         )}
 

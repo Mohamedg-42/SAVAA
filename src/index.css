@@ -387,3 +387,7 @@ select.input{appearance:none;-webkit-appearance:none;height:46px;line-height:1.3
 @media (min-width:640px){.app:has(.splash-after){--page:440px}}
 /* Back-office : la file de modération, tableau le plus large, prend deux colonnes quand il y en a trois */
 @media (min-width:1300px){.adm-grid > .adm-wide{grid-column:span 2}}
+
+/* Icône en relief dans une puce de catégorie (accueil vu sans compte) : pastille claire pour qu'elle reste lisible sur la puce active verte. */
+.chip-ic{width:26px;height:26px;border-radius:50%;background:#f8faf8;display:flex;align-items:center;justify-content:center;flex:none}
+.chip-ic .relief{width:22px;height:22px}
