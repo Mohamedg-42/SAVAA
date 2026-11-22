@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { fcfa, useStore, type Order } from '../data';
+import { fcfa, useStore, type DeliveryQuote, type Order } from '../data';
+import { PLACES, loadLabel, vehicleOf } from '../livraison';
+import { DeliveryMap } from '../carte';
 import { printPage } from '../device';
-import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, TabBar } from '../ui';
+import { Badge, Check, Foot, Header, Icon, NotFound, Photo, PhotoAdd, TabBar } from '../ui';
 
 function Steps({ n }: { n: number }) {
   return (
@@ -11,6 +13,43 @@ function Steps({ n }: { n: number }) {
       <div className="row between xs muted" style={{ marginTop: 6 }}>
         {['Panier et livraison', 'Paiement', 'Reçu'].map((t, i) => <span key={t} style={i + 1 === n ? { color: '#17201B', fontWeight: 600 } : undefined}>{t}</span>)}
       </div>
+    </div>
+  );
+}
+
+/** Véhicule et prix de la livraison, calculés selon la nature, la quantité et la distance (voir livraison.ts). */
+function DeliveryChoice({ q, couriers }: { q: DeliveryQuote; couriers: number }) {
+  const s = useStore();
+  const c = s.cart();
+  if (q.load.kg === 0) return <span className="hint">Rien à transporter : un service se règle sur place.</span>;
+  if (!q.options.length) {
+    return <div className="notice n-warn" role="alert"><Icon name="alert" size="sm" /><span>Aucun véhicule ne peut transporter {loadLabel(q.load)} sur {q.km} km en un seul voyage. Réduisez la quantité, ou choisissez le retrait sur place.</span></div>;
+  }
+  const best = q.options[0];
+  return (
+    <div className="col" style={{ gap: 8 }}>
+      <span className="small"><b>{loadLabel(q.load)}</b> sur <b className="num">{q.km} km</b>{q.from && q.drop ? `, de ${q.from.name} à ${q.drop.name}` : ''}{q.estimated ? ' (distance estimée, lieu à préciser)' : ''}</span>
+      <div className="card list" role="radiogroup" aria-label="Véhicule de livraison">
+        {q.options.map((o) => {
+          const on = q.chosen?.vehicle.id === o.vehicle.id;
+          return (
+            <button key={o.vehicle.id} className="li" role="radio" aria-checked={on} onClick={() => s.setCart({ vehicle: o.vehicle.id })} style={{ background: on ? '#E8F3EA' : '#fff', alignItems: 'flex-start' }}>
+              <span className={`radio${on ? ' on' : ''}`} style={{ marginTop: 2 }} />
+              <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
+                <span className="row between" style={{ gap: 8 }}><span className="small b">{o.vehicle.label}</span><span className="small b num" style={{ flex: 'none' }}>{fcfa(o.price)} FCFA</span></span>
+                <span className="xs muted">{o.vehicle.id === 'groupage' ? 'Camion partagé avec d’autres commandes, délai plus long' : o.vehicle.what}</span>
+                {o === best && q.options.length > 1 && <Badge tone="green" style={{ alignSelf: 'flex-start' }}>Le moins cher</Badge>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {q.chosen?.vehicle.id !== 'groupage' && (
+        <button className="row top" role="checkbox" aria-checked={!!c.urgent} onClick={() => s.setCart({ urgent: !c.urgent })} style={{ gap: 10, background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+          <Check on={!!c.urgent} /><span className="small">Livraison dans la journée <span className="muted">(+30 %)</span></span>
+        </button>
+      )}
+      <span className="xs muted">{couriers ? `${couriers} livreur${couriers > 1 ? 's' : ''} en service dans la zone peu${couriers > 1 ? 'vent' : 't'} faire ce transport.` : 'Aucun livreur compatible en service dans cette zone pour l’instant : la mission leur sera proposée dès qu’ils seront disponibles.'}</span>
     </div>
   );
 }
@@ -24,7 +63,10 @@ export function Cart() {
   const sellers = [...new Set(lines.map((l) => l.listing.seller))];
   const qtyBtn = { width: 36, height: 36 };
   const demo = !!s.session().demo;
-  const needAddress = !demo && c.delivery && !(c.address ?? '').trim();
+  const q = s.deliveryQuote();
+  const couriers = c.delivery && q.chosen ? s.couriersFor(q.load, q.km, q.from) : [];
+  const needAddress = !demo && c.delivery && (!(c.address ?? '').trim() || !q.drop);
+  const noVehicle = c.delivery && q.load.kg > 0 && !q.options.length;
 
   if (!lines.length) {
     return (
@@ -92,13 +134,23 @@ export function Cart() {
                   <div className="li" style={{ alignItems: 'flex-start' }}><Icon name="calendar" /><div className="col grow"><span className="small b">Jeudi 20 novembre, 7 h – 11 h</span><span className="xs muted">Créneau proposé par le transporteur</span></div></div>
                 </div>
               ) : (
+                <>
+                <div className="field">
+                  <label htmlFor="cart-town">Ville ou village de livraison</label>
+                  <select id="cart-town" className="input" value={q.drop?.name ?? ''} onChange={(e) => s.setCart({ town: e.target.value })} style={{ color: q.drop ? '#17201B' : '#5D6862' }}>
+                    <option value="" disabled>Choisir…</option>
+                    {PLACES.map((p) => <option key={p.name}>{p.name}</option>)}
+                  </select>
+                  <span className="hint">Sert à calculer la distance et le prix de la livraison.</span>
+                </div>
                 <div className="field">
                   <label htmlFor="cart-address">Adresse de livraison</label>
                   <textarea id="cart-address" className="input" style={{ minHeight: 64 }} placeholder="Village ou quartier, repère, personne à contacter" value={c.address ?? ''} onChange={(e) => s.setCart({ address: e.target.value })} />
-                  <span className="hint">Le transporteur vous propose un créneau après le paiement.</span>
+                  <span className="hint">Le livreur vous propose un créneau après le paiement.</span>
                 </div>
+                </>
               )}
-              <span className="hint">Transport en bétaillère par un transporteur partenaire.</span>
+              <DeliveryChoice q={q} couriers={couriers.length} />
             </>
           ) : (
             <div className="card pad col" style={{ gap: 4 }}>
@@ -116,7 +168,7 @@ export function Cart() {
         </div>
       </div>
       <Foot>
-        {needAddress ? <button className="btn btn-p" disabled>Indiquez l’adresse de livraison</button> : <Link className="btn btn-p" to="/paiement">Choisir le paiement</Link>}
+        {noVehicle ? <button className="btn btn-p" disabled>Choisissez le retrait sur place</button> : needAddress ? <button className="btn btn-p" disabled>{q.drop ? 'Indiquez l’adresse de livraison' : 'Choisissez la ville de livraison'}</button> : <Link className="btn btn-p" to="/paiement">Choisir le paiement</Link>}
       </Foot>
     </div>
   );
@@ -294,7 +346,7 @@ export function Receipt() {
         <div className="card pad col" style={{ gap: 8 }}>
           <span className="eyebrow" style={{ marginBottom: 2 }}>Détail par vendeur</span>
           {o.lines.map((l, i) => <div className="sum" key={l.listingId}><span>{lineLabel(o, i)}</span><span className="num">{fcfa(l.price * l.qty)}</span></div>)}
-          {o.shipping > 0 && <div className="sum"><span>Livraison, Transports Ouattara</span><span className="num">{fcfa(o.shipping)}</span></div>}
+          {o.shipping > 0 && <div className="sum"><span>Livraison, {o.demo ? 'Transports Ouattara' : `${vehicleOf(o.vehicle)?.label ?? 'transporteur'}${o.km ? `, ${o.km} km` : ''}`}</span><span className="num">{fcfa(o.shipping)}</span></div>}
           <div className="sum"><span className="muted">Frais de transaction</span><span className="num muted">0</span></div>
           <div className="sum t"><span>Total payé</span><span className="num">{fcfa(o.total)} FCFA</span></div>
         </div>
@@ -371,10 +423,13 @@ export function Tracking() {
             ))}
           </div>
         </div>
+        {o.delivery && !o.demo && mission?.from && (
+          <DeliveryMap label={`Trajet de la livraison, de ${mission.from.name} à ${mission.to?.name ?? 'votre adresse'}`} height={180} routes={[{ id: mission.id, from: mission.from, to: mission.to, label: `Enlèvement : ${mission.from.name}` }]} />
+        )}
         {o.delivery && (
           <div className="card pad row">
-            <span className="av" style={{ background: '#EEF0EE', color: '#3E4943' }}>TO</span>
-            <div className="col grow"><span className="b small">Transports Ouattara</span><span className="xs muted">{o.demo ? 'Bétaillère AB 4512 CI, Issa O.' : 'Chauffeur attribué à la prise en charge'}</span></div>
+            <span className="av" style={{ background: '#EEF0EE', color: '#3E4943' }}>{o.demo ? 'TO' : (mission?.courier?.name ?? 'L').split(/s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()}</span>
+            <div className="col grow"><span className="b small">{o.demo ? 'Transports Ouattara' : mission?.courier ? mission.courier.name : 'Livreur pas encore attribué'}</span><span className="xs muted">{o.demo ? 'Bétaillère AB 4512 CI, Issa O.' : `${vehicleOf(o.vehicle)?.label ?? 'Véhicule'}${o.km ? `, ${o.km} km` : ''}${mission?.courier ? `, +225 ${mission.courier.phone}` : ', proposé aux livreurs de la zone'}`}</span></div>
             <Link className="iconbtn" to="/assistance?onglet=assistant" aria-label="Écrire au transporteur via l’assistance" style={{ border: '1px solid #C5CDC7' }}><Icon name="chat" /></Link>
           </div>
         )}

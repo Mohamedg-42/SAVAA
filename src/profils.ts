@@ -83,11 +83,11 @@ export const PRO_SECTIONS: ProSection[] = [
   {
     role: 'coursier', title: 'Votre véhicule',
     fields: [
-      { key: 'coursier.vehicule', label: 'Type de véhicule', options: ['Moto', 'Tricycle', 'Pick-up ou bâché', 'Camion', 'Bétaillère'], required: true },
+      { key: 'coursier.vehicule', label: 'Type de véhicule', options: ['Moto', 'Tricycle', 'Pick-up bâché', 'Petite bétaillère', 'Camion (bétail ou marchandises)', 'Camion frigorifique'], required: true },
       { key: 'coursier.immat', label: 'Immatriculation', placeholder: 'Ex. 1234 AB 01', required: true },
       { key: 'coursier.capacite', label: 'Capacité', placeholder: 'Ex. 6 têtes, 2 tonnes' },
       { key: 'coursier.permis', label: 'Numéro du permis de conduire', required: true },
-      { key: 'coursier.zone', label: 'Zone de travail', required: true },
+      { key: 'coursier.zone', label: 'Ville ou village de base', placeholder: 'Ex. Korhogo', required: true },
     ],
     docs: [{ key: 'coursier.carteGrise', label: 'Carte grise du véhicule', required: true }, { key: 'coursier.photoPermis', label: 'Photo du permis de conduire', required: true }],
   },

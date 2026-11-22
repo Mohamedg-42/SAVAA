@@ -8,6 +8,7 @@ import { downloadCSV } from '../device';
 import { clearToast, showToast } from '../toast';
 import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd, TabBar } from '../ui';
 import { SalesList } from './tableaux';
+import { ClientInvoices, ClientRecurring, RecurringSetup } from './devis';
 
 /* Lot 5 : vente (boutique, publication, campagne, statistiques, espace restaurant). */
 
@@ -1136,7 +1137,7 @@ function RestoOverview({ req }: { req: RestoRequest | null }) {
       ] : [
         { label: 'Dépenses du mois', value: fcfa(spent), sub: 'FCFA' },
         { label: 'Commandes', value: orders.length },
-        { label: 'Devis en attente', value: req ? 1 : 0, wide: true },
+        { label: 'Devis en attente', value: req && s.net().quotes.find((q) => q.id === req.quoteId)?.status !== 'accepted' ? 1 : 0, wide: true },
       ]} />
       <div className="sec">
         <div className="sech"><h2>D’où viennent vos produits</h2></div>
@@ -1172,10 +1173,12 @@ export function Restaurant() {
   const [place, setPlace] = useState('');
   /* Offres : celles de la maquette pour la démo ; sinon les réponses des fournisseurs à la demande envoyée. */
   const quote = !demo && req?.quoteId ? s.net().quotes.find((q) => q.id === req.quoteId) : undefined;
-  const offers = demo ? OFFERS : (quote?.offers ?? []).map((o) => ({
-    n: o.supplier.org || o.supplier.name, kg: o.price, d: `Délai : ${o.delay}. Contact +225 ${o.supplier.phone}`, v: 'Fournisseur', verified: false, note: `Reçue le ${o.date}`, photo: 'images/aliment-betail.jpg',
+  const offers = demo ? OFFERS.map((o) => ({ ...o, id: o.n })) : (quote?.offers ?? []).map((o) => ({
+    id: o.id, n: o.supplier.org || o.supplier.name, kg: o.price, d: `Délai : ${o.delay}. Contact +225 ${o.supplier.phone}`, v: 'Fournisseur', verified: false, note: `Reçue le ${o.date}`, photo: 'images/aliment-betail.jpg',
   }));
   const chosen = offers[Math.min(sel, offers.length - 1)] ?? offers[0];
+  /* Hors démo, « Commander » retient l'offre : le fournisseur la voit et émet ses factures. */
+  const kept = quote?.accepted ? offers.find((o) => o.id === quote.accepted) : undefined;
 
   if (!req) {
     return (
@@ -1193,10 +1196,12 @@ export function Restaurant() {
             </label>
           </div>
           <div className="field"><label htmlFor="rq-place">Lieu de livraison</label><input id="rq-place" className="input" placeholder="Ex. Cocody, Riviera 3" value={place} onChange={(e) => setPlace(e.target.value)} /></div>
-          <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Elles apparaîtront ici après votre première commande.</span></div>
+          <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Quand vous retenez l’offre d’un fournisseur, vous pouvez la recevoir chaque semaine. Ses factures arrivent ici.</span></div>
+          <ClientRecurring />
+          <ClientInvoices />
         </div>
         <Foot><button className="btn btn-p" disabled={!product.trim() || kg <= 0 || !place.trim()} onClick={() => {
-          const quoteId = s.askQuote({ product: product.trim(), qty: `${fcfa(kg)} kg / semaine`, place: place.trim(), org: s.session().pro?.['resto.nom'] });
+          const quoteId = s.askQuote({ product: product.trim(), qty: `${fcfa(kg)} kg / semaine`, place: place.trim(), org: s.session().pro?.['resto.nom'], per: 'le kg', qtyNum: kg });
           s.put('resto.request', { product: product.trim(), kg, place: place.trim(), quoteId } satisfies RestoRequest);
           showToast('Demande envoyée aux fournisseurs. Leurs offres apparaîtront ici.');
         }}>Envoyer la demande</button></Foot>
@@ -1221,12 +1226,18 @@ export function Restaurant() {
             <span className="b small">{req.product}, {fcfa(req.kg)} kg / semaine</span>
             <span className="xs muted">Livraison {req.place}{demo ? ', lundi avant 8 h, réponse avant le 20/11' : ''}</span>
             {!demo && <span className="xs muted">Envoyée aux fournisseurs de SAVAA. Chaque réponse arrive ici avec son prix au kg.</span>}
-            {!demo && <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => { if (req.quoteId) s.closeQuote(req.quoteId); s.put('resto.request', null); }}>Modifier la demande</button>}
+            {!demo && <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => { if (req.quoteId && !kept) s.closeQuote(req.quoteId); s.put('resto.request', null); }}>{kept ? 'Faire une nouvelle demande' : 'Modifier la demande'}</button>}
           </div>
           {!offers.length && (
             <div className="card pad col" style={{ gap: 4 }}><span className="b small">En attente des fournisseurs</span><span className="small muted">Les fournisseurs reçoivent votre demande dans leur espace. Leurs offres s’afficheront ici dès leur réponse.</span></div>
           )}
-          {!!offers.length && <>
+          {kept && quote && (
+            <>
+              <div className="notice n-info" role="status"><Icon name="check" size="sm" /><span><b>Offre retenue : {kept.n}</b>, {fcfa(kept.kg)} FCFA le kg, soit {fcfa(kept.kg * req.kg)} FCFA par semaine. {kept.d}.</span></div>
+              <RecurringSetup q={quote} />
+            </>
+          )}
+          {!!offers.length && !kept && <>
           <div className="card list" role="radiogroup">
             {offers.map((o, i) => (
               <button key={o.n} className="li" role="radio" aria-checked={sel === i} onClick={() => { setSel(i); setOrdered(null); }} style={{ background: sel === i ? '#E8F3EA' : '#fff', alignItems: 'flex-start' }}>
@@ -1247,15 +1258,17 @@ export function Restaurant() {
               <span><b>Commande transmise à {chosen.n}.</b> {demo ? 'Le fournisseur confirme le créneau de lundi.' : 'Le fournisseur vous confirme le créneau de livraison.'} Paiement simulé à la livraison des premiers {fcfa(req.kg)} kg.</span>
             </div>
           ) : (
-            <button className="btn btn-p btn-block" style={{ whiteSpace: 'normal', height: 'auto', minHeight: 48, padding: '8px 18px', lineHeight: 1.25 }} onClick={() => setOrdered(chosen.n)}>
+            <button className="btn btn-p btn-block" style={{ whiteSpace: 'normal', height: 'auto', minHeight: 48, padding: '8px 18px', lineHeight: 1.25 }} onClick={() => { if (!demo && quote) { s.acceptOffer(quote.id, chosen.id); showToast(`Offre de ${chosen.n} retenue. Le fournisseur prépare la première livraison.`); } else setOrdered(chosen.n); }}>
               Commander chez {chosen.n}
             </button>
           )}
           </>}
         </div>
 
-        {!demo && (
-          <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Elles apparaîtront ici après votre première commande livrée.</span></div>
+        {!demo && <ClientRecurring />}
+        {!demo && <ClientInvoices />}
+        {!demo && !s.net().recurring.some((r) => r.client.phone === s.session().phone) && !s.net().invoices.some((x) => x.client.phone === s.session().phone) && (
+          <div className="card pad col" style={{ gap: 4 }}><span className="b small">Commandes récurrentes et factures</span><span className="small muted">Retenez une offre, programmez sa livraison chaque semaine : les factures du fournisseur arrivent ici.</span></div>
         )}
 
         {demo && <>

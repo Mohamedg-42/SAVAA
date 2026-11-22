@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { fcfa, today, useStore } from '../data';
 import { downloadCSV } from '../device';
@@ -425,6 +425,73 @@ const PAYMENTS: [string, string, number, string, 'green' | 'red' | 'amber' | 'gr
 ];
 const colStyle = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 } as const;
 
+const KYC_ROLE: Record<string, string> = { achat: 'Acheteur', resto: 'Restaurant', eleveur: 'Éleveur', agri: 'Producteur', vendeur: 'Commerçant', fourn: 'Fournisseur', veto: 'Vétérinaire', coursier: 'Transporteur', invest: 'Investisseur' };
+const KYC_REASONS = ['Photo de la pièce illisible', 'Pièce d’identité expirée', 'Nom différent de celui du compte', 'Justificatif métier manquant'];
+
+/** Justificatifs envoyés par les comptes de l'appareil (profil métier) : l'équipe les ouvre, puis valide ou refuse avec un motif. */
+function KycQueue() {
+  const s = useStore();
+  const all = s.net().kyc;
+  const [open, setOpen] = useState<string | null>(null);
+  const [reason, setReason] = useState(KYC_REASONS[0]);
+  const pending = all.filter((k) => k.status === 'review').length;
+  return (
+    <section className="card adm-wide" style={{ minWidth: 0 }}>
+      <div className="cardh"><h2>Justificatifs à contrôler</h2><span className="small muted">{pending} en attente</span></div>
+      {all.length === 0 ? (
+        <p className="small muted" style={{ padding: '4px 16px 16px' }}>Aucun justificatif reçu. Ils arrivent ici quand un compte enregistre son profil métier avec ses photos.</p>
+      ) : (
+        <div className="scroll">
+          <table className="tbl">
+            <thead><tr><th>Compte</th><th>Métiers</th><th>Pièces</th><th>Statut</th><th className="r">Action</th></tr></thead>
+            <tbody>
+              {all.map((k) => (
+                <Fragment key={k.id}>
+                  <tr>
+                    <td><span className="b">{k.person.name}</span><br /><span className="xs muted num">+225 {k.person.phone}{k.town ? `, ${k.town}` : ''}</span></td>
+                    <td>{k.roles.map((r) => KYC_ROLE[r] ?? r).join(', ') || '—'}</td>
+                    <td><button className="link plain" aria-expanded={open === k.id} onClick={() => setOpen(open === k.id ? null : k.id)}>{k.docs.length ? `${k.docs.length} pièce${k.docs.length > 1 ? 's' : ''}, voir` : 'Informations, voir'}</button></td>
+                    <td>{k.status === 'verified' ? <Badge tone="green">Vérifié</Badge> : k.status === 'rejected' ? <Badge tone="red">Refusé</Badge> : <Badge tone="amber">À contrôler</Badge>}</td>
+                    <td className="r" style={{ whiteSpace: 'nowrap' }}>
+                      {k.status === 'review' ? (
+                        <button className="btn btn-p btn-sm" onClick={() => { s.answerKyc(k.id, 'verified'); showToast(`${k.person.name} : justificatifs validés.`); }}>Valider</button>
+                      ) : <span className="xs muted">le {k.answeredAt}</span>}
+                    </td>
+                  </tr>
+                  {open === k.id && (
+                    <tr className="detail">
+                      <td colSpan={5} style={{ background: '#F6F8F6' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          <dl className="kv">{k.summary.map(([l, v]) => <Fragment key={l}><dt>{l}</dt><dd>{v}</dd></Fragment>)}</dl>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                            {k.docs.map((d, i) => (
+                              <figure key={i} style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 4, width: 140 }}>
+                                {d.photo ? <img src={d.photo} alt={d.label} style={{ width: 140, height: 100, objectFit: 'cover', borderRadius: 6, border: '1px solid #E3E7E4' }} /> : <span className="xs muted" style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #C9D1CC', borderRadius: 6 }}>Fichier sans aperçu</span>}
+                                <figcaption className="xs">{d.label}</figcaption>
+                              </figure>
+                            ))}
+                          </div>
+                          {k.status === 'review' && (
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <select className="input" style={{ height: 36, maxWidth: 280 }} value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Motif du refus">{KYC_REASONS.map((r) => <option key={r}>{r}</option>)}</select>
+                              <button className="btn btn-s btn-sm" onClick={() => { s.answerKyc(k.id, 'rejected', reason); setOpen(null); showToast(`${k.person.name} : refus envoyé (${reason.toLowerCase()}).`); }}>Refuser avec ce motif</button>
+                            </div>
+                          )}
+                          {k.status === 'rejected' && <span className="xs" style={{ color: '#A0221A' }}>Motif : {k.reason}</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function BackOffice() {
   const s = useStore();
   const allProspects = useProspects();
@@ -433,7 +500,7 @@ export function BackOffice() {
     document.querySelectorAll('.adm table').forEach((t) => {
       const heads = [...t.querySelectorAll('thead th')].map((th) => th.textContent?.trim() ?? '');
       if (!heads.length) return;
-      t.querySelectorAll('tbody tr').forEach((tr) => [...tr.children].forEach((td, i) => { if (heads[i]) td.setAttribute('data-label', heads[i]); }));
+      t.querySelectorAll('tbody tr:not(.detail)').forEach((tr) => [...tr.children].forEach((td, i) => { if (heads[i]) td.setAttribute('data-label', heads[i]); }));
     });
   });
   /* Ce qui a été fait dans l'appli pendant la démo remonte ici. */
@@ -699,8 +766,9 @@ export function BackOffice() {
                   <tr><td><span className="b">TK-1088, faux vendeur signalé</span><br /><span className="xs muted">3 signalements, compte suspendu à titre préventif</span></td><td className="r"><Badge tone="amber">Haute</Badge></td></tr>
                 </tbody></table>
               </section>
+              <KycQueue />
               <section className="card" style={{ minWidth: 0 }}>
-                <div className="cardh"><h2>Vérifications en attente</h2></div>
+                <div className="cardh"><h2>Vérifications terrain</h2><span className="small muted">exemples</span></div>
                 <table className="tbl"><tbody>
                   <tr><td><span className="b">Ferme Koné &amp; Fils</span><br /><span className="xs muted">Exploitation, visite agent le 25/11</span></td><td className="r"><Badge tone="blue">Documenté</Badge></td></tr>
                   <tr><td><span className="b">Dr Y. Coulibaly</span><br /><span className="xs muted">Vétérinaire, numéro d’ordre à contrôler</span></td><td className="r"><Badge>Déclaré</Badge></td></tr>

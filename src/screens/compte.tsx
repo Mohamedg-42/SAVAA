@@ -315,6 +315,8 @@ const ROLE_TEXT: Record<string, [string, string]> = {
   veto: ['Vétérinaire ou agent habilité', 'Consultations et validations sanitaires'],
   coursier: ['Transporteur', 'Missions de livraison'],
 };
+/** Métiers professionnels : deux au plus par compte (acheter et investir ne comptent pas). */
+const PRO_ROLES = ['eleveur', 'agri', 'vendeur', 'fourn', 'veto', 'coursier'];
 /** Ce qu'il faudra fournir, annoncé dès le choix du métier. */
 const toPrepare = (role: string) => {
   const sec = PRO_SECTIONS.find((p) => p.role === role);
@@ -351,9 +353,17 @@ export function RolePicker() {
     navigate(back ?? s.home(), { replace: true });
   };
 
-  /* Raison pour laquelle un métier ne peut pas être ajouté au choix en cours. */
+  /* Raison pour laquelle un métier ne peut pas être ajouté au choix en cours.
+     Entre groupes (ajout depuis le compte) : deux métiers professionnels au plus en tout, et le compte entreprise reste seul. */
+  const others = existing.filter((r) => PRO_ROLES.includes(r) && !group?.roles.includes(r));
   const blocked = (role: string): string | null => {
     if (!group || picked.includes(role)) return null;
+    if (PRO_ROLES.includes(role)) {
+      if (others.includes('fourn')) return 'Votre compte entreprise (fournisseur) ne peut pas ajouter d’autre métier.';
+      if (role === 'fourn' && others.length) return `Un compte entreprise se choisit seul : vous êtes déjà ${others.map((r) => ROLE_TEXT[r][0].toLowerCase()).join(' et ')}.`;
+      const kept = group.max === 1 ? 0 : picked.filter((r) => PRO_ROLES.includes(r)).length;
+      if (others.length + kept >= 2) return `Deux métiers au plus par compte : vous êtes déjà ${others.map((r) => ROLE_TEXT[r][0].toLowerCase()).join(' et ')}${kept ? ' et vous en avez coché un' : ''}.`;
+    }
     if (group.max === 1) return null;
     if (role === 'fourn' && picked.length) return 'Un compte entreprise se choisit seul.';
     if (picked.includes('fourn')) return 'Un compte entreprise se choisit seul.';
@@ -362,7 +372,7 @@ export function RolePicker() {
   };
   const toggle = (role: string) => {
     if (!group) return;
-    if (group.max === 1) { setPicked([role]); return; }
+    if (group.max === 1) { if (!blocked(role)) setPicked([role]); return; }
     if (blocked(role)) return;
     setPicked(picked.includes(role) ? picked.filter((r) => r !== role) : [...picked, role]);
   };
@@ -478,6 +488,9 @@ export function ProDetails() {
     const known = new Set(session.docs.map((d) => d.name));
     const newDocs = Object.keys(photos).filter((k) => labels[k] && !known.has(labels[k])).map((k) => ({ name: labels[k], date: today(), status: 'review' as const }));
     s.setSession({ pro, proPhotos: photos, photo: avatar, docs: [...session.docs, ...newDocs] });
+    /* Le dossier part au back-office : informations principales et photos des justificatifs. */
+    const summary: [string, string][] = [[ID_FIELD.label, pro[ID_FIELD.key] ?? '—'], ...sections.flatMap((sec) => sec.fields.filter((f) => (pro[f.key] ?? '').trim()).map((f) => [f.label, pro[f.key]] as [string, string]))];
+    s.submitKyc(summary, Object.entries(photos).filter(([k]) => labels[k]).map(([k, photo]) => ({ label: labels[k], photo })));
     if (signingUp) s.finishSignup();
     showToast(signingUp ? 'Compte créé. L’équipe SAVAA contrôle vos justificatifs.' : 'Profil enregistré. L’équipe SAVAA contrôle vos justificatifs.');
     navigate(back ?? s.home(), { replace: true });
@@ -596,11 +609,17 @@ export function Profile() {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
-    s.setSession({ docs: [...session.docs, { name: f.name, date: today(), status: 'review' }] });
+    const docs = [...session.docs, { name: f.name, date: today(), status: 'review' as const }];
+    s.setSession({ docs });
+    const prev = s.kycOf();
+    s.submitKyc(prev?.summary ?? [[ID_FIELD.label, session.pro?.[ID_FIELD.key] ?? '—']], [...(prev?.docs ?? []), { label: f.name }]);
     showToast('Justificatif reçu, il sera contrôlé par l’équipe SAVAA.');
   };
+  /* Réponse de l'équipe SAVAA (back-office) aux justificatifs envoyés. */
+  const kyc = session.demo ? undefined : s.kycOf();
+  const docStatus = (d: Session['docs'][number]) => (kyc?.status === 'verified' && d.status === 'review' ? 'verified' : d.status);
   const idSent = session.docs.length > 0;
-  const level = session.demo ? 2 : 1;
+  const level = session.demo ? 2 : kyc?.status === 'verified' ? 2 : 1;
   const [confirmKind, setConfirmKind] = useState<'logout' | 'reset' | null>(null);
   /* La déconnexion elle-même est faite par l'écran de démarrage (voir Splash). */
   const doLogout = () => {
@@ -681,11 +700,25 @@ export function Profile() {
                 </>
               ) : (
                 <>
-                  <div className="li">
-                    <ClockIcon color={idSent ? '#F28C28' : '#5D6862'} />
-                    <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Pièce d’identité</span><span className="xs muted">{idSent ? 'Justificatif reçu, contrôle par l’équipe SAVAA' : 'Ajoutez votre CNI dans Justificatifs'}</span></div>
-                    <Badge tone={idSent ? 'amber' : 'grey'}>{idSent ? 'En revue' : 'À fournir'}</Badge>
-                  </div>
+                  {kyc?.status === 'verified' ? (
+                    <div className="li">
+                      <Icon name="check" style={{ color: '#145C3A' }} />
+                      <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Pièce d’identité et justificatifs</span><span className="xs muted">Contrôlés par l’équipe SAVAA le {kyc.answeredAt}</span></div>
+                      <Badge tone="green">Vérifié</Badge>
+                    </div>
+                  ) : kyc?.status === 'rejected' ? (
+                    <div className="li">
+                      <Icon name="alert" style={{ color: '#B42318' }} />
+                      <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Justificatifs à refaire</span><span className="xs" style={{ color: '#A0221A' }}>{kyc.reason ?? 'Refusés par l’équipe SAVAA'}. Envoyez une nouvelle photo depuis votre profil métier.</span></div>
+                      <Badge tone="red">Refusé</Badge>
+                    </div>
+                  ) : (
+                    <div className="li">
+                      <ClockIcon color={idSent ? '#F28C28' : '#5D6862'} />
+                      <div className="col grow" style={{ minWidth: 0 }}><span className="b small">Pièce d’identité</span><span className="xs muted">{idSent ? 'Justificatif reçu, contrôle par l’équipe SAVAA' : 'Ajoutez votre CNI dans Justificatifs'}</span></div>
+                      <Badge tone={idSent ? 'amber' : 'grey'}>{idSent ? 'En revue' : 'À fournir'}</Badge>
+                    </div>
+                  )}
                   {s.isBreeder() && (
                     <div className="li">
                       <ClockIcon color="#5D6862" />
@@ -709,7 +742,7 @@ export function Profile() {
           </div>
           <div className="card list">
             {session.docs.map((d) => {
-              const [label, tone] = DOC_BADGE[d.status];
+              const [label, tone] = kyc?.status === 'rejected' && d.status === 'review' ? ['Refusé', 'red' as const] : DOC_BADGE[docStatus(d)];
               return <div className="li" key={d.name + d.date}><Icon name="file" /><div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">{d.name}</span><span className="xs muted">Ajouté le {d.date}</span></div><Badge tone={tone}>{label}</Badge></div>;
             })}
           </div>

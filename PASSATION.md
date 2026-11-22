@@ -1,6 +1,6 @@
 # Passation du front SAVAA
 
-Mise à jour du 21/11/2026.
+Mise à jour du 22/11/2026.
 
 C'est le front de démonstration de SAVAA, fait à partir de la maquette v2. Il n'y a pas de backend : les données partent de la maquette et tout ce qu'on saisit est gardé dans le navigateur (localStorage). « Remettre la démo à zéro », en bas de l'écran Compte, revient aux données de départ.
 
@@ -132,21 +132,31 @@ Sans serveur, les comptes d’un même appareil échangent par un espace commun,
 
 Dans l’espace de l’éleveur, le bloc **Échéances** (vaccination, pesée, vermifuge…) s’enregistre par compte : ajout avec contrôle des champs, « Fait » pour la retirer, export vers l’agenda (.ics).
 
+- **Devis et factures :** tout compte demande un devis (`/devis`, lien sur le tableau de bord de l’éleveur) avec quantité et unité. Les fournisseurs répondent avec un prix unitaire ; le demandeur retient une offre, la demande se ferme pour les autres. Le fournisseur émet la facture (échéance à 15 jours), le client la règle (paiement simulé).
+- **Commandes récurrentes :** le restaurant (ou tout client) programme l’offre retenue chaque semaine, toutes les deux ou quatre semaines, un jour donné. Le fournisseur « livre et facture » chaque échéance ; le client peut suspendre et reprendre.
+- **Visites du vétérinaire :** l’éleveur demande une visite (motif, animaux, date souhaitée) ; un vétérinaire fixe la date, puis la déclare faite. Le vétérinaire peut aussi planifier ses propres visites.
+- **Justificatifs :** l’enregistrement du profil métier envoie au back-office les informations et les photos des justificatifs. L’équipe valide ou refuse avec un motif ; le compte affiche « Vérifié » (niveau 2 / 3) ou « Justificatifs à refaire ».
+- **Transporteur & livraison intelligente :** calcul du véhicule adapté (moto, tricycle, pick-up, bétaillère, camion, frigo, groupage), estimation de distance et prix selon la charge (`src/livraison.ts`, `src/livraison.test.ts`), carte interactive OpenStreetMap/Leaflet (`src/carte.tsx`) dans le suivi de commande et chez le transporteur, gestion de la zone et du désistement ; les missions des commandes passées sur ses propres annonces ne lui sont pas proposées (`sellerPhones` sur la mission).
+
+Règles de rôles depuis le compte : deux métiers professionnels au plus en tout (éleveur, producteur, commerçant, fournisseur, vétérinaire, transporteur), et le fournisseur reste seul. Acheter et investir ne comptent pas.
+
+Producteur agricole : calendrier des cultures (même composant que les échéances de l’éleveur, clé `agri.cal`), statut des lots (épuisé ou disponible), statistiques de ventes par produit tirées des ventes reçues, volume disponible lu dans les quantités (`src/agri.ts`).
+
+Back-office investisseurs : trois graphiques calculés sur les dossiers (reçus par semaine, budgets par filière, statuts), filtrables sur 30 jours, 90 jours ou depuis l’ouverture.
+
 Pour une démonstration : faire l’observation et la commande avec le compte de démonstration, se déconnecter, créer un compte vétérinaire puis un compte transporteur, et revenir.
 
 ## Ce qu'il reste
 
 À faire dans le front :
 
-- **Tests des écrans :** `npm test` (Vitest, 53 tests) couvre seulement la logique (`trace`, `profils`, `invest`, `invest-admin`).
+- **Tests des écrans :** `npm test` (Vitest, 71 tests) couvre la logique métier (`trace`, `profils`, `invest`, `invest-admin`, `phone`, `agri`, `livraison`).
 - **Comparaison visuelle :** comparer la mise en page à la maquette sur des captures.
-- **Premier chargement :** le fichier JavaScript dépasse 500 Ko ; on peut charger les écrans à la demande.
 - **Photos :** remplacer les photos de démonstration par les vraies, y compris celles des projets agricoles d'exemple.
-- **Graphiques du back-office investisseurs,** filtrables par période.
 
 À décider :
 
-- **Combinaisons de rôles :** deux métiers au maximum et le fournisseur seul sont codés à l'inscription. Il reste à coder deux règles : le transporteur ne livre pas ses propres ventes, et le contrôle des combinaisons entre groupes quand on ajoute un rôle depuis le compte. (Le vétérinaire qui ne voit pas ses propres animaux est déjà codé.)
+- **Combinaisons de rôles :** les règles sont codées (voir plus haut). À confirmer avec l’équipe : faut-il permettre un troisième métier, par exemple éleveur, commerçant et transporteur ?
 - **Prix pro :** en production, le RCCM doit être contrôlé par l'équipe avant d'ouvrir les prix pro.
 - **Plan financier :** à refaire à partir de `SAVAA_Devis_Revise_Synthese.pdf` (Téléchargements), en ajoutant un devis terrain, les revenus, le résultat et le besoin de financement, avec peu de commentaires.
 - **Documents demandés à l'inscription et au dossier investisseur** (RCCM, compte contribuable, inscription à l'Ordre, origine des fonds) : à valider par l'équipe ou un juriste.

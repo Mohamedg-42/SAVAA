@@ -184,8 +184,8 @@ function SponsoredBanner({ items }: { items: Listing[] }) {
 /* Écran 02 : accueil. */
 export function Home() {
   const s = useStore();
-  /* Visiteur sans compte : les puces de catégories portent leur icône en relief. */
-  const visitor = !s.session().loggedIn;
+  /* Icônes des catégories : visiteurs et acheteurs (comptes sans métier de vente ou de service). */
+  const visitor = !s.session().loggedIn || s.session().roles.every((r) => r === 'achat' || r === 'resto');
   const cartCount = s.cartLines().length;
   const unread = s.unread();
   const sponsored = s.listings().filter((l) => l.sponsored && l.status === 'online');

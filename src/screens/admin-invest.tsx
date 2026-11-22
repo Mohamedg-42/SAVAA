@@ -79,6 +79,102 @@ const typeLabel = (d: Dossier) => (d.type === 'entreprise' ? 'Entreprise' : 'Par
 const sortKey = (date?: string) => (date ? date.split('/').reverse().join('') : '');
 
 /* ------------------------------------------------------------------ */
+/* Graphiques : dossiers reçus, budgets par filière, statuts          */
+/* ------------------------------------------------------------------ */
+
+type Period = '30' | '90' | 'all';
+const PERIODS: [Period, string][] = [['30', '30 derniers jours'], ['90', '90 derniers jours'], ['all', 'Depuis l’ouverture']];
+/** Ouverture du pilote (1er septembre 2026). */
+const OPENING = new Date(2026, 8, 1);
+const toDate = (fr?: string) => { const [j, m, a] = (fr ?? '').split('/').map(Number); return a ? new Date(a, m - 1, j) : null; };
+const short = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+/** Barres horizontales : une ligne par catégorie, valeur écrite à droite (pas de couleur seule). */
+function HBars({ rows, unit }: { rows: { label: string; value: number; text: string }[]; unit: string }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  if (!rows.length) return <p className="small muted">Aucun dossier sur cette période.</p>;
+  return (
+    <table className="tbl num" aria-label={unit}><tbody>
+      {rows.map((r) => (
+        <tr key={r.label}>
+          <td style={{ fontVariantNumeric: 'normal' }}>{r.label}</td>
+          <td style={{ width: '45%' }}><div className="bar" title={`${r.label} : ${r.text}`}><i style={{ width: `${Math.max(3, Math.round((r.value / max) * 100))}%` }} /></div></td>
+          <td className="r" style={{ whiteSpace: 'nowrap' }}>{r.text}</td>
+        </tr>
+      ))}
+    </tbody></table>
+  );
+}
+
+function InvestCharts({ dossiers }: { dossiers: AdminDossier[] }) {
+  const [period, setPeriod] = useState<Period>('90');
+  const [hover, setHover] = useState<number | null>(null);
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start = period === 'all' ? OPENING : new Date(end.getFullYear(), end.getMonth(), end.getDate() - Number(period) + 1);
+  const inPeriod = dossiers.filter((d) => { const x = toDate(d.submittedAt); return x && x >= start && x <= end; });
+  /* Semaines du lundi au dimanche, de la première semaine de la période à aujourd'hui. */
+  const monday = new Date(start); monday.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  const weeks: { from: Date; n: number }[] = [];
+  for (const w = new Date(monday); w <= end; w.setDate(w.getDate() + 7)) weeks.push({ from: new Date(w), n: 0 });
+  for (const d of inPeriod) {
+    const x = toDate(d.submittedAt);
+    const i = weeks.findIndex((w, k) => x && x >= w.from && (k === weeks.length - 1 || x < weeks[k + 1].from));
+    if (i >= 0) weeks[i].n++;
+  }
+  const top = Math.max(1, ...weeks.map((w) => w.n));
+  const byFiliere = Object.entries(inPeriod.reduce<Record<string, number>>((acc, d) => {
+    const f = String(d.data['pref.prioritaire'] || 'Non précisée');
+    acc[f] = (acc[f] ?? 0) + Number(d.data['fin.max'] || 0);
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value, text: `${fcfa(Math.round(value / 100_000) / 10)} M` }));
+  const byStatus = (Object.keys(STATUS) as DossierStatus[]).map((k) => ({ label: STATUS[k].label, value: inPeriod.filter((d) => d.status === k).length })).filter((r) => r.value).map((r) => ({ ...r, text: String(r.value) }));
+  const label = PERIODS.find(([p]) => p === period)?.[1] ?? '';
+
+  return (
+    <>
+      <div className="adm-filters" role="group" aria-label="Période des graphiques">
+        {PERIODS.map(([p, t]) => <button key={p} className={period === p ? 'chip on' : 'chip'} aria-pressed={period === p} onClick={() => setPeriod(p)}>{t}</button>)}
+        <span className="small muted" style={{ alignSelf: 'center' }}>{inPeriod.length} dossier{inPeriod.length > 1 ? 's' : ''} reçu{inPeriod.length > 1 ? 's' : ''}, du {short(start)} au {short(end)}</span>
+      </div>
+      <div className="adm-grid" style={gridStyle}>
+        <section className="card pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600 }}>Dossiers reçus par semaine</h2>
+          <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))`, gap: 4, alignItems: 'end', height: 150, borderBottom: '1px solid #C9D1CC', backgroundImage: 'linear-gradient(#EEF1EF 1px, transparent 1px)', backgroundSize: '100% 50%' }}>
+            {weeks.map((w, i) => (
+              <div key={i} tabIndex={0} aria-label={`Semaine du ${short(w.from)} : ${w.n} dossier${w.n > 1 ? 's' : ''}`}
+                onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(i)} onBlur={() => setHover(null)}
+                style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', position: 'relative', outline: 'none' }}>
+                {hover === i && <span className="xs" style={{ position: 'absolute', bottom: `calc(${Math.round((w.n / top) * 100)}% + 6px)`, background: '#17201B', color: '#fff', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap', zIndex: 2 }}>{short(w.from)} : {w.n}</span>}
+                <div style={{ width: '100%', maxWidth: 28, height: w.n ? `${Math.round((w.n / top) * 100)}%` : 2, background: w.n ? (hover === i ? '#0E4029' : '#145C3A') : '#C9D1CC', borderRadius: '4px 4px 0 0' }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))`, gap: 4 }}>
+            {weeks.map((w, i) => <span key={i} className="xs muted num" style={{ textAlign: 'center', visibility: i % Math.ceil(weeks.length / 6) === 0 ? 'visible' : 'hidden' }}>{short(w.from)}</span>)}
+          </div>
+          <span className="xs muted">Maximum : {top} dossier{top > 1 ? 's' : ''} sur une semaine. Survolez une barre pour son chiffre.</span>
+          <details>
+            <summary className="xs link" style={{ cursor: 'pointer' }}>Voir les chiffres</summary>
+            <table className="tbl num"><thead><tr><th>Semaine du</th><th className="r">Dossiers</th></tr></thead><tbody>{weeks.map((w, i) => <tr key={i}><td>{short(w.from)}</td><td className="r">{w.n}</td></tr>)}</tbody></table>
+          </details>
+        </section>
+        <section className="card pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600 }}>Budgets déclarés par filière</h2>
+          <span className="xs muted">Total des budgets maximums, en millions de FCFA, {label.toLowerCase()}.</span>
+          <HBars rows={byFiliere} unit="Budgets par filière" />
+        </section>
+        <section className="card pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600 }}>Dossiers par statut</h2>
+          <span className="xs muted">Statut actuel des dossiers reçus, {label.toLowerCase()}.</span>
+          <HBars rows={byStatus} unit="Dossiers par statut" />
+        </section>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Rubrique Investisseurs                                             */
 /* ------------------------------------------------------------------ */
 
@@ -132,6 +228,7 @@ export function AdminInvestors() {
           ['Budgets déclarés', `${fcfa(Math.round(budgets / 1_000_000))} M`, 'FCFA, total des maximums'],
         ] as const).map(([l, v, sub]) => <div key={l} className="card pad stat"><span className="l">{l}</span><span className="v">{v}</span><span className="xs muted">{sub}</span></div>)}
       </div>
+      <InvestCharts dossiers={all} />
       <div className="adm-filters">
         <label className="search adm-filter-search">
           <Icon name="search" size="sm" />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CI_REGIONS, useStore, type Species } from '../data';
+import { CI_REGIONS, frDate, isoToday, useStore, type Species } from '../data';
 import { downloadICS } from '../device';
 import { showToast } from '../toast';
 import { DashHeader } from '../dash';
@@ -20,36 +20,42 @@ const DUE_TYPES = ['Pesée', 'Vaccination', 'Traitement', 'Déparasitage', 'Mise
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
 /** Échéances de l'exploitation : celles de la maquette (démo) et celles que l'éleveur ajoute, triées par date. */
-function Echeances({ demo }: { demo: boolean }) {
+export type DueOptions = { kv: string; types: string[]; demoRows: string[][]; title: string; whatLabel: string; whatPlaceholder: string; whatError: string; empty: string; file: string };
+const BREEDER_DUE: DueOptions = {
+  kv: 'eleveur.due', types: DUE_TYPES, demoRows: DUE, title: 'Échéances', whatLabel: 'Animal ou lot', whatPlaceholder: 'Ex. FK-0087, ou 9 ovins du parc 2',
+  whatError: 'Indiquez l’animal ou le lot concerné.', empty: 'Aucune échéance. Ajoutez vos pesées, vaccins et mises bas prévues pour ne rien oublier.', file: 'echeances-savaa.ics',
+};
+
+export function Echeances({ demo, o = BREEDER_DUE }: { demo: boolean; o?: DueOptions }) {
   const s = useStore();
-  const mine = s.get<Due[]>('eleveur.due', []);
+  const mine = s.get<Due[]>(o.kv, []);
   const [adding, setAdding] = useState(false);
-  const [type, setType] = useState(DUE_TYPES[0]);
+  const [type, setType] = useState(o.types[0]);
   const [what, setWhat] = useState('');
   const [date, setDate] = useState('');
   const [tried, setTried] = useState(false);
   type Row = { key: string; day: string; d: string; m: string; title: string; text: string; own?: Due };
   const rows: Row[] = [
-    ...(demo ? DUE.map(([d, m, t, x, day]) => ({ key: t, day, d, m, title: t, text: x })) : []),
+    ...(demo ? o.demoRows.map(([d, m, t, x, day]) => ({ key: t, day, d, m, title: t, text: x })) : []),
     ...mine.map((e) => ({ key: e.id, day: e.date.replace(/-/g, ''), d: e.date.slice(8, 10), m: MONTHS[Number(e.date.slice(5, 7)) - 1] ?? '', title: `${e.type}, ${e.what}`, text: 'Ajoutée par vous', own: e })),
   ].sort((a, b) => a.day.localeCompare(b.day));
 
   const add = () => {
     setTried(true);
     if (!what.trim() || !date) return;
-    s.put('eleveur.due', [...mine, { id: `DU-${Date.now().toString(36)}`, date, type, what: what.trim() }]);
+    s.put(o.kv, [...mine, { id: `DU-${Date.now().toString(36)}`, date, type, what: what.trim() }]);
     showToast(`Échéance ajoutée : ${type.toLowerCase()} le ${date.slice(8, 10)}/${date.slice(5, 7)}.`);
     setAdding(false); setWhat(''); setDate(''); setTried(false);
   };
   const exportAll = () => {
-    downloadICS('echeances-savaa.ics', rows.map((r) => ({ day: r.day, title: r.title, text: r.text })));
+    downloadICS(o.file, rows.map((r) => ({ day: r.day, title: r.title, text: r.text })));
     showToast('Échéances exportées : ouvrez le fichier pour les ajouter à votre agenda.');
   };
 
   return (
     <div className="sec">
       <div className="sech">
-        <h2>Échéances</h2>
+        <h2>{o.title}</h2>
         <span className="row" style={{ gap: 14 }}>
           {rows.length > 0 && <button className="link plain" onClick={exportAll}>Calendrier</button>}
           <button className="link plain" aria-expanded={adding} onClick={() => setAdding(!adding)}>{adding ? 'Fermer' : '+ Ajouter'}</button>
@@ -59,12 +65,12 @@ function Echeances({ demo }: { demo: boolean }) {
         <div className="card pad col" style={{ gap: 10 }}>
           <div className="field">
             <label htmlFor="due-type">Type</label>
-            <select id="due-type" className="input" value={type} onChange={(e) => setType(e.target.value)}>{DUE_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+            <select id="due-type" className="input" value={type} onChange={(e) => setType(e.target.value)}>{o.types.map((t) => <option key={t}>{t}</option>)}</select>
           </div>
           <div className="field">
-            <label htmlFor="due-what">Animal ou lot</label>
-            <input id="due-what" className="input" placeholder="Ex. FK-0087, ou 9 ovins du parc 2" value={what} onChange={(e) => setWhat(e.target.value)} aria-invalid={tried && !what.trim()} />
-            {tried && !what.trim() && <span className="xs" role="alert" style={{ color: '#A0221A' }}>Indiquez l’animal ou le lot concerné.</span>}
+            <label htmlFor="due-what">{o.whatLabel}</label>
+            <input id="due-what" className="input" placeholder={o.whatPlaceholder} value={what} onChange={(e) => setWhat(e.target.value)} aria-invalid={tried && !what.trim()} />
+            {tried && !what.trim() && <span className="xs" role="alert" style={{ color: '#A0221A' }}>{o.whatError}</span>}
           </div>
           <div className="field">
             <label htmlFor="due-date">Date</label>
@@ -75,7 +81,7 @@ function Echeances({ demo }: { demo: boolean }) {
         </div>
       )}
       {rows.length === 0 && !adding ? (
-        <div className="card pad"><span className="small muted">Aucune échéance. Ajoutez vos pesées, vaccins et mises bas prévues pour ne rien oublier.</span></div>
+        <div className="card pad"><span className="small muted">{o.empty}</span></div>
       ) : rows.length > 0 && (
         <div className="card list">
           {rows.map((r) => (
@@ -83,8 +89,64 @@ function Echeances({ demo }: { demo: boolean }) {
               <span className="col" style={{ width: 40, alignItems: 'center', gap: 0 }}><span className="b num" style={{ fontSize: 17 }}>{r.d}</span><span className="xs muted">{r.m}</span></span>
               <div className="col grow" style={{ minWidth: 0 }}><span className="small b">{r.title}</span><span className="xs muted ell">{r.text}</span></div>
               {r.own && (
-                <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => { s.put('eleveur.due', mine.filter((e) => e.id !== r.own?.id)); showToast('Échéance marquée comme faite.'); }}>Fait</button>
+                <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => { s.put(o.kv, mine.filter((e) => e.id !== r.own?.id)); showToast('Échéance marquée comme faite.'); }}>Fait</button>
               )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const VISIT_REASONS = ['Vaccination', 'Contrôle sanitaire', 'Animal malade ou blessé', 'Suivi de gestation', 'Vérification de l’exploitation'];
+
+/** Visites du vétérinaire : l'éleveur en demande une, le vétérinaire fixe la date (réseau de l'appareil). */
+function VetVisits() {
+  const s = useStore();
+  const mine = s.net().visits.filter((v) => v.from.phone === s.session().phone);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState(VISIT_REASONS[0]);
+  const [animals, setAnimals] = useState('');
+  const [wish, setWish] = useState('');
+  const [tried, setTried] = useState(false);
+  const send = () => {
+    setTried(true);
+    if (!wish) return;
+    s.askVisit({ reason, animals: animals.trim(), wish });
+    showToast('Demande envoyée aux vétérinaires de la zone. Vous verrez ici la date qu’ils fixent.');
+    setOpen(false); setAnimals(''); setWish(''); setTried(false);
+  };
+  return (
+    <div className="sec">
+      <div className="sech"><h2>Visites du vétérinaire</h2><button className="link plain" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Fermer' : '+ Demander'}</button></div>
+      {open && (
+        <div className="card pad col" style={{ gap: 10 }}>
+          <div className="field"><label htmlFor="vis-reason">Motif</label><select id="vis-reason" className="input" value={reason} onChange={(e) => setReason(e.target.value)}>{VISIT_REASONS.map((r) => <option key={r}>{r}</option>)}</select></div>
+          <div className="field"><label htmlFor="vis-animals">Animaux concernés <span className="muted">(facultatif)</span></label><input id="vis-animals" className="input" placeholder="Ex. 9 ovins du parc 2, ou FK-0087" value={animals} onChange={(e) => setAnimals(e.target.value)} /></div>
+          <div className="field">
+            <label htmlFor="vis-wish">Date souhaitée</label>
+            <input id="vis-wish" className="input" type="date" min={isoToday()} value={wish} onChange={(e) => setWish(e.target.value)} aria-invalid={tried && !wish} />
+            {tried && !wish && <span className="xs" role="alert" style={{ color: '#A0221A' }}>Choisissez une date.</span>}
+          </div>
+          <button className="btn btn-p" onClick={send}>Envoyer la demande</button>
+        </div>
+      )}
+      {mine.length === 0 && !open ? (
+        <div className="card pad"><span className="small muted">Aucune visite demandée. Un vétérinaire de la zone fixe la date et vient sur place.</span></div>
+      ) : mine.length > 0 && (
+        <div className="card list">
+          {mine.map((v) => (
+            <div className="li" key={v.id} style={{ alignItems: 'flex-start' }}>
+              <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
+                <span className="small b">{v.reason}{v.animals ? `, ${v.animals}` : ''}</span>
+                <span className="xs muted">
+                  {v.status === 'open' ? `Souhaitée le ${frDate(v.wish)}, en attente d’un vétérinaire`
+                    : v.status === 'planned' ? `Le ${frDate(v.when ?? v.wish)} avec ${v.vet?.name}, +225 ${v.vet?.phone}`
+                      : `Faite le ${v.doneAt} par ${v.vet?.name}`}
+                </span>
+              </div>
+              <Badge tone={v.status === 'done' ? 'green' : v.status === 'planned' ? 'blue' : 'amber'}>{v.status === 'done' ? 'Faite' : v.status === 'planned' ? 'Fixée' : 'Envoyée'}</Badge>
             </div>
           ))}
         </div>
@@ -185,6 +247,13 @@ export function Dashboard() {
         </div>
 
         <Echeances demo={demo} />
+        <VetVisits />
+
+        <Link className="card pad row" to="/devis" style={{ gap: 12 }}>
+          <Icon name="cart" />
+          <span className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b">Aliment, intrants, matériel</span><span className="xs muted">Demandez un devis aux fournisseurs et comparez leurs prix.</span></span>
+          <Icon name="chevron" size="sm" />
+        </Link>
 
         <div className="sec">
           <SectionHead title="Ventes" link={s.shop().created ? 'Ma boutique' : 'Créer ma boutique'} to="/boutique" />

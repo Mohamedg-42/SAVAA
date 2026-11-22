@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fcfa, today, useStore, type NetAlert, type NetMission, type NetValidation } from '../data';
+import { DAYS, FREQ, fcfa, frDate, isoToday, today, useStore, type NetAlert, type NetCourier, type NetMission, type NetQuote, type NetValidation, type NetVisit } from '../data';
+import { Echeances, type DueOptions } from './eleveur';
+import { volumeKg } from '../agri';
+import { DeliveryMap } from '../carte';
+import { COMMISSION, COURIER_VEHICLES, PLACES, canCarry, loadLabel, payout, placeOf, roadKm, vehicleOf, type Place, type VehicleId } from '../livraison';
 import { downloadCSV } from '../device';
 import { showToast } from '../toast';
 import type { ReactNode } from 'react';
@@ -76,6 +80,59 @@ const VET_VISITS = [
   { id: 'VV-3', day: '28', month: 'nov.', title: 'Contrôle bouclage et pesée, 12 bovins', place: 'Ranch Tuo, Ferkessédougou', photo: 'images/pesee-bovin.jpg' },
 ];
 
+type OwnVisit = { id: string; date: string; title: string; place: string; done?: boolean };
+type PlannedVisit = { id: string; date: string; title: string; place: string; net?: NetVisit; own?: boolean; done?: boolean };
+const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const dayOf = (d: string) => [d.slice(8, 10), MONTHS[Number(d.slice(5, 7)) - 1] ?? ''];
+
+/** Demande de visite d'un éleveur : le vétérinaire choisit la date (par défaut, celle souhaitée). */
+function VisitAsk({ v }: { v: NetVisit }) {
+  const s = useStore();
+  const [when, setWhen] = useState(v.wish >= isoToday() ? v.wish : isoToday());
+  return (
+    <div className="card pad col" style={{ gap: 8 }}>
+      <div className="row between top" style={{ gap: 8 }}>
+        <div className="col" style={{ gap: 2, minWidth: 0 }}>
+          <span className="b small">{v.reason}</span>
+          <span className="xs muted">{v.animals || 'Exploitation entière'}, {v.farm}</span>
+          <span className="xs muted">Souhaitée le {frDate(v.wish)}, demandée le {v.date}</span>
+        </div>
+        <Badge tone="blue">Demande</Badge>
+      </div>
+      <span className="xs"><b>Éleveur :</b> {v.from.name}, <span className="num">+225 {v.from.phone}</span></span>
+      <div className="row" style={{ gap: 8 }}>
+        <input className="input grow" type="date" aria-label="Date de la visite" min={isoToday()} value={when} onChange={(e) => setWhen(e.target.value)} />
+        <button className="btn btn-p btn-sm" disabled={!when} onClick={() => { s.planVisit(v.id, when); showToast(`Visite fixée au ${frDate(when)} : l’éleveur est prévenu.`); }}>Fixer la visite</button>
+      </div>
+    </div>
+  );
+}
+
+/** Le vétérinaire planifie lui-même une visite (tournée, contrôle, vaccination). */
+function PlanVisitForm({ onDone }: { onDone: () => void }) {
+  const s = useStore();
+  const [title, setTitle] = useState('');
+  const [place, setPlace] = useState('');
+  const [date, setDate] = useState('');
+  const [tried, setTried] = useState(false);
+  const save = () => {
+    setTried(true);
+    if (!title.trim() || !place.trim() || !date) return;
+    s.put('vet.visits', [...s.get<OwnVisit[]>('vet.visits', []), { id: `VO-${Date.now().toString(36)}`, title: title.trim(), place: place.trim(), date }]);
+    showToast(`Visite planifiée le ${frDate(date)}.`);
+    onDone();
+  };
+  const err = (msg: string) => <span className="xs" role="alert" style={{ color: '#A0221A' }}>{msg}</span>;
+  return (
+    <div className="card pad col" style={{ gap: 10 }}>
+      <div className="field"><label htmlFor="vv-title">Objet</label><input id="vv-title" className="input" placeholder="Ex. vaccination PPR, 12 ovins" value={title} onChange={(e) => setTitle(e.target.value)} />{tried && !title.trim() && err('Indiquez l’objet de la visite.')}</div>
+      <div className="field"><label htmlFor="vv-place">Exploitation et lieu</label><input id="vv-place" className="input" placeholder="Ex. Ranch Tuo, Ferkessédougou" value={place} onChange={(e) => setPlace(e.target.value)} />{tried && !place.trim() && err('Indiquez l’exploitation.')}</div>
+      <div className="field"><label htmlFor="vv-date">Date</label><input id="vv-date" className="input" type="date" min={isoToday()} value={date} onChange={(e) => setDate(e.target.value)} />{tried && !date && err('Choisissez la date.')}</div>
+      <button className="btn btn-p" onClick={save}>Planifier la visite</button>
+    </div>
+  );
+}
+
 export function VetSpace() {
   const s = useStore();
   const [tab, setTab] = useState<'alerts' | 'validations' | 'visits'>('alerts');
@@ -83,7 +140,23 @@ export function VetSpace() {
   const validated = s.get<Record<string, boolean>>('vet.validated', {});
   const confirmed = s.get<Record<string, boolean>>('vet.confirmed', {});
   const unread = s.unread();
-  const visits = s.session().demo ? VET_VISITS : [];
+  /* Visites : demandes des éleveurs (réseau de l'appareil), visites qu'il a fixées, visites qu'il planifie lui-même, puis la maquette. */
+  const myPhone = s.session().phone;
+  const visitAsks = s.net().visits.filter((v) => v.status === 'open' && v.from.phone !== myPhone);
+  const ownVisits = s.get<OwnVisit[]>('vet.visits', []);
+  const planned: PlannedVisit[] = [
+    ...s.net().visits.filter((v) => v.status !== 'open' && v.vet?.phone === myPhone).map((v) => ({ id: v.id, date: v.when ?? v.wish, title: `${v.reason}${v.animals ? `, ${v.animals}` : ''}`, place: `${v.farm}, ${v.from.name} +225 ${v.from.phone}`, net: v })),
+    ...ownVisits.map((v) => ({ id: v.id, date: v.date, title: v.title, place: v.place, own: true, done: v.done })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+  const upcoming = planned.filter((v) => !(v.net ? v.net.status === 'done' : v.done));
+  const demoVisits = s.session().demo ? VET_VISITS : [];
+  const visitCount = upcoming.length + demoVisits.length + visitAsks.length;
+  const [planning, setPlanning] = useState(false);
+  const visitDone = (v: PlannedVisit) => {
+    if (v.net) s.doneVisit(v.id);
+    else s.put('vet.visits', ownVisits.map((x) => (x.id === v.id ? { ...x, done: true } : x)));
+    showToast('Visite enregistrée comme faite.');
+  };
 
   /* Un vétérinaire ne traite ni ne valide ses propres animaux : ils passent à un autre vétérinaire. */
   const own = new Set(s.animals().filter((a) => a.mine).map((a) => a.id));
@@ -133,7 +206,7 @@ export function VetSpace() {
       <div className="utabs" role="tablist">
         <button role="tab" aria-selected={tab === 'alerts'} className={tab === 'alerts' ? 'on' : ''} onClick={() => setTab('alerts')}>Alertes ({openAlerts})</button>
         <button role="tab" aria-selected={tab === 'validations'} className={tab === 'validations' ? 'on' : ''} onClick={() => setTab('validations')}>Validations ({pendingVal})</button>
-        <button role="tab" aria-selected={tab === 'visits'} className={tab === 'visits' ? 'on' : ''} onClick={() => setTab('visits')}>Visites ({visits.length})</button>
+        <button role="tab" aria-selected={tab === 'visits'} className={tab === 'visits' ? 'on' : ''} onClick={() => setTab('visits')}>Visites ({visitCount})</button>
       </div>
       <div className="body">
         {urgent ? (
@@ -151,7 +224,7 @@ export function VetSpace() {
         <div className="card grid3" style={{ gap: 0 }}>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{openAlerts}</span><span className="l">Alertes ouvertes</span></div>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{pendingVal}</span><span className="l">À valider</span></div>
-          <div className="stat" style={{ padding: 12 }}><span className="v">{visits.length}</span><span className="l">Visites prévues</span></div>
+          <div className="stat" style={{ padding: 12 }}><span className="v">{upcoming.length + demoVisits.length}</span><span className="l">Visites prévues</span></div>
         </div>
 
         {tab === 'alerts' && (
@@ -226,12 +299,38 @@ export function VetSpace() {
           </div>
         )}
 
-        {tab === 'visits' && !visits.length && (
-          <EmptyState title="Aucune visite prévue" text="Vos visites d’exploitation apparaîtront ici quand un éleveur vous en demandera une ou quand vous en planifierez." />
+        {tab === 'visits' && visitAsks.length > 0 && (
+          <div className="sec">
+            <div className="sech"><h2>Demandes des éleveurs</h2><Badge tone="blue">{visitAsks.length}</Badge></div>
+            {visitAsks.map((v) => <VisitAsk key={v.id} v={v} />)}
+          </div>
         )}
-        {tab === 'visits' && !!visits.length && (
+        {tab === 'visits' && (
+          <div className="sec">
+            <div className="sech"><h2>Visites prévues</h2><button className="link plain" aria-expanded={planning} onClick={() => setPlanning(!planning)}>{planning ? 'Fermer' : '+ Planifier'}</button></div>
+            {planning && <PlanVisitForm onDone={() => setPlanning(false)} />}
+            {!upcoming.length && !demoVisits.length && !planning && (
+              <EmptyState title="Aucune visite prévue" text="Les visites que vous fixez à la demande d’un éleveur, ou que vous planifiez vous-même, apparaissent ici par date." />
+            )}
+            {upcoming.length > 0 && (
+              <div className="card list">
+                {upcoming.map((v) => {
+                  const [d, m] = dayOf(v.date);
+                  return (
+                    <div className="li" key={v.id}>
+                      <span className="col" style={{ width: 38, alignItems: 'center', gap: 0 }}><span className="b num" style={{ fontSize: 17 }}>{d}</span><span className="xs muted">{m}</span></span>
+                      <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b">{v.title}</span><span className="xs muted">{v.place}</span></div>
+                      <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => visitDone(v)}>Visite faite</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        {tab === 'visits' && !!demoVisits.length && (
           <div className="card list">
-            {visits.map((v) => {
+            {demoVisits.map((v) => {
               const ok = !!confirmed[v.id];
               return (
                 <div className="li" key={v.id}>
@@ -289,15 +388,19 @@ const MISSION_STEP: Record<NetMission['status'], [string, Tone]> = {
   open: ['Disponible', 'grey'], accepted: ['Acceptée', 'blue'], picked: ['Prise en charge', 'blue'], route: ['En route', 'blue'], delivered: ['Livrée', 'green'],
 };
 
+/** Ce que représente la mission pour le livreur : véhicule demandé, charge, distance. */
+const missionLine = (m: NetMission) => [vehicleOf(m.vehicle)?.label, m.load ? loadLabel(m.load) : '', m.km ? `trajet ${m.km} km` : ''].filter(Boolean).join(' · ');
+
 /** Mission venue d'une vraie commande (réseau de l'appareil) : étapes et code de remise de l'acheteur. */
 function NetMissionCard({ m }: { m: NetMission }) {
   const s = useStore();
   const [code, setCode] = useState('');
   const [label, tone] = MISSION_STEP[m.status];
+  const net = payout(m.fee);
   const deliver = () => {
     if (code !== m.code) { showToast('Code incorrect. Demandez à l’acheteur le code à 4 chiffres de sa commande.'); return; }
     s.moveMission(m.id, 'delivered');
-    s.notify({ c: 'cmd', title: 'Livraison confirmée', text: `${m.orderRef} remise avec le code de l’acheteur. Rémunération de ${fcfa(m.fee)} FCFA validée.`, to: '/missions' });
+    s.notify({ c: 'cmd', title: 'Livraison confirmée', text: `${m.orderRef} remise avec le code de l’acheteur. ${fcfa(net)} FCFA vous reviennent.`, to: '/missions' });
     showToast('Remise horodatée et confirmée.');
   };
   return (
@@ -305,15 +408,17 @@ function NetMissionCard({ m }: { m: NetMission }) {
       <div className="row between" style={{ gap: 8 }}><span className="b small num">{m.orderRef}</span><Badge tone={tone}>{label}</Badge></div>
       <div className="row" style={{ gap: 10 }}>
         {m.photo && <Photo w={56} h={44} radius={6} src={m.photo} />}
-        <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b">{m.title}</span><span className="xs muted">Rémunération {fcfa(m.fee)} FCFA</span></div>
+        <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b">{m.title}</span>{missionLine(m) && <span className="xs muted">{missionLine(m)}</span>}</div>
       </div>
+      {m.from && m.status !== 'delivered' && <DeliveryMap label={`Trajet de ${m.from.name} à ${m.to?.name ?? 'l’acheteur'}`} height={160} routes={[{ id: m.id, from: m.from, to: m.to, label: `Enlèvement : ${m.from.name}` }]} />}
       <dl className="kv">
         <dt>Enlèvement</dt><dd>{m.pickup}</dd>
         <dt>Livraison</dt><dd>{m.dropoff}</dd>
-        <dt>Destinataire</dt><dd>{m.buyer.name}, <span className="num">+225 {m.buyer.phone}</span></dd>
+        <dt>Destinataire</dt><dd>{m.buyer.name}, <a className="num link" href={`tel:+225${m.buyer.phone.replace(/\D/g, '')}`}>+225 {m.buyer.phone}</a></dd>
+        <dt>Pour vous</dt><dd><b className="num">{fcfa(net)} FCFA</b> <span className="muted">sur {fcfa(m.fee)} payés par l’acheteur (commission SAVAA {COMMISSION * 100} %)</span></dd>
       </dl>
       {m.status === 'delivered' ? (
-        <div className="notice n-info"><Icon name="check" size="sm" /><span>Livrée le {m.deliveredAt}. Rémunération de {fcfa(m.fee)} FCFA validée.</span></div>
+        <div className="notice n-info"><Icon name="check" size="sm" /><span>Livrée le {m.deliveredAt}. {fcfa(net)} FCFA vous reviennent.</span></div>
       ) : (
         <>
           <div className="seg">
@@ -323,13 +428,48 @@ function NetMissionCard({ m }: { m: NetMission }) {
           <div className="field">
             <label htmlFor={`code-${m.id}`}>Code de remise de l’acheteur</label>
             <div className="row" style={{ gap: 8 }}>
-              <input id={`code-${m.id}`} className="input num grow" inputMode="numeric" maxLength={4} placeholder="4 chiffres" value={code} onChange={(e) => setCode(e.target.value.replace(/D/g, '').slice(0, 4))} />
+              <input id={`code-${m.id}`} className="input num grow" inputMode="numeric" maxLength={4} placeholder="4 chiffres" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))} />
               <button className="btn btn-p" disabled={code.length < 4} onClick={deliver}>Confirmer la remise</button>
             </div>
             <span className="hint">L’acheteur trouve ce code dans le suivi de sa commande. Le paiement du vendeur est libéré à la remise.</span>
           </div>
+          {m.status === 'accepted' && (
+            <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => { s.releaseMission(m.id); showToast('Mission rendue : elle repart chez les autres livreurs de la zone.'); }}>Je ne peux plus la faire, me désister</button>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+/** Ancien libellé du profil métier → véhicule du calcul de livraison. */
+const OLD_VEHICLE: Record<string, VehicleId> = { 'Pick-up ou bâché': 'pickup', Camion: 'camion', Bétaillère: 'betaillere' };
+
+/** Véhicule, base, rayon d'action et disponibilité du livreur. Enregistré sur le réseau de l'appareil : les acheteurs voient combien de livreurs couvrent leur zone. */
+function CourierSettings({ c, onSave }: { c: Omit<NetCourier, 'name' | 'phone'>; onSave: (c: Omit<NetCourier, 'name' | 'phone'>) => void }) {
+  const [v, setV] = useState(c);
+  const max = vehicleOf(v.vehicle)?.zone ?? 30;
+  const radius = Math.min(v.radius, max);
+  return (
+    <div className="card pad col" style={{ gap: 12 }}>
+      <span className="b small">Mon véhicule et ma zone</span>
+      <div className="field">
+        <label htmlFor="cr-vehicle">Véhicule</label>
+        <select id="cr-vehicle" className="input" value={v.vehicle} onChange={(e) => { const id = e.target.value as VehicleId; setV({ ...v, vehicle: id, radius: Math.min(v.radius, vehicleOf(id)?.zone ?? 30) }); }}>
+          {COURIER_VEHICLES.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+        </select>
+        <span className="hint">{vehicleOf(v.vehicle)?.what}. Jusqu’à {vehicleOf(v.vehicle)?.km} km par trajet.</span>
+      </div>
+      <div className="field">
+        <label htmlFor="cr-base">Ville ou village de base</label>
+        <select id="cr-base" className="input" value={v.base} onChange={(e) => setV({ ...v, base: e.target.value })}>{PLACES.map((p) => <option key={p.name}>{p.name}</option>)}</select>
+      </div>
+      <div className="field">
+        <label htmlFor="cr-radius">Je prends les enlèvements jusqu’à <b className="num">{radius} km</b> de ma base</label>
+        <input id="cr-radius" type="range" min={5} max={max} step={5} value={radius} onChange={(e) => setV({ ...v, radius: Number(e.target.value) })} />
+        <span className="hint">Maximum {max} km pour ce véhicule.</span>
+      </div>
+      <button className="btn btn-p" onClick={() => onSave({ ...v, radius })}>Enregistrer</button>
     </div>
   );
 }
@@ -343,18 +483,39 @@ export function CourierSpace() {
   const unread = s.unread();
   const demo = !!s.session().demo;
 
+  /* Profil de livreur : enregistré, sinon déduit du profil métier (véhicule, zone de travail). */
+  const saved = s.myCourier();
+  const pro = s.session().pro ?? {};
+  const fromPro = COURIER_VEHICLES.find((x) => x.label === pro['coursier.vehicule'])?.id ?? OLD_VEHICLE[pro['coursier.vehicule'] ?? ''] ?? 'pickup';
+  const me = saved ?? { vehicle: fromPro, base: (placeOf(pro['coursier.zone']) ?? placeOf(s.session().town) ?? PLACES[0]).name, radius: Math.min(30, vehicleOf(fromPro)?.zone ?? 30), online: false };
+  const [editing, setEditing] = useState(false);
+  const vehicle = vehicleOf(me.vehicle);
+  const base = placeOf(me.base);
+
   /* Missions créées par les vraies commandes livrées (réseau de l'appareil). */
   const myPhone = s.session().phone;
-  const netOpen = s.net().missions.filter((m) => m.status === 'open' && m.buyer.phone !== myPhone);
+  /* Ni ses propres commandes, ni les commandes passées sur ses annonces : un transporteur ne livre pas ses propres ventes. */
+  const ownSale = (m: NetMission) => !!m.sellerPhones?.includes(myPhone);
+  const open = s.net().missions.filter((m) => m.status === 'open' && m.buyer.phone !== myPhone && !ownSale(m));
+  const skipped = s.net().missions.filter((m) => m.status === 'open' && ownSale(m)).length;
+  /* Proposées : son véhicule peut faire le transport et l'enlèvement est dans sa zone. Triées de la plus proche à la plus lointaine. */
+  const away = (m: NetMission) => (m.from && base ? roadKm(base, m.from) : 0);
+  const fits = (m: NetMission) => !!vehicle && (!m.load || canCarry(vehicle, m.load, m.km ?? 0)) && away(m) <= me.radius;
+  const netOpen = me.online ? open.filter(fits).sort((a, b) => away(a) - away(b)) : [];
+  const elsewhere = me.online ? open.length - netOpen.length : 0;
   const mine = s.net().missions.filter((m) => m.status !== 'open' && m.courier?.phone === myPhone);
   const myActive = mine.filter((m) => m.status !== 'delivered');
   const myDone = mine.filter((m) => m.status === 'delivered');
-  const availableCount = MISSION_OFFERS.filter((m) => !accepted[m.id]).length + netOpen.length;
-  /* Compte neuf : les missions en cours sont celles qu'il a acceptées ; ni historique ni gains tant qu'il n'a rien livré. */
-  const acceptedOffers = MISSION_OFFERS.filter((m) => accepted[m.id]);
-  const activeCount = (demo ? (step === 'delivered' ? 0 : 1) : acceptedOffers.length) + myActive.length;
+  /* Les missions d'exemple ne concernent que le compte de démonstration. */
+  const offers = demo ? MISSION_OFFERS : [];
+  const availableCount = offers.filter((m) => !accepted[m.id]).length + netOpen.length;
+  const acceptedOffers = offers.filter((m) => accepted[m.id]);
+  const activeCount = (demo ? (step === 'delivered' ? 0 : 1) : 0) + myActive.length;
   const deliveredCount = (demo ? MISSION_HISTORY.length + (step === 'delivered' ? 1 : 0) : 0) + myDone.length;
-  const earned = (demo ? 40000 + (step === 'delivered' ? 25000 : 0) : 0) + myDone.reduce((t, m) => t + m.fee, 0);
+  const earned = (demo ? 40000 + (step === 'delivered' ? 25000 : 0) : 0) + myDone.reduce((t, m) => t + payout(m.fee), 0);
+
+  const save = (c: Omit<NetCourier, 'name' | 'phone'>) => { s.setCourier(c); setEditing(false); showToast(`Enregistré : ${vehicleOf(c.vehicle)?.label}, ${c.radius} km autour de ${c.base}.`); };
+  const toggleOnline = () => { s.setCourier({ ...me, online: !me.online }); showToast(me.online ? 'Hors service : vous ne recevez plus de missions.' : 'En service : les missions de votre zone vous sont proposées.'); };
 
   const validateCode = () => {
     if (codeInput.trim() !== '4827') {
@@ -378,6 +539,18 @@ export function CourierSpace() {
         <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'on' : ''} onClick={() => setTab('history')}>Historique ({deliveredCount})</button>
       </div>
       <div className="body">
+        <div className="card pad row" style={{ gap: 12 }}>
+          <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
+            <span className="small b">{me.online ? 'En service' : 'Hors service'}</span>
+            <span className="xs muted">{vehicle?.label}, {me.radius} km autour de {me.base}{saved ? '' : ' (à confirmer)'}</span>
+            <button className="link plain xs" style={{ alignSelf: 'flex-start' }} aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? 'Fermer' : 'Modifier véhicule et zone'}</button>
+          </div>
+          <button className="li" role="switch" aria-checked={me.online} aria-label="En service" onClick={toggleOnline} style={{ flex: 'none', padding: 0, border: 0, background: 'none', minHeight: 0 }}>
+            <span className={`toggle${me.online ? ' on' : ''}`} />
+          </button>
+        </div>
+        {editing && <CourierSettings c={me} onSave={save} />}
+
         {myActive[0] ? (
           <TodayCard eyebrow="Mission en cours" title={myActive[0].title} text={`${myActive[0].pickup} → ${myActive[0].dropoff}. À la remise, demandez le code à 4 chiffres à ${myActive[0].buyer.name}.`}>
             <button className="btn btn-p" onClick={() => setTab('active')}>Voir la mission</button>
@@ -386,43 +559,26 @@ export function CourierSpace() {
           <TodayCard eyebrow="Mission en cours" title="Taurillon FK-0142 et 4 sacs d’aliment" text="Livrer à Fatou Ouattara, route de Dikodougou. À la remise, demandez le code à 4 chiffres à l’acheteur.">
             <button className="btn btn-p" onClick={() => setTab('active')}>Voir la mission</button>
           </TodayCard>
-        ) : !demo && acceptedOffers[0] ? (
-          <TodayCard eyebrow="Mission acceptée" title={acceptedOffers[0].title} text={`${acceptedOffers[0].route}, ${acceptedOffers[0].when}. Le vendeur vous confirme l’heure d’enlèvement.`}>
-            <button className="btn btn-p" onClick={() => setTab('active')}>Voir la mission</button>
+        ) : !me.online ? (
+          <TodayCard eyebrow="Aujourd’hui" title="Vous êtes hors service" text="Passez en service pour recevoir les missions que votre véhicule peut faire, dans votre zone.">
+            <button className="btn btn-p" onClick={toggleOnline}>Passer en service</button>
           </TodayCard>
         ) : (
-          <TodayCard eyebrow="Aujourd’hui" title="Aucune mission en cours" text={`${availableCount} mission${availableCount > 1 ? 's' : ''} disponible${availableCount > 1 ? 's' : ''} près de vous.`}>
+          <TodayCard eyebrow="Aujourd’hui" title="Aucune mission en cours" text={availableCount ? `${availableCount} mission${availableCount > 1 ? 's' : ''} dans votre zone.` : 'Aucune mission dans votre zone pour l’instant. Elles arrivent dès qu’un acheteur paie une livraison.'}>
             <button className="btn btn-p" onClick={() => setTab('offers')}>Voir les missions</button>
           </TodayCard>
         )}
         <div className="card grid3" style={{ gap: 0 }}>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{activeCount}</span><span className="l">En cours</span></div>
-          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{availableCount}</span><span className="l">Offres dispo</span></div>
-          <div className="stat" style={{ padding: 12 }}><span className="v">{fcfa(earned)}</span><span className="l">FCFA (7 j)</span></div>
+          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{availableCount}</span><span className="l">Dans ma zone</span></div>
+          <div className="stat" style={{ padding: 12 }}><span className="v">{fcfa(earned)}</span><span className="l">FCFA gagnés</span></div>
         </div>
 
         {tab === 'active' && myActive.map((m) => <NetMissionCard key={m.id} m={m} />)}
         {tab === 'active' && !demo && !myActive.length && (
-          acceptedOffers.length ? (
-            <div className="col" style={{ gap: 10 }}>
-              {acceptedOffers.map((m) => (
-                <div key={m.id} className="card pad col" style={{ gap: 8 }}>
-                  <div className="row between" style={{ gap: 8 }}>
-                    <span className="b small ell">{m.title}</span>
-                    <Badge tone="blue">Acceptée</Badge>
-                  </div>
-                  <span className="xs muted">{m.route}</span>
-                  <span className="xs muted">{m.vehicle}, {m.when}</span>
-                  <span className="price">{fcfa(m.fee)} FCFA</span>
-                  <span className="hint">Le vendeur vous confirmera l’heure d’enlèvement. À la livraison, l’acheteur vous donnera son code de remise.</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="Aucune mission en cours" text="Acceptez une mission dans l’onglet Disponibles : elle apparaîtra ici jusqu’à la livraison.">
-              <button className="btn btn-s btn-sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => setTab('offers')}>Voir les missions disponibles</button>
-            </EmptyState>
-          )
+          <EmptyState title="Aucune mission en cours" text="Acceptez une mission dans l’onglet Disponibles : elle apparaîtra ici jusqu’à la livraison.">
+            <button className="btn btn-s btn-sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => setTab('offers')}>Voir les missions disponibles</button>
+          </EmptyState>
         )}
 
         {tab === 'active' && demo && (
@@ -455,15 +611,7 @@ export function CourierSpace() {
                 <div className="field">
                   <label htmlFor="remise-code">Code de remise de l’acheteur</label>
                   <div className="row" style={{ gap: 8 }}>
-                    <input
-                      id="remise-code"
-                      className="input num grow"
-                      inputMode="numeric"
-                      maxLength={4}
-                      placeholder="Ex. 4827"
-                      value={codeInput}
-                      onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    />
+                    <input id="remise-code" className="input num grow" inputMode="numeric" maxLength={4} placeholder="Ex. 4827" value={codeInput} onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, '').slice(0, 4))} />
                     <button className="btn btn-p" disabled={codeInput.length < 4} onClick={validateCode}>Valider</button>
                   </div>
                   <span className="hint">Demandez le code à 4 chiffres à l’acheteur après vérification (démo : 4827).</span>
@@ -480,6 +628,13 @@ export function CourierSpace() {
 
         {tab === 'offers' && (
           <div className="col" style={{ gap: 10 }}>
+            {base && <DeliveryMap label={`Votre zone : ${me.radius} km autour de ${base.name}, ${netOpen.length} mission${netOpen.length > 1 ? 's' : ''}`} zone={{ center: base, km: me.radius }} routes={netOpen.filter((m) => m.from).map((m) => ({ id: m.id, from: m.from as Place, to: m.to, label: `${m.title}, ${fcfa(payout(m.fee))} FCFA pour vous` }))} />}
+            {!me.online && <div className="notice"><Icon name="info" size="sm" /><span>Vous êtes hors service : aucune mission ne vous est proposée. Activez « En service » en haut de la page.</span></div>}
+            {elsewhere > 0 && <span className="xs muted">{elsewhere === 1 ? 'Une autre mission est' : `${elsewhere} autres missions sont`} hors de votre zone ou demande{elsewhere > 1 ? 'nt' : ''} un autre véhicule.</span>}
+            {skipped > 0 && (
+              <div className="notice"><Icon name="info" size="sm" /><span>{skipped === 1 ? 'Une livraison n’est pas proposée ici : c’est une de vos ventes.' : `${skipped} livraisons ne sont pas proposées ici : ce sont vos ventes.`} Un autre transporteur s’en charge, pour que l’acheteur ait un témoin indépendant à la remise.</span></div>
+            )}
+            {me.online && !netOpen.length && !offers.length && <EmptyState title="Aucune mission dans votre zone" text={`Les commandes livrées à moins de ${me.radius} km de ${me.base}, que votre ${vehicle?.label.toLowerCase()} peut transporter, apparaîtront ici.`} />}
             {netOpen.map((m) => (
               <div key={m.id} className="card pad col" style={{ gap: 10 }}>
                 <div className="row" style={{ gap: 12 }}>
@@ -487,16 +642,16 @@ export function CourierSpace() {
                   <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
                     <span className="b small">{m.title}</span>
                     <span className="xs muted">{m.pickup} → {m.dropoff}</span>
-                    <span className="xs muted">Commande {m.orderRef}, payée le {m.date}</span>
+                    <span className="xs muted">{m.from && base ? `À ${away(m)} km de vous · ` : ''}{missionLine(m)}</span>
                   </div>
                 </div>
-                <div className="row between">
-                  <span className="price">{fcfa(m.fee)} FCFA</span>
+                <div className="row between" style={{ gap: 8 }}>
+                  <span className="col" style={{ gap: 0 }}><span className="price">{fcfa(payout(m.fee))} FCFA</span><span className="xs muted">pour vous, sur {fcfa(m.fee)} FCFA</span></span>
                   <button className="btn btn-p btn-sm" onClick={() => { s.moveMission(m.id, 'accepted'); showToast(`Mission ${m.orderRef} acceptée. L’acheteur est prévenu.`); setTab('active'); }}>Accepter la mission</button>
                 </div>
               </div>
             ))}
-            {MISSION_OFFERS.map((m) => {
+            {offers.map((m) => {
               const ok = !!accepted[m.id];
               return (
                 <div key={m.id} className="card pad col" style={{ gap: 10 }}>
@@ -510,31 +665,22 @@ export function CourierSpace() {
                   </div>
                   <div className="row between">
                     <span className="price">{fcfa(m.fee)} FCFA</span>
-                    {ok ? (
-                      <Badge tone="green">Mission acceptée</Badge>
-                    ) : (
-                      <button
-                        className="btn btn-p btn-sm"
-                        onClick={() => {
-                          s.put('courier.accepted', { ...accepted, [m.id]: true });
-                          showToast(`Mission ${m.id} acceptée.`);
-                        }}
-                      >
-                        Accepter la mission
-                      </button>
+                    {ok ? <Badge tone="green">Mission acceptée</Badge> : (
+                      <button className="btn btn-p btn-sm" onClick={() => { s.put('courier.accepted', { ...accepted, [m.id]: true }); showToast(`Mission ${m.id} acceptée.`); }}>Accepter la mission</button>
                     )}
                   </div>
                 </div>
               );
             })}
+            {acceptedOffers.length > 0 && <span className="xs muted">Missions d’exemple du compte de démonstration.</span>}
           </div>
         )}
 
         {tab === 'history' && myDone.map((m) => (
-          <div className="card list" key={m.id}><div className="li">{m.photo && <Photo w={48} h={48} radius={6} src={m.photo} />}<div className="col grow"><span className="small b">{m.title}</span><span className="xs muted">{m.pickup} → {m.dropoff}, {m.deliveredAt}</span></div><span className="small b num" style={{ color: '#145C3A' }}>+{fcfa(m.fee)}</span></div></div>
+          <div className="card list" key={m.id}><div className="li">{m.photo && <Photo w={48} h={48} radius={6} src={m.photo} />}<div className="col grow"><span className="small b">{m.title}</span><span className="xs muted">{m.pickup} → {m.dropoff}, {m.deliveredAt}</span></div><span className="small b num" style={{ color: '#145C3A' }}>+{fcfa(payout(m.fee))}</span></div></div>
         ))}
         {tab === 'history' && !demo && !myDone.length && (
-          <EmptyState title="Aucune livraison pour l’instant" text="Vos livraisons terminées et leur rémunération apparaîtront ici." />
+          <EmptyState title="Aucune livraison pour l’instant" text="Vos livraisons terminées et ce qui vous revient (prix payé moins 5 % de commission) apparaîtront ici." />
         )}
 
         {tab === 'history' && demo && (
@@ -588,12 +734,36 @@ const LOT_TONE: Record<HarvestLot['status'], Tone> = {
   Épuisé: 'red',
 };
 
+const AGRI_CAL: DueOptions = {
+  kv: 'agri.cal', types: ['Semis', 'Récolte', 'Collecte', 'Traitement', 'Séchage', 'Livraison'],
+  demoRows: [
+    ['24', 'nov.', 'Collecte coopérative maïs jaune', 'Magasin Dikodougou, 120 sacs', '20261124'],
+    ['02', 'déc.', 'Récolte parcelle igname Kponan', 'Secteur Nord, environ 3 tonnes', '20261202'],
+    ['15', 'déc.', 'Contrôle KOR anacarde brute', 'Union du Poro, Sinématiali', '20261215'],
+  ],
+  title: 'Calendrier des cultures', whatLabel: 'Culture ou parcelle', whatPlaceholder: 'Ex. maïs, parcelle du bas-fond', whatError: 'Indiquez la culture ou la parcelle.',
+  empty: 'Calendrier vide. Ajoutez vos semis, récoltes et collectes pour prévenir vos acheteurs à temps.', file: 'calendrier-cultures-savaa.ics',
+};
+
 export function AgriSpace() {
   const s = useStore();
-  const [tab, setTab] = useState<'lots' | 'add' | 'cal'>('lots');
+  const [tab, setTab] = useState<'lots' | 'add' | 'cal' | 'stats'>('lots');
   const demo = !!s.session().demo;
   const extraLots = s.get<HarvestLot[]>('agri.lots', []);
-  const lots = [...extraLots, ...(demo ? INITIAL_LOTS : [])];
+  const lotStatus = s.get<Record<string, HarvestLot['status']>>('agri.lotStatus', {});
+  const lots = [...extraLots, ...(demo ? INITIAL_LOTS : [])].map((l) => ({ ...l, status: lotStatus[l.id] ?? l.status }));
+  const setLot = (id: string, status: HarvestLot['status']) => { s.put('agri.lotStatus', { ...lotStatus, [id]: status }); showToast(`Lot passé à « ${status} ».`); };
+  /* Statistiques : ventes reçues sur ses annonces (réseau de l'appareil) et volume déclaré dans ses lots. */
+  const sales = s.mySales();
+  const revenue = sales.reduce((t, x) => t + x.price * x.qty, 0);
+  const buyers = new Set(sales.map((x) => x.buyer.phone)).size;
+  const byProduct = Object.values(sales.reduce<Record<string, { title: string; amount: number; qty: number; orders: number }>>((acc, x) => {
+    const p = acc[x.title] ?? { title: x.title, amount: 0, qty: 0, orders: 0 };
+    acc[x.title] = { ...p, amount: p.amount + x.price * x.qty, qty: p.qty + x.qty, orders: p.orders + 1 };
+    return acc;
+  }, {})).sort((a, b) => b.amount - a.amount);
+  const active = lots.filter((l) => l.status !== 'Épuisé');
+  const volume = active.reduce((t, l) => t + volumeKg(l.qty), 0);
   const [crop, setCrop] = useState('');
   const [qty, setQty] = useState('');
   const [price, setPrice] = useState('');
@@ -624,14 +794,15 @@ export function AgriSpace() {
         <button role="tab" aria-selected={tab === 'lots'} className={tab === 'lots' ? 'on' : ''} onClick={() => setTab('lots')}>Disponibilités ({lots.length})</button>
         <button role="tab" aria-selected={tab === 'add'} className={tab === 'add' ? 'on' : ''} onClick={() => setTab('add')}>Déclarer un lot</button>
         <button role="tab" aria-selected={tab === 'cal'} className={tab === 'cal' ? 'on' : ''} onClick={() => setTab('cal')}>Calendrier</button>
+        <button role="tab" aria-selected={tab === 'stats'} className={tab === 'stats' ? 'on' : ''} onClick={() => setTab('stats')}>Statistiques</button>
       </div>
       <div className="body">
         {demo ? (
           <TodayCard eyebrow="Prochaine collecte" title="Maïs jaune, le 24/11" text="Magasin de Dikodougou, environ 120 sacs. Prévenez vos acheteurs et réservez le séchage.">
             <button className="btn btn-p" onClick={() => setTab('cal')}>Voir le calendrier</button>
           </TodayCard>
-        ) : lots[0] ? (
-          <TodayCard eyebrow="Aujourd’hui" title={`Mettez en vente : ${lots[0].crop}`} text={`${lots[0].qty}. La fiche de traçabilité se remplit en 4 étapes.`}>
+        ) : active[0] ? (
+          <TodayCard eyebrow="Aujourd’hui" title={`Mettez en vente : ${active[0].crop}`} text={`${active[0].qty}. La fiche de traçabilité se remplit en 4 étapes.`}>
             <Link className="btn btn-p" to="/vendre">Mettre en vente</Link>
           </TodayCard>
         ) : (
@@ -640,9 +811,9 @@ export function AgriSpace() {
           </TodayCard>
         )}
         <div className="card grid3" style={{ gap: 0 }}>
-          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{lots.length}</span><span className="l">Lots actifs</span></div>
-          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{demo ? '33 t' : '—'}</span><span className="l">Volume estimé</span></div>
-          <div className="stat" style={{ padding: 12 }}><span className="v">{demo ? 4 : 0}</span><span className="l">Acheteurs pros</span></div>
+          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{active.length}</span><span className="l">Lots actifs</span></div>
+          <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{volume ? `${fcfa(Math.round(volume / 100) / 10)} t` : '—'}</span><span className="l">Volume disponible</span></div>
+          <div className="stat" style={{ padding: 12 }}><span className="v">{buyers}</span><span className="l">Acheteurs</span></div>
         </div>
 
         {tab === 'lots' && !lots.length && (
@@ -666,6 +837,7 @@ export function AgriSpace() {
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8 }}>
+                  <button className="btn btn-s btn-sm grow" onClick={() => setLot(l.id, l.status === 'Épuisé' ? 'Disponible' : 'Épuisé')}>{l.status === 'Épuisé' ? 'Remettre disponible' : 'Marquer épuisé'}</button>
                   {l.listingId && <Link className="btn btn-s btn-sm grow" to={`/annonce/${l.listingId}`}>Voir l’annonce</Link>}
                   <Link className="btn btn-p btn-sm grow" to="/vendre">Mettre en vente</Link>
                 </div>
@@ -695,23 +867,42 @@ export function AgriSpace() {
           </div>
         )}
 
-        {tab === 'cal' && !demo && (
-          <EmptyState title="Calendrier vide" text="Vos dates de récolte et de collecte apparaîtront ici." />
-        )}
-        {tab === 'cal' && demo && (
-          <div className="card list">
-            {[
-              ['24', 'nov.', 'Collecte coopérative maïs jaune', 'Magasin Dikodougou · 120 sacs', 'images/mais-jaune.jpg'],
-              ['02', 'déc.', 'Récolte parcelle igname Kponan', 'Secteur Nord · ~3 tonnes', 'images/igname-kponan.jpg'],
-              ['15', 'déc.', 'Contrôle KOR anacarde brute', 'Union du Poro, Sinématiali', 'images/noix-cajou.jpg'],
-            ].map(([d, m, t, sub, img]) => (
-              <div className="li" key={t}>
-                <span className="col" style={{ width: 38, alignItems: 'center', gap: 0 }}><span className="b num" style={{ fontSize: 17 }}>{d}</span><span className="xs muted">{m}</span></span>
-                <Photo w={44} h={44} radius={6} src={img} />
-                <div className="col grow"><span className="small b ell">{t}</span><span className="xs muted ell">{sub}</span></div>
+        {tab === 'cal' && <Echeances demo={demo} o={AGRI_CAL} />}
+
+        {tab === 'stats' && (
+          <>
+            <div className="card grid3" style={{ gap: 0 }}>
+              <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{fcfa(revenue)}</span><span className="l">FCFA vendus</span></div>
+              <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{sales.length}</span><span className="l">Ventes</span></div>
+              <div className="stat" style={{ padding: 12 }}><span className="v">{byProduct.length}</span><span className="l">Produits vendus</span></div>
+            </div>
+            <div className="sec">
+              <div className="sech"><h2>Ventes par produit</h2></div>
+              {byProduct.length === 0 ? (
+                <EmptyState title="Aucune vente pour l’instant" text="Quand un acheteur commande une de vos récoltes en ligne, le montant et la quantité s’ajoutent ici, produit par produit." />
+              ) : (
+                <div className="card list">
+                  {byProduct.map((p) => (
+                    <div className="li" key={p.title} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                      <div className="row between" style={{ gap: 8 }}><span className="small b ell">{p.title}</span><span className="small b num" style={{ flex: 'none' }}>{fcfa(p.amount)} FCFA</span></div>
+                      <div className="bar" aria-hidden="true"><i style={{ width: `${Math.max(4, Math.round((p.amount / byProduct[0].amount) * 100))}%` }} /></div>
+                      <span className="xs muted">{p.qty} commandé{p.qty > 1 ? 's' : ''}, {p.orders} commande{p.orders > 1 ? 's' : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="sec">
+              <div className="sech"><h2>Disponibilités déclarées</h2></div>
+              <div className="card list">
+                <div className="li"><span className="grow small">Lots disponibles</span><span className="small b num">{lots.filter((l) => l.status === 'Disponible').length}</span></div>
+                <div className="li"><span className="grow small">Récolte en cours</span><span className="small b num">{lots.filter((l) => l.status === 'Récolte en cours').length}</span></div>
+                <div className="li"><span className="grow small">Épuisés</span><span className="small b num">{lots.filter((l) => l.status === 'Épuisé').length}</span></div>
+                <div className="li"><span className="grow small">Volume déclaré</span><span className="small b num">{volume ? `${fcfa(Math.round(volume / 100) / 10)} t` : '—'}</span></div>
               </div>
-            ))}
-          </div>
+              {demo && <span className="xs muted">Les ventes affichées sont celles passées sur SAVAA depuis ce téléphone. Les lots de la maquette n’ont pas de ventes enregistrées.</span>}
+            </div>
+          </>
         )}
       </div>
       <TabBar />
@@ -743,24 +934,43 @@ export function SupplierSpace() {
   const [offers, setOffers] = useState<Record<string, string>>({});
   /* Demandes reçues des restaurants et acheteurs pros (réseau de l'appareil), puis celles de la démo. Factures : démo seulement. */
   const myPhone = s.session().phone;
-  const received = s.net().quotes.filter((q) => q.status === 'open' && q.from.phone !== myPhone);
+  const org = s.shop().created ? s.shop().name : s.session().pro?.['fourn.raison'] || undefined;
+  const net = s.net();
+  /* Demandes ouvertes des autres comptes, et celles où son offre a été retenue. */
+  const keptMine = (q: NetQuote) => q.status === 'accepted' && q.offers.find((o) => o.id === q.accepted)?.supplier.phone === myPhone;
+  const received = net.quotes.filter((q) => q.from.phone !== myPhone && (q.status === 'open' || keptMine(q)));
   const netSent: Record<string, number> = Object.fromEntries(received.flatMap((q) => q.offers.filter((o) => o.supplier.phone === myPhone).map((o) => [q.id, o.price])));
   const quotes = [
-    ...received.map((q) => ({ id: q.id, client: q.from.org || q.from.name, item: q.product, qty: q.qty, place: q.place, suggested: 0, photo: 'images/aliment-betail.jpg', net: true })),
-    ...(demo ? SUPPLIER_QUOTES.map((q) => ({ ...q, net: false })) : []),
+    ...received.map((q) => ({ id: q.id, client: q.from.org || q.from.name, item: q.product, qty: q.qty, place: q.place, suggested: 0, photo: 'images/aliment-betail.jpg', net: q as NetQuote | undefined })),
+    ...(demo ? SUPPLIER_QUOTES.map((q) => ({ ...q, net: undefined as NetQuote | undefined })) : []),
   ];
   const sentOf = (id: string): number | undefined => netSent[id] ?? sent[id];
-  const invoices = demo ? SUPPLIER_INVOICES : [];
+  /* Factures émises depuis ce compte (réseau de l'appareil), puis celles de la maquette. */
+  const myInvoices = net.invoices.filter((x) => x.supplier.phone === myPhone);
+  const invoices: [string, string, number, string, Tone][] = [
+    ...myInvoices.map((x): [string, string, number, string, Tone] => [x.ref, x.client.org || x.client.name, x.amount, x.status === 'paid' ? `Payée le ${x.paidAt}` : `En attente (${x.due.slice(0, 5)})`, x.status === 'paid' ? 'green' : 'amber']),
+    ...(demo ? SUPPLIER_INVOICES : []),
+  ];
+  const month = today().slice(3);
+  const cashed = myInvoices.filter((x) => x.status === 'paid' && x.paidAt?.endsWith(month)).reduce((t, x) => t + x.amount, 0);
+  const recurring = net.recurring.filter((r) => r.supplier.phone === myPhone);
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const invoiceOf = (quoteId: string) => myInvoices.find((x) => x.quoteId === quoteId);
   const pendingQuotes = quotes.filter((q) => !sentOf(q.id)).length;
   /* Références : ses propres annonces d'aliments, d'intrants et de matériel (en démo, celles de la maquette). */
   const stockItems = s.listings().filter((l) => (demo || l.mine) && (l.category.includes('Aliments') || l.category === 'Matériel'));
 
-  const sendQuote = (id: string, fallback: number, client: string, net = false) => {
+  const sendQuote = (id: string, fallback: number, client: string, isNet = false) => {
     const val = Number((offers[id] ?? '').replace(/\D/g, '')) || fallback;
     if (!val) { showToast('Indiquez votre prix avant de répondre.'); return; }
-    if (net) s.offerQuote(id, val, 'à convenir avec le client', s.shop().created ? s.shop().name : undefined);
+    if (isNet) s.offerQuote(id, val, 'à convenir avec le client', org);
     else s.put('fourn.sent', { ...sent, [id]: val });
     showToast(`Offre de ${fcfa(val)} FCFA envoyée à ${client}.`);
+  };
+  const bill = (q: NetQuote, price: number) => {
+    const amount = Number((amounts[q.id] ?? '').replace(/\D/g, '')) || price * (q.qtyNum ?? 1);
+    const inv = s.issueInvoice({ quoteId: q.id, label: `${q.product}, ${q.qty}`, amount, client: q.from, org });
+    showToast(`Facture ${inv.ref} de ${fcfa(amount)} FCFA envoyée à ${q.from.org || q.from.name}.`);
   };
 
   return (
@@ -788,7 +998,7 @@ export function SupplierSpace() {
         <div className="card grid3" style={{ gap: 0 }}>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{pendingQuotes}</span><span className="l">Devis ouverts</span></div>
           <div className="stat" style={{ padding: 12, borderRight: '1px solid #E3E7E4' }}><span className="v">{stockItems.length}</span><span className="l">Références</span></div>
-          <div className="stat" style={{ padding: 12 }}><span className="v">{demo ? '1,8 M' : 0}</span><span className="l">FCFA (nov.)</span></div>
+          <div className="stat" style={{ padding: 12 }}><span className="v">{demo ? '1,8 M' : fcfa(cashed)}</span><span className="l">FCFA encaissés ce mois</span></div>
         </div>
 
         {tab === 'quotes' && !quotes.length && (
@@ -800,6 +1010,9 @@ export function SupplierSpace() {
           <div className="col" style={{ gap: 10 }}>
             {quotes.map((q) => {
               const sentPrice = sentOf(q.id);
+              const kept = q.net && keptMine(q.net);
+              const inv = kept ? invoiceOf(q.id) : undefined;
+              const per = q.net ? q.net.per ?? 'le kg' : 'l’unité';
               return (
                 <div key={q.id} className="card pad col" style={{ gap: 10 }}>
                   <div className="row" style={{ gap: 12 }}>
@@ -807,32 +1020,66 @@ export function SupplierSpace() {
                     <div className="col grow" style={{ gap: 2 }}>
                       <div className="row between" style={{ gap: 6 }}>
                         <span className="b small ell">{q.client}</span>
-                        {sentPrice ? <Badge tone="green">Offre envoyée</Badge> : <Badge tone="blue">Nouveau devis</Badge>}
+                        {kept ? <Badge tone="green">Offre retenue</Badge> : sentPrice ? <Badge tone="blue">Offre envoyée</Badge> : <Badge tone="blue">Nouveau devis</Badge>}
                       </div>
                       <span className="xs muted">{q.item}</span>
                       <span className="xs muted">{q.qty} · {q.place}</span>
+                      {q.net?.details && <span className="xs muted">{q.net.details}</span>}
                     </div>
                   </div>
-                  {sentPrice ? (
+                  {kept && q.net && sentPrice ? (
+                    <div className="col" style={{ gap: 8 }}>
+                      <div className="notice n-info"><Icon name="check" size="sm" /><span><b>{q.client} a retenu votre offre</b> à {fcfa(sentPrice)} FCFA {per}. Contact : {q.net.from.name}, <span className="num">+225 {q.net.from.phone}</span>.</span></div>
+                      {inv ? (
+                        <span className="xs">Facture <b className="num">{inv.ref}</b> de {fcfa(inv.amount)} FCFA, {inv.status === 'paid' ? `payée le ${inv.paidAt}` : `en attente de paiement (échéance ${inv.due})`}.</span>
+                      ) : (
+                        <div className="row" style={{ gap: 8 }}>
+                          <input className="input num grow" inputMode="numeric" aria-label="Montant de la facture en FCFA" placeholder={`Montant, ex. ${fcfa(sentPrice * (q.net.qtyNum ?? 1))}`} value={amounts[q.id] ?? ''} onChange={(e) => setAmounts({ ...amounts, [q.id]: e.target.value })} />
+                          <button className="btn btn-p btn-sm" onClick={() => q.net && bill(q.net, sentPrice)}>Émettre la facture</button>
+                        </div>
+                      )}
+                    </div>
+                  ) : sentPrice ? (
                     <div className="notice n-info">
                       <Icon name="check" size="sm" />
-                      <span>Votre tarif proposé : <b>{fcfa(sentPrice)} FCFA</b> {q.net ? '/ kg' : '/ unité'}. En attente de confirmation client.</span>
+                      <span>Votre tarif proposé : <b>{fcfa(sentPrice)} FCFA</b> {per}. En attente de la réponse du client.</span>
                     </div>
                   ) : (
                     <div className="row" style={{ gap: 8 }}>
                       <input
                         className="input num grow"
                         inputMode="numeric"
-                        placeholder={q.suggested ? `Tarif unitaire (ex. ${fcfa(q.suggested)})` : 'Votre prix au kg, en FCFA'}
+                        aria-label={`Votre prix ${per}, en FCFA`}
+                        placeholder={q.suggested ? `Tarif unitaire (ex. ${fcfa(q.suggested)})` : `Votre prix ${per}, en FCFA`}
                         value={offers[q.id] ?? ''}
                         onChange={(e) => setOffers({ ...offers, [q.id]: e.target.value })}
                       />
-                      <button className="btn btn-p btn-sm" onClick={() => sendQuote(q.id, q.suggested, q.client, q.net)}>Répondre</button>
+                      <button className="btn btn-p btn-sm" onClick={() => sendQuote(q.id, q.suggested, q.client, !!q.net)}>Répondre</button>
                     </div>
                   )}
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {tab === 'quotes' && recurring.length > 0 && (
+          <div className="sec">
+            <div className="sech"><h2>Livraisons récurrentes</h2><Badge tone="blue">{recurring.filter((r) => r.status === 'active').length}</Badge></div>
+            <div className="card list">
+              {recurring.map((r) => (
+                <div className="li" key={r.id} style={{ alignItems: 'flex-start' }}>
+                  <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
+                    <span className="small b">{r.client.org || r.client.name} : {r.label}</span>
+                    <span className="xs muted">{fcfa(r.qtyNum)} × {fcfa(r.price)} FCFA, {FREQ[r.freq].toLowerCase()}, le {DAYS[r.day - 1]}</span>
+                    <span className="xs muted">{r.status === 'paused' ? 'Suspendue par le client' : `Prochaine livraison le ${frDate(r.next)}`}{r.deliveries ? `, ${r.deliveries} déjà livrée${r.deliveries > 1 ? 's' : ''}` : ''}</span>
+                  </div>
+                  {r.status === 'paused' ? <Badge tone="amber">Suspendue</Badge> : (
+                    <button className="btn btn-p btn-sm" style={{ flex: 'none' }} onClick={() => { s.deliverRecurring(r.id, org); showToast(`Livraison du ${frDate(r.next)} faite : facture de ${fcfa(r.price * r.qtyNum)} FCFA envoyée.`); }}>Livrer et facturer</button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

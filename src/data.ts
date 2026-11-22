@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { addLoads, canCarry, deliveryOptions, loadOf, placeOf, roadKm, vehicleOf, type DeliveryOption, type Load, type Place, type VehicleId } from './livraison';
 import type { Tone } from './ui';
 
 /*
@@ -134,7 +135,11 @@ export type TraceSheet = {
 };
 
 export type CartItem = { listingId: string; qty: number };
-export type Cart = { items: CartItem[]; delivery: boolean; method: string; /** Adresse de livraison saisie au panier. */ address?: string };
+export type Cart = {
+  items: CartItem[]; delivery: boolean; method: string; /** Adresse de livraison saisie au panier. */ address?: string;
+  /** Ville ou village de livraison (sert au calcul de la distance), véhicule choisi, livraison dans la journée. */
+  town?: string; vehicle?: VehicleId; urgent?: boolean;
+};
 
 export type OrderLine = { listingId: string; title: string; seller: string; qty: number; price: number };
 export type Order = {
@@ -147,6 +152,9 @@ export type Order = {
   delivery: boolean;
   address?: string;
   shipping: number;
+  /** Véhicule et distance de la livraison. */
+  vehicle?: VehicleId;
+  km?: number;
   total: number;
   /** Code de remise à donner au livreur. */
   code: string;
@@ -175,6 +183,8 @@ export const CI_REGIONS: { region: string; towns: string[] }[] = [
   { region: 'Woroba', towns: ['Séguéla', 'Mankono', 'Touba', 'Kani', 'Koro', 'Ouaninou'] },
   { region: 'Denguélé', towns: ['Odienné', 'Minignan', 'Madinani', 'Kaniasso', 'Samatiguila'] },
 ];
+
+export type DeliveryQuote = { load: Load; km: number; drop: Place | null; from: Place | null; estimated: boolean; options: DeliveryOption[]; chosen?: DeliveryOption };
 
 /** Frais de livraison forfaitaires de la maquette (bétaillère). */
 export const SHIPPING = 25000;
@@ -1295,11 +1305,42 @@ export type NetAlert = {
 export type NetMission = {
   id: string; orderRef: string; title: string; photo?: string; pickup: string; dropoff: string; buyer: NetPerson;
   fee: number; code: string; date: string; status: 'open' | 'accepted' | 'picked' | 'route' | 'delivered'; courier?: NetPerson; deliveredAt?: string;
+  /** Vendeurs de la commande : un transporteur ne livre pas ses propres ventes. */
+  sellerPhones?: string[];
+  /** Véhicule demandé, charge, distance et coordonnées de l'enlèvement et de la livraison (carte). */
+  vehicle?: VehicleId; load?: Load; km?: number; from?: Place; to?: Place;
 };
-export type NetOffer = { id: string; supplier: NetPerson & { org?: string }; price: number; delay: string; date: string };
+/** Livreur tel que les autres comptes le voient : véhicule, base, rayon d'action, en service ou non. */
+export type NetCourier = { name: string; phone: string; vehicle: VehicleId; base: string; radius: number; online: boolean };
+export type NetOrg = NetPerson & { org?: string };
+export type NetOffer = { id: string; supplier: NetOrg; price: number; delay: string; date: string };
 export type NetQuote = {
-  id: string; product: string; qty: string; place: string; from: NetPerson & { org?: string }; date: string;
-  status: 'open' | 'closed'; offers: NetOffer[];
+  id: string; product: string; qty: string; place: string; from: NetOrg; date: string;
+  /** `accepted` : le demandeur a retenu l'offre `accepted`. */
+  status: 'open' | 'closed' | 'accepted'; offers: NetOffer[];
+  /** Unité du prix demandé (« le kg », « le sac »…) et quantité chiffrée, pour calculer le montant. */
+  per?: string; qtyNum?: number; details?: string; accepted?: string;
+};
+/** Facture d'un fournisseur à son client, après un devis accepté ou une livraison récurrente. */
+export type NetInvoice = {
+  id: string; ref: string; quoteId?: string; recurringId?: string; label: string; amount: number;
+  client: NetOrg; supplier: NetOrg; date: string; due: string; status: 'due' | 'paid'; paidAt?: string;
+};
+/** Commande récurrente d'un client chez un fournisseur (offre retenue livrée à intervalle fixe). */
+export type NetRecurring = {
+  id: string; quoteId: string; label: string; qtyNum: number; per: string; price: number;
+  freq: 'week' | '2weeks' | 'month'; day: number; next: string; client: NetOrg; supplier: NetOrg;
+  status: 'active' | 'paused'; deliveries: number;
+};
+/** Demande de visite d'exploitation, de l'éleveur vers les vétérinaires. Dates au format AAAA-MM-JJ. */
+export type NetVisit = {
+  id: string; reason: string; animals: string; wish: string; farm: string; from: NetPerson; date: string;
+  status: 'open' | 'planned' | 'done'; vet?: NetPerson; when?: string; doneAt?: string;
+};
+/** Justificatifs d'un compte, contrôlés par l'équipe SAVAA dans le back-office. */
+export type NetKyc = {
+  id: string; person: NetPerson; roles: string[]; town?: string; summary: [string, string][]; docs: { label: string; photo?: string }[];
+  date: string; status: 'review' | 'verified' | 'rejected'; reason?: string; answeredAt?: string;
 };
 /** Ligne d'une commande, vue par son vendeur. */
 export type NetSale = {
@@ -1312,8 +1353,33 @@ export type NetValidation = {
   id: string; animalId: string; animal: string; photo?: string; officialId?: string; details: string; care: string; farm: string;
   from: NetPerson; date: string; status: 'open' | 'verified'; vet?: NetPerson; answeredAt?: string;
 };
-export type Net = { alerts: NetAlert[]; missions: NetMission[]; quotes: NetQuote[]; listings: Listing[]; sales: NetSale[]; validations: NetValidation[] };
-const EMPTY_NET: Net = { alerts: [], missions: [], quotes: [], listings: [], sales: [], validations: [] };
+export type Net = {
+  alerts: NetAlert[]; missions: NetMission[]; quotes: NetQuote[]; listings: Listing[]; sales: NetSale[]; validations: NetValidation[];
+  invoices: NetInvoice[]; recurring: NetRecurring[]; visits: NetVisit[]; kyc: NetKyc[]; couriers: NetCourier[];
+};
+const EMPTY_NET: Net = { alerts: [], missions: [], quotes: [], listings: [], sales: [], validations: [], invoices: [], recurring: [], visits: [], kyc: [], couriers: [] };
+
+/* Dates au format AAAA-MM-JJ (champs date, tri, calcul des prochaines livraisons). */
+const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const isoToday = () => iso(new Date());
+/** « 2026-11-24 » → « 24/11/2026 » */
+export const frDate = (s: string) => (/^\d{4}-\d{2}-\d{2}$/.test(s) ? s.split('-').reverse().join('/') : s);
+/** Prochain jour de la semaine `day` (1 = lundi … 6 = samedi) après `from`, au format AAAA-MM-JJ. */
+export function nextWeekday(day: number, from = new Date()): string {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
+  while (((d.getDay() + 6) % 7) + 1 !== day) d.setDate(d.getDate() + 1);
+  return iso(d);
+}
+/** Fréquences et jours des commandes récurrentes. */
+export const FREQ: Record<NetRecurring['freq'], string> = { week: 'Chaque semaine', '2weeks': 'Toutes les deux semaines', month: 'Toutes les quatre semaines' };
+export const DAYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+/** Livraison suivante d'une commande récurrente. */
+export function advance(next: string, freq: NetRecurring['freq']): string {
+  const [y, m, j] = next.split('-').map(Number);
+  const d = new Date(y, m - 1, j);
+  if (freq === 'month') { d.setDate(d.getDate() + 28); } else d.setDate(d.getDate() + (freq === 'week' ? 7 : 14));
+  return iso(d);
+}
 /** Vendeur de la maquette (Ferme Koné & Fils) : ses ventes arrivent au compte de démonstration. */
 const DEMO_SELLER = { name: 'Ferme Koné & Fils', phone: '07 48 12 33 90' };
 /** Annonces de l'appareil et annonces publiées par les autres comptes ; la copie partagée fait foi (validation, stock). */
@@ -1389,12 +1455,86 @@ export const store = {
     });
   },
   /** Un restaurant ou un acheteur pro publie une demande de devis pour les fournisseurs. Renvoie son identifiant. */
-  askQuote(q: { product: string; qty: string; place: string; org?: string }): string {
+  askQuote(q: { product: string; qty: string; place: string; org?: string; per?: string; qtyNum?: number; details?: string }): string {
     const n = readNet();
     const id = netId('NQ');
-    writeNet({ ...n, quotes: [{ id, product: q.product, qty: q.qty, place: q.place, from: { ...me(), org: q.org }, date: today(), status: 'open', offers: [] }, ...n.quotes] });
+    writeNet({ ...n, quotes: [{ id, product: q.product, qty: q.qty, place: q.place, from: { ...me(), org: q.org }, date: today(), status: 'open', offers: [], per: q.per, qtyNum: q.qtyNum, details: q.details }, ...n.quotes] });
     return id;
   },
+  /** Le demandeur retient une offre : la demande se ferme pour les autres fournisseurs. */
+  acceptOffer(quoteId: string, offerId: string) {
+    const n = readNet();
+    writeNet({ ...n, quotes: n.quotes.map((q) => (q.id === quoteId ? { ...q, status: 'accepted', accepted: offerId } : q)) });
+  },
+  /** Le fournisseur émet une facture (devis accepté ou livraison récurrente). Échéance à 15 jours. */
+  issueInvoice(inv: { quoteId?: string; recurringId?: string; label: string; amount: number; client: NetOrg; org?: string }): NetInvoice {
+    const n = readNet();
+    const d = new Date();
+    const due = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 15);
+    const invoice: NetInvoice = {
+      id: netId('FA'), ref: `FAC-${d.getFullYear()}-${String(1001 + n.invoices.length).padStart(4, '0')}`, quoteId: inv.quoteId, recurringId: inv.recurringId,
+      label: inv.label, amount: inv.amount, client: inv.client, supplier: { ...me(), org: inv.org }, date: today(), due: frDate(iso(due)), status: 'due',
+    };
+    writeNet({ ...n, invoices: [invoice, ...n.invoices] });
+    return invoice;
+  },
+  /** Le client règle une facture (paiement simulé). */
+  payInvoice(id: string) {
+    const n = readNet();
+    writeNet({ ...n, invoices: n.invoices.map((x) => (x.id === id ? { ...x, status: 'paid', paidAt: today() } : x)) });
+  },
+  /** Le client transforme l'offre retenue en commande récurrente. */
+  startRecurring(quoteId: string, freq: NetRecurring['freq'], day: number) {
+    const n = readNet();
+    const q = n.quotes.find((x) => x.id === quoteId);
+    const o = q?.offers.find((x) => x.id === q.accepted);
+    if (!q || !o) return;
+    const r: NetRecurring = {
+      id: netId('RC'), quoteId, label: q.product, qtyNum: q.qtyNum ?? 1, per: q.per ?? 'l’unité', price: o.price, freq, day,
+      next: nextWeekday(day), client: q.from, supplier: o.supplier, status: 'active', deliveries: 0,
+    };
+    writeNet({ ...n, recurring: [r, ...n.recurring.filter((x) => x.quoteId !== quoteId)] });
+  },
+  setRecurring(id: string, patch: Partial<Pick<NetRecurring, 'status' | 'freq' | 'day'>>) {
+    const n = readNet();
+    writeNet({ ...n, recurring: n.recurring.map((r) => (r.id === id ? { ...r, ...patch, next: patch.day ? nextWeekday(patch.day) : r.next } : r)) });
+  },
+  /** Le fournisseur livre l'échéance d'une commande récurrente : facture émise, livraison suivante calculée. */
+  deliverRecurring(id: string, org?: string) {
+    const r = readNet().recurring.find((x) => x.id === id);
+    if (!r) return;
+    store.issueInvoice({ recurringId: id, label: `${r.label}, livraison du ${frDate(r.next)}`, amount: r.price * r.qtyNum, client: r.client, org });
+    const n = readNet();
+    writeNet({ ...n, recurring: n.recurring.map((x) => (x.id === id ? { ...x, next: advance(x.next, x.freq), deliveries: x.deliveries + 1 } : x)) });
+  },
+  /** L'éleveur demande une visite d'exploitation aux vétérinaires. */
+  askVisit(v: { reason: string; animals: string; wish: string }) {
+    const n = readNet();
+    const farm = [state.shop.created ? state.shop.name : state.session.pro?.['eleveur.ferme'] || state.session.name, state.session.town].filter(Boolean).join(', ');
+    writeNet({ ...n, visits: [{ id: netId('VI'), ...v, farm, from: me(), date: today(), status: 'open' }, ...n.visits] });
+  },
+  /** Le vétérinaire fixe la date de la visite, puis la déclare faite. */
+  planVisit(id: string, when: string) {
+    const n = readNet();
+    writeNet({ ...n, visits: n.visits.map((v) => (v.id === id ? { ...v, status: 'planned', vet: me(), when } : v)) });
+  },
+  doneVisit(id: string) {
+    const n = readNet();
+    writeNet({ ...n, visits: n.visits.map((v) => (v.id === id ? { ...v, status: 'done', doneAt: today() } : v)) });
+  },
+  /** Envoie (ou renvoie) les justificatifs du compte à l'équipe SAVAA. */
+  submitKyc(summary: [string, string][], docs: { label: string; photo?: string }[]) {
+    if (state.session.demo || !state.session.phone) return;
+    const n = readNet();
+    const k: NetKyc = { id: netId('KY'), person: me(), roles: state.session.roles, town: state.session.town, summary, docs, date: `${today()}, ${nowTime()}`, status: 'review' };
+    writeNet({ ...n, kyc: [k, ...n.kyc.filter((x) => x.person.phone !== state.session.phone)] });
+  },
+  /** Réponse de l'équipe SAVAA aux justificatifs d'un compte. */
+  answerKyc(id: string, status: 'verified' | 'rejected', reason?: string) {
+    const n = readNet();
+    writeNet({ ...n, kyc: n.kyc.map((k) => (k.id === id ? { ...k, status, reason, answeredAt: today() } : k)) });
+  },
+  kycOf: (): NetKyc | undefined => readNet().kyc.find((k) => k.person.phone === state.session.phone),
   closeQuote(id: string) {
     const n = readNet();
     writeNet({ ...n, quotes: n.quotes.map((q) => (q.id === id ? { ...q, status: 'closed' } : q)) });
@@ -1616,10 +1756,42 @@ export const store = {
   removeFromCart(listingId: string) {
     commit({ cart: { ...state.cart, items: state.cart.items.filter((i) => i.listingId !== listingId) } });
   },
+  /** Livraison du panier : charge, distance, véhicules possibles et véhicule retenu (le moins cher, ou celui choisi). */
+  deliveryQuote(): DeliveryQuote {
+    const lines = store.cartLines();
+    const load = addLoads(lines.map(({ listing, qty }) => loadOf(listing, qty)));
+    const drop = placeOf(state.cart.town) ?? placeOf(state.cart.address) ?? (state.session.demo ? placeOf('Korhogo') : placeOf(state.session.town));
+    const pickups = [...new Map(lines.filter(({ listing, qty }) => loadOf(listing, qty).kg > 0).map(({ listing }) => placeOf(listing.place)).filter((p): p is Place => !!p).map((p) => [p.name, p])).values()];
+    /* Plusieurs vendeurs : un seul livreur passe chez chacun (5 km par arrêt en plus). */
+    const known = !!drop && pickups.length > 0;
+    const km = known ? Math.max(...pickups.map((p) => roadKm(p, drop))) + 5 * (pickups.length - 1) : 15;
+    const options = load.kg > 0 ? deliveryOptions(load, km, !!state.cart.urgent) : [];
+    const chosen = options.find((o) => o.vehicle.id === state.cart.vehicle) ?? options[0];
+    return { load, km, drop, from: pickups[0] ?? null, estimated: !known, options, chosen };
+  },
+  /** Livreurs en service qui peuvent faire ce transport et dont la zone couvre l'enlèvement. */
+  couriersFor(load: Load, km: number, from: Place | null): NetCourier[] {
+    return readNet().couriers.filter((c) => {
+      const v = vehicleOf(c.vehicle);
+      const base = placeOf(c.base);
+      return c.online && c.phone !== state.session.phone && !!v && canCarry(v, load, km) && (!from || !base || roadKm(base, from) <= c.radius);
+    });
+  },
+  /** Le livreur enregistre son véhicule, sa base, son rayon et sa disponibilité. */
+  setCourier(c: Omit<NetCourier, 'name' | 'phone'>) {
+    const n = readNet();
+    writeNet({ ...n, couriers: [{ ...c, ...me() }, ...n.couriers.filter((x) => x.phone !== state.session.phone)] });
+  },
+  myCourier: (): NetCourier | undefined => readNet().couriers.find((c) => c.phone === state.session.phone),
+  /** Le livreur se désiste avant l'enlèvement : la mission repart chez les autres livreurs. */
+  releaseMission(id: string) {
+    const n = readNet();
+    writeNet({ ...n, missions: n.missions.map((m) => (m.id === id && m.status === 'accepted' ? { ...m, status: 'open', courier: undefined } : m)) });
+  },
   cartTotals() {
     const lines = store.cartLines();
     const items = lines.reduce((n, l) => n + l.amount, 0);
-    const shipping = state.cart.delivery && lines.length ? SHIPPING : 0;
+    const shipping = state.cart.delivery && lines.length ? store.deliveryQuote().chosen?.price ?? 0 : 0;
     return { items, shipping, total: items + shipping, count: lines.length, sellers: new Set(lines.map((l) => l.listing.seller)).size };
   },
 
@@ -1645,6 +1817,7 @@ export const store = {
   /** Paiement confirmé : la commande est créée et le panier vidé. */
   placeOrder(): Order {
     const t = store.cartTotals();
+    const q = store.deliveryQuote();
     const n = 4812 + state.orders.length * 7 + Math.floor(Math.random() * 6) + 1;
     const d = new Date();
     const order: Order = {
@@ -1654,8 +1827,10 @@ export const store = {
       time: nowTime(),
       method: state.cart.method,
       delivery: state.cart.delivery,
-      address: state.cart.address,
+      address: [state.cart.address, state.cart.town].filter(Boolean).join(', ') || undefined,
       shipping: t.shipping,
+      vehicle: state.cart.delivery ? q.chosen?.vehicle.id : undefined,
+      km: state.cart.delivery ? q.km : undefined,
       total: t.total,
       code: String(Math.floor(Math.random() * 9000) + 1000),
       lines: store.cartLines().map(({ listing, qty }) => ({ listingId: listing.id, title: listing.title, seller: listing.seller, qty, price: store.priceFor(listing) })),
@@ -1691,6 +1866,8 @@ export const store = {
         id: netId('MS'), orderRef: order.ref,
         title: order.lines.map((l) => (l.qty > 1 ? `${l.qty} × ${l.title}` : l.title)).join(' + '),
         photo: first?.photos?.[0], pickup: [...new Set(lines.map((x) => x.listing.place.split(',')[0]))].join(', '),
+        vehicle: order.vehicle, load: q.load, km: q.km, from: q.from ?? undefined, to: q.drop ?? undefined,
+        sellerPhones: [...new Set(lines.flatMap(({ listing }) => (listing.ownerPhone ? [listing.ownerPhone] : listing.seller === DEMO_SELLER.name ? [DEMO_SELLER.phone] : [])))],
         dropoff: order.address || (state.session.demo ? 'Ferme Ouattara, route de Dikodougou, Korhogo' : state.session.town) || 'Adresse de l’acheteur', buyer: me(), fee: order.shipping, code: order.code,
         date: `${order.date}, ${order.time}`, status: 'open',
       }, ...n.missions] });
