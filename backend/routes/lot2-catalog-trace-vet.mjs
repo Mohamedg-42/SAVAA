@@ -136,6 +136,14 @@ export async function handleLot2CatalogTraceVet(ctx) {
         return true;
       }
       const patch = await readBody(req);
+      // Sécurité RBAC : seule l'équipe SAVAA peut valider une annonce en modération ('review' -> 'online')
+      if (patch.status === 'online' && found.status === 'review' && !isStaffAuthorized(req)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Seule l’équipe SAVAA peut valider et mettre en ligne une annonce en modération.',
+        });
+        return true;
+      }
       // Si l'annonce passe en ligne depuis 'review' (modération back-office), on ajoute l'événement Vérifié à la fiche SAV-TRACE
       let nextSheet = found.sheet;
       if (patch.status === 'online' && found.status === 'review' && found.sheet) {

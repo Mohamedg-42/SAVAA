@@ -28,6 +28,9 @@
 */
 
 import { computeRoadRoute, initiateMobileMoneyPayment } from '../providers.mjs';
+import { verifyWebhookSignature } from '../security.mjs';
+
+const processedWebhookTx = new Set();
 
 export async function handleLot3CommerceDelivery(ctx) {
   const { req, res, url, path, method, readBody, sendJson, state, persistState, recordAudit } = ctx;
@@ -53,8 +56,23 @@ export async function handleLot3CommerceDelivery(ctx) {
 
   if (path === '/api/payments/webhook' && method === 'POST') {
     const body = await readBody(req);
-    await recordAudit('prestataire-momo', 'PAYMENT_WEBHOOK_RECEIVED', body.transaction_id || body.txId || '', body);
-    sendJson(res, 200, { ok: true, received: true });
+    if (!verifyWebhookSignature(body, req.headers?.['x-webhook-signature'])) {
+      sendJson(res, 401, { ok: false, error: 'Signature HMAC du Webhook Mobile Money invalide.' });
+      return true;
+    }
+    const txId = String(body.transaction_id || body.txId || '').trim();
+    if (!txId) {
+      sendJson(res, 400, { ok: false, error: 'Identifiant de transaction manquant dans le webhook.' });
+      return true;
+    }
+    // Idempotence anti-rejeu (anti double paiement)
+    if (processedWebhookTx.has(txId)) {
+      sendJson(res, 200, { ok: true, received: true, idempotentReplay: true });
+      return true;
+    }
+    processedWebhookTx.add(txId);
+    await recordAudit('prestataire-momo', 'PAYMENT_WEBHOOK_RECEIVED', txId, body);
+    sendJson(res, 200, { ok: true, received: true, idempotentReplay: false });
     return true;
   }
 
@@ -80,15 +98,54 @@ export async function handleLot3CommerceDelivery(ctx) {
       sendJson(res, 400, { ok: false, error: 'Une commande doit contenir au moins un article.' });
       return true;
     }
+    // Sécurité financière & intégrité métier : contrôle des quantités, prix unitaires et stocks côté serveur
+    const sanitizedLines = [];
+    for (const line of lines) {
+      const qty = Math.floor(Number(line.qty || 0));
+      const clientPrice = Number(line.price || 0);
+      if (!line.listingId || qty <= 0 || clientPrice <= 0) {
+        sendJson(res, 400, {
+          ok: false,
+          error: 'Ligne de commande invalide : quantité et prix doivent être strictement positifs.',
+        });
+        return true;
+      }
+      const dbListing = state.net.listings.find((l) => l.id === line.listingId);
+      if (dbListing) {
+        if (dbListing.stock !== undefined && dbListing.stock < qty) {
+          sendJson(res, 400, {
+            ok: false,
+            error: `Stock insuffisant pour « ${dbListing.title} » (disponible : ${dbListing.stock}).`,
+          });
+          return true;
+        }
+        // Vérifie que le prix n'est pas falsifié en dessous du prix pro / offre acceptée
+        const minAllowedPrice = dbListing.proPrice || dbListing.price;
+        const acceptedThreadOffer = state.net.threads.some(
+          (t) =>
+            t.refId === dbListing.id &&
+            t.messages?.some((m) => m.offer?.status === 'accepted' && m.offer?.amount === clientPrice),
+        );
+        if (clientPrice < minAllowedPrice && !acceptedThreadOffer) {
+          sendJson(res, 400, {
+            ok: false,
+            error: `Prix unitaire non autorisé pour « ${dbListing.title} ».`,
+          });
+          return true;
+        }
+      }
+      sanitizedLines.push({ ...line, qty, price: clientPrice });
+    }
+
     const now = new Date();
     const ref =
       body.ref ||
       `SAV-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(Math.floor(100000 + Math.random() * 900000))}`;
     const tx = body.tx || `TX-${Math.random().toString(36).slice(2, 6).toUpperCase()}-${Math.floor(10000 + Math.random() * 90000)}`;
     const code = body.code || String(Math.floor(1000 + Math.random() * 9000));
-    const itemsTotal = lines.reduce((sum, l) => sum + Number(l.price || 0) * Number(l.qty || 1), 0);
-    const shipping = body.delivery ? Number(body.shipping || 0) : 0;
-    const total = Number(body.total ?? itemsTotal + shipping);
+    const itemsTotal = sanitizedLines.reduce((sum, l) => sum + Number(l.price) * Number(l.qty), 0);
+    const shipping = body.delivery ? Math.max(0, Number(body.shipping || 0)) : 0;
+    const total = itemsTotal + shipping;
     const isDeposit = body.paymentMode === 'deposit' && total >= 10000;
     const paidNow = isDeposit ? Math.max(500, Math.round((total * 0.2) / 500) * 500) : total;
     const balanceDue = Math.max(0, total - paidNow);

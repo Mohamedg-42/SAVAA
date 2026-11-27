@@ -320,4 +320,65 @@ describe('Serveur Backend API REST SAVAA (Lots 1 à 4)', () => {
     expect(auditRes.status).toBe(200);
     expect(auditRes.data.logs.length).toBeGreaterThan(0);
   });
+
+  it('Sécurité OWASP (SEC-001 à SEC-004) : anti brute-force OTP, RBAC modération, anti-falsification de prix, idempotence webhook et Magic Bytes upload', async () => {
+    // SEC-004 : Vérification des en-têtes HTTP de sécurité
+    const healthRaw = await fetch(`${baseUrl}/api/health`);
+    expect(healthRaw.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(healthRaw.headers.get('x-frame-options')).toBe('DENY');
+    expect(healthRaw.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin');
+
+    // SEC-001 : Verrouillage anti brute-force OTP après 5 tentatives erronées
+    await api('/api/auth/request-otp', 'POST', { phone: '0709080706' });
+    for (let i = 0; i < 5; i++) {
+      const bad = await api('/api/auth/verify-otp', 'POST', { phone: '0709080706', code: '9999' });
+      expect(bad.status).toBe(401);
+    }
+    const locked = await api('/api/auth/verify-otp', 'POST', { phone: '0709080706', code: '1234' });
+    expect(locked.status).toBe(429);
+
+    // SEC-003 (RBAC) : Un vendeur sans code équipe ne peut pas auto-valider son annonce en modération ('review' -> 'online')
+    await api('/api/listings', 'POST', {
+      id: 'L-SEC-1',
+      title: 'Bélier Sahélien',
+      price: 120000,
+      category: 'Animaux, Ovins',
+      place: 'Korhogo',
+      seller: 'Bergerie',
+      stock: 1,
+    });
+    const selfMod = await api('/api/listings/L-SEC-1', 'PATCH', { status: 'online' });
+    expect(selfMod.status).toBe(403);
+
+    // Validation légitime par l'équipe SAVAA
+    const staffMod = await api(
+      '/api/listings/L-SEC-1',
+      'PATCH',
+      { status: 'online' },
+      { 'X-Staff-Code': 'SAVAA-EQUIPE' },
+    );
+    expect(staffMod.status).toBe(200);
+
+    // SEC-003 (Intégrité financière) : Un client ne peut pas falsifier le prix d'une annonce à 500 FCFA au lieu de 120 000 FCFA
+    const tamperedOrder = await api('/api/orders', 'POST', {
+      method: 'Orange Money',
+      delivery: false,
+      lines: [{ listingId: 'L-SEC-1', title: 'Bélier Sahélien', seller: 'Bergerie', qty: 1, price: 500 }],
+    });
+    expect(tamperedOrder.status).toBe(400);
+
+    // SEC-003 (Idempotence Webhook Mobile Money anti double paiement)
+    const wh1 = await api('/api/payments/webhook', 'POST', { txId: 'TX-UNIQUE-999', status: 'ACCEPTED' });
+    expect(wh1.status).toBe(200);
+    expect(wh1.data.idempotentReplay).toBe(false);
+
+    const wh2 = await api('/api/payments/webhook', 'POST', { txId: 'TX-UNIQUE-999', status: 'ACCEPTED' });
+    expect(wh2.status).toBe(200);
+    expect(wh2.data.idempotentReplay).toBe(true);
+
+    // SEC-002 (Magic Bytes upload) : Un script HTML/JS déguisé en data:image/png est rejeté
+    const fakePng = `data:image/png;base64,${Buffer.from('<script>alert("xss")</script>').toString('base64')}`;
+    const badUpload = await api('/api/uploads', 'POST', { dataUrl: fakePng });
+    expect(badUpload.status).toBe(400);
+  });
 });

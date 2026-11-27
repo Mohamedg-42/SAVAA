@@ -58,10 +58,14 @@ export function getAuthUser(req) {
   return verifyToken(auth.slice(7).trim());
 }
 
-/** Vérifie si la requête provient d'un membre autorisé de l'équipe SAVAA (`/admin`). */
+/** Vérifie en temps constant si la requête provient d'un membre autorisé de l'équipe SAVAA (`/admin`). */
 export function isStaffAuthorized(req) {
-  const staffHeader = req.headers?.['x-staff-code'];
-  if (staffHeader === STAFF_CODE) return true;
+  const staffHeader = String(req.headers?.['x-staff-code'] || '');
+  if (staffHeader) {
+    const a = Buffer.from(staffHeader);
+    const b = Buffer.from(STAFF_CODE);
+    if (a.length === b.length && timingSafeEqual(a, b)) return true;
+  }
   const user = getAuthUser(req);
   return Boolean(user?.staff);
 }

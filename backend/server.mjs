@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { isStaffAuthorized } from './auth-token.mjs';
 import {
   EMPTY_NET,
   loadAuditLogsFromPg,
@@ -14,6 +15,12 @@ import { handleLot1AuthKyc } from './routes/lot1-auth-kyc.mjs';
 import { handleLot2CatalogTraceVet } from './routes/lot2-catalog-trace-vet.mjs';
 import { handleLot3CommerceDelivery } from './routes/lot3-commerce-delivery.mjs';
 import { handleLot4InvestAdmin } from './routes/lot4-invest-admin.mjs';
+import {
+  applySecurityHeaders,
+  checkRateLimit,
+  readBoundedJsonBody,
+  resetRateLimiter,
+} from './security.mjs';
 
 /*
   Serveur Backend API REST SAVAA avec Base de Données PostgreSQL (Lots 1 à 4).
@@ -63,32 +70,18 @@ function broadcast(source = '') {
   }
 }
 
-function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Staff-Code, X-Client-Source');
+function setCors(res, req) {
+  applySecurityHeaders(req, res);
 }
 
-function sendJson(res, status, data) {
-  setCors(res);
+function sendJson(res, status, data, req) {
+  applySecurityHeaders(req, res);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(data));
 }
 
 function readBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => {
-      try {
-        const raw = Buffer.concat(chunks).toString('utf8');
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch (e) {
-        reject(e);
-      }
-    });
-    req.on('error', reject);
-  });
+  return readBoundedJsonBody(req);
 }
 
 async function persistState(patch, source = '') {
@@ -143,7 +136,7 @@ async function getAuditLogs() {
 }
 
 export const server = createServer(async (req, res) => {
-  setCors(res);
+  applySecurityHeaders(req, res);
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
@@ -154,6 +147,20 @@ export const server = createServer(async (req, res) => {
   const path = url.pathname;
   const method = req.method || 'GET';
   const source = String(req.headers['x-client-source'] || '');
+
+  // Rate Limiting par IP (plus strict sur /api/auth/* pour bloquer le brute-force)
+  const isAuthRoute = path.startsWith('/api/auth/');
+  const rate = checkRateLimit(req, isAuthRoute ? 'auth' : 'api', isAuthRoute ? 25 : 300, 60_000);
+  if (!rate.allowed) {
+    res.setHeader('Retry-After', String(rate.retryAfterSec));
+    sendJson(
+      res,
+      429,
+      { ok: false, error: 'Trop de requêtes. Veuillez patienter avant de réessayer.' },
+      req,
+    );
+    return;
+  }
 
   try {
     if (method === 'GET' && path === '/api/health') {
@@ -223,6 +230,10 @@ export const server = createServer(async (req, res) => {
     }
 
     if (method === 'POST' && path === '/api/reset') {
+      if (process.env.NODE_ENV === 'production' && !isStaffAuthorized(req)) {
+        sendJson(res, 403, { ok: false, error: 'Réinitialisation réservée à l’équipe SAVAA en production.' });
+        return;
+      }
       const meta = pgReady
         ? await resetPgDb()
         : { rev: cache.rev + 1, updatedAt: new Date().toISOString() };
@@ -233,6 +244,7 @@ export const server = createServer(async (req, res) => {
         kv: {},
       };
       memoryAuditLogs = [];
+      resetRateLimiter();
       broadcast(source);
       sendJson(res, 200, { ok: true, rev: cache.rev, updatedAt: cache.updatedAt });
       return;
@@ -247,7 +259,7 @@ export const server = createServer(async (req, res) => {
       source,
       readBody,
       sendJson,
-      setCors,
+      setCors: (r) => setCors(r, req),
       state: cache,
       persistState: (patch) => persistState(patch, source),
       recordAudit,
@@ -261,7 +273,12 @@ export const server = createServer(async (req, res) => {
 
     sendJson(res, 404, { ok: false, error: 'Route API introuvable' });
   } catch (err) {
-    sendJson(res, 500, { ok: false, error: err instanceof Error ? err.message : 'Erreur serveur' });
+    const status = err && typeof err === 'object' && 'statusCode' in err ? Number(err.statusCode) : 500;
+    const message =
+      status === 400 || status === 413
+        ? err.message
+        : 'Erreur interne du serveur.';
+    sendJson(res, status, { ok: false, error: message });
   }
 });
 

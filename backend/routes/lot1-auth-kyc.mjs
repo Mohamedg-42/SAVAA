@@ -54,7 +54,7 @@ export async function handleLot1AuthKyc(ctx) {
     return true;
   }
 
-  // 2. Vérification du code OTP et émission du jeton JWT
+  // 2. Vérification du code OTP avec protection anti brute-force (verrouillage après 5 échecs)
   if (method === 'POST' && path === '/api/auth/verify-otp') {
     const body = await readBody(req);
     const phone = normalizeCiPhone(body.phone);
@@ -64,8 +64,23 @@ export async function handleLot1AuthKyc(ctx) {
       return true;
     }
     const entry = otpMemory.get(phone);
+    if (entry && entry.attempts >= 5) {
+      otpMemory.delete(phone);
+      await recordAudit(phone, 'AUTH_OTP_LOCKED_BRUTEFORCE', phone, { attempts: entry.attempts });
+      sendJson(res, 429, {
+        ok: false,
+        error: 'Trop de tentatives erronées. Ce code a été invalidé, veuillez demander un nouveau code SMS.',
+      });
+      return true;
+    }
     const validCode = entry ? entry.code === code && entry.expiresAt > Date.now() : code === '1234';
     if (!validCode) {
+      if (entry) {
+        entry.attempts += 1;
+        otpMemory.set(phone, entry);
+      } else {
+        otpMemory.set(phone, { code: '1234', expiresAt: Date.now() + 600_000, attempts: 1 });
+      }
       sendJson(res, 401, { ok: false, error: 'Code SMS invalide ou expiré.' });
       return true;
     }

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isStaffAuthorized } from '../auth-token.mjs';
+import { validateUploadedBinary } from '../security.mjs';
 
 /*
   LOT 4 — Espace Investisseur, Projets Agricoles, Propositions, Stockage Uploads & Back-Office Audit/Stats
@@ -206,7 +207,7 @@ export async function handleLot4InvestAdmin(ctx) {
     return true;
   }
 
-  // 4. Stockage serveur des photos, notes vocales et pièces justificatives (/api/uploads)
+  // 4. Stockage serveur sécurisé des photos, notes vocales et pièces justificatives (/api/uploads)
   if (path === '/api/uploads' && method === 'POST') {
     const body = await readBody(req);
     const dataUrl = String(body.dataUrl || '');
@@ -215,22 +216,20 @@ export async function handleLot4InvestAdmin(ctx) {
       sendJson(res, 400, { ok: false, error: 'Format data URL base64 invalide.' });
       return true;
     }
-    const mime = match[1];
+    const declaredMime = match[1].toLowerCase();
     const buf = Buffer.from(match[2], 'base64');
-    const ext = mime.includes('png')
-      ? 'png'
-      : mime.includes('pdf')
-        ? 'pdf'
-        : mime.includes('webm') || mime.includes('audio')
-          ? 'webm'
-          : 'jpg';
+    const check = validateUploadedBinary(declaredMime, buf);
+    if (!check.ok) {
+      sendJson(res, 400, { ok: false, error: check.error });
+      return true;
+    }
     if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
-    const filename = `savaa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+    const filename = `savaa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${check.ext}`;
     writeFileSync(join(UPLOADS_DIR, filename), buf);
     sendJson(res, 201, {
       ok: true,
       filename,
-      mime,
+      mime: check.mime,
       size: buf.length,
       url: `/uploads/${filename}`,
     });
@@ -240,6 +239,10 @@ export async function handleLot4InvestAdmin(ctx) {
   const uploadGetMatch = /^\/uploads\/([a-zA-Z0-9._-]+)$/.exec(path);
   if (uploadGetMatch && method === 'GET') {
     const filename = uploadGetMatch[1];
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      sendJson(res, 400, { ok: false, error: 'Nom de fichier invalide.' });
+      return true;
+    }
     const filePath = join(UPLOADS_DIR, filename);
     if (!existsSync(filePath)) {
       sendJson(res, 404, { ok: false, error: 'Fichier introuvable.' });
@@ -255,6 +258,8 @@ export async function handleLot4InvestAdmin(ctx) {
             ? 'audio/webm'
             : 'image/jpeg';
     setCors(res);
+    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'public, max-age=86400' });
     res.end(readFileSync(filePath));
     return true;
