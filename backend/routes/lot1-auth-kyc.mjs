@@ -5,6 +5,7 @@ import {
   signToken,
   validateRolesRule,
 } from '../auth-token.mjs';
+import { sendSmsOtp } from '../providers.mjs';
 
 /*
   LOT 1 — Authentification OTP SMS, Sessions JWT, Comptes Utilisateurs, Rôles & KYC
@@ -38,11 +39,16 @@ export async function handleLot1AuthKyc(ctx) {
     const code = process.env.SMS_LIVE === 'true' ? String(Math.floor(1000 + Math.random() * 9000)) : '1234';
     const expiresAt = Date.now() + 10 * 60 * 1000;
     otpMemory.set(phone, { code, expiresAt, attempts: 0 });
-    await recordAudit(phone, 'AUTH_OTP_REQUESTED', phone, { expiresAt: new Date(expiresAt).toISOString() });
+    const smsResult = await sendSmsOtp(phone, code);
+    await recordAudit(phone, 'AUTH_OTP_REQUESTED', phone, {
+      expiresAt: new Date(expiresAt).toISOString(),
+      smsMode: smsResult.mode,
+    });
     sendJson(res, 200, {
       ok: true,
       phone,
       expiresInSec: 600,
+      smsMode: smsResult.mode,
       devCode: process.env.SMS_LIVE === 'true' ? undefined : code,
     });
     return true;

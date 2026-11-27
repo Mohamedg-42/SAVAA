@@ -27,8 +27,44 @@
   - POST  /api/reviews/:id/reply
 */
 
+import { computeRoadRoute, initiateMobileMoneyPayment } from '../providers.mjs';
+
 export async function handleLot3CommerceDelivery(ctx) {
   const { req, res, url, path, method, readBody, sendJson, state, persistState, recordAudit } = ctx;
+
+  // 0. Paiement Mobile Money direct & Webhook (/api/payments/initiate, /api/payments/webhook) et Itinéraire (/api/delivery/route)
+  if (path === '/api/payments/initiate' && method === 'POST') {
+    const body = await readBody(req);
+    if (!body.amount || Number(body.amount) <= 0) {
+      sendJson(res, 400, { ok: false, error: 'Montant Mobile Money invalide.' });
+      return true;
+    }
+    const payment = await initiateMobileMoneyPayment({
+      orderRef: body.orderRef || `SAV-${Date.now()}`,
+      amount: Number(body.amount),
+      method: body.method || 'Orange Money',
+      phone: body.phone,
+      paymentMode: body.paymentMode || 'full',
+    });
+    await recordAudit(body.phone || 'acheteur', 'PAYMENT_INITIATED', payment.txId, payment);
+    sendJson(res, 200, payment);
+    return true;
+  }
+
+  if (path === '/api/payments/webhook' && method === 'POST') {
+    const body = await readBody(req);
+    await recordAudit('prestataire-momo', 'PAYMENT_WEBHOOK_RECEIVED', body.transaction_id || body.txId || '', body);
+    sendJson(res, 200, { ok: true, received: true });
+    return true;
+  }
+
+  if (path === '/api/delivery/route' && method === 'GET') {
+    const from = url.searchParams.get('from') || '';
+    const to = url.searchParams.get('to') || '';
+    const route = await computeRoadRoute(from, to);
+    sendJson(res, 200, { ok: true, route });
+    return true;
+  }
 
   // 1. Commandes & Paiement Mobile Money (intégral 100 % ou acompte séquestre 20 %)
   if (path === '/api/orders' && method === 'GET') {

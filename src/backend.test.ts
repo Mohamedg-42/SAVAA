@@ -226,6 +226,28 @@ describe('Serveur Backend API REST SAVAA (Lots 1 à 4)', () => {
     const acceptOffer = await api(`/api/threads/${threadId}/offers/${msgId}`, 'POST', { status: 'accepted' });
     expect(acceptOffer.status).toBe(200);
     expect(acceptOffer.data.thread.messages[0].offer.status).toBe('accepted');
+
+    // 6. Connecteurs Mobile Money (/api/payments/initiate, /api/payments/webhook) et itinéraire routier (/api/delivery/route)
+    const payInit = await api('/api/payments/initiate', 'POST', {
+      orderRef: orderRes.data.order.ref,
+      amount: 21000,
+      method: 'Wave',
+      phone: '0711223344',
+      paymentMode: 'deposit',
+    });
+    expect(payInit.status).toBe(200);
+    expect(payInit.data.status).toBe('CONFIRMED');
+
+    const webhookRes = await api('/api/payments/webhook', 'POST', {
+      txId: payInit.data.txId,
+      status: 'ACCEPTED',
+    });
+    expect(webhookRes.status).toBe(200);
+
+    const routeRes = await api('/api/delivery/route?from=Sin%C3%A9matiali&to=Korhogo');
+    expect(routeRes.status).toBe(200);
+    expect(routeRes.data.route.km).toBeGreaterThan(10);
+    expect(routeRes.data.route.estimated).toBe(false);
   });
 
   it('Lot 4 : Dossier investisseur, décision Back-Office, projet agricole, proposition, upload fichier et journal d’audit', async () => {
