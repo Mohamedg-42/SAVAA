@@ -84,6 +84,27 @@ describe('catégories', () => {
     if (!frais) throw new Error('catégorie manquante');
     expect(subsFor(frais, false)).toEqual(frais.subs);
   });
+
+  it('exposent tous les champs détaillés des parties III à VIII du cahier des charges', () => {
+    expect(traceCategory('viande')?.fields.map((f) => f.label)).toEqual(
+      expect.arrayContaining(['Animal ou lot d’origine', 'Date d’abattage', 'Abattoir', 'N° d’inspection vétérinaire', 'Conservation', 'Date limite de consommation']),
+    );
+    expect(traceCategory('frais')?.fields.map((f) => f.label)).toEqual(
+      expect.arrayContaining(['Variété', 'Mode de conduite', 'Date de récolte', 'Traitements phytosanitaires', 'Délai avant récolte respecté']),
+    );
+    expect(traceCategory('cereales')?.fields.map((f) => f.label)).toEqual(
+      expect.arrayContaining(['Variété', 'Campagne ou date de récolte', 'Humidité (%)', 'Taux d’impuretés ou grade', 'Conditionnement', 'Conditions de stockage']),
+    );
+    expect(traceCategory('semences')?.fields.map((f) => f.label)).toEqual(
+      expect.arrayContaining(['Espèce et variété', 'Catégorie ou génération', 'Numéro de lot', 'Numéro de certificat', 'Taux de germination (%)', 'Pureté spécifique (%)']),
+    );
+    expect(traceCategory('transforme')?.fields.map((f) => f.label)).toEqual(
+      expect.arrayContaining(['Unité ou atelier de transformation', 'Numéro de lot', 'Ingrédients principaux', 'Teneur analytique / nutritionnelle', 'Date de fabrication', 'Date de péremption']),
+    );
+    expect(traceCategory('equipement')?.fields.map((f) => f.label)).toEqual(
+      expect.arrayContaining(['Marque', 'Modèle', 'Numéro de série', 'État', 'Année', 'Capacité ou puissance', 'Garantie et service après-vente']),
+    );
+  });
 });
 
 describe('fiche d’une annonce', () => {
