@@ -2,7 +2,6 @@ import { lazy, Suspense, type ComponentType } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Guard, StaffGuard } from './guard';
 import { DesktopNav } from './nav';
-import { Splash } from './screens/compte';
 import { OfflineBanner, Toaster } from './ui';
 
 /** Charge un composant nommé à la demande (découpage du bundle JS par écran). */
@@ -23,6 +22,7 @@ const Receipt = load(() => import('./screens/commande'), 'Receipt');
 const Support = load(() => import('./screens/commande'), 'Support');
 const Tracking = load(() => import('./screens/commande'), 'Tracking');
 
+const Splash = load(() => import('./screens/compte'), 'Splash');
 const Login = load(() => import('./screens/compte'), 'Login');
 const Notifications = load(() => import('./screens/compte'), 'Notifications');
 const ProDetails = load(() => import('./screens/compte'), 'ProDetails');

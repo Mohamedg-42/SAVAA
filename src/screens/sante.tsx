@@ -4,7 +4,8 @@ import { nowTime, PROOF, today, useStore, type Animal, type EventKind, type Heal
 import { printPage, share } from '../device';
 import { showToast } from '../toast';
 import { animalMeasure, animalOrigin, animalPurpose, animalStatus, animalUrl, ficheUrl, sheetOf } from '../trace';
-import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, PreviewModal, Section, useOnline, type PreviewData } from '../ui';
+import { useOnline } from '../hooks';
+import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, PreviewModal, Section, type PreviewData } from '../ui';
 import { QrDialog, TraceTimeline } from './fiche';
 
 /* Seul le taurillon FK-0142 a une fiche complète dans la maquette (race, ascendance, mouvements…). */

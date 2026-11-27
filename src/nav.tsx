@@ -2,7 +2,8 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useStore } from './data';
 import { Avatar } from './dash';
 import { LogoInline } from './logo';
-import { Icon, useNavTabs } from './ui';
+import { useNavTabs } from './hooks';
+import { Icon } from './ui';
 
 /* Pages sans barre du haut : l'écran de démarrage (plein écran) et le back-office (sa propre navigation). */
 const WITHOUT_NAV = [/^\/$/, /^\/demarrage/, /^\/prospection/, /^\/prospect\//, /^\/admin/];
