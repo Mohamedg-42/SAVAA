@@ -112,8 +112,13 @@ describe('fiche d’une annonce', () => {
     const s = sheet();
     expect(sheetOf(listing({ sheet: s }))).toBe(s);
   });
-  it('renvoie la fiche de démonstration de FK-0142', () => {
+  it('renvoie la fiche de démonstration de FK-0142 et des autres annonces traçables du catalogue', () => {
     expect(sheetOf(listing({ id: 'FK-0142' }))?.code).toBe('SAV-TRACE-2026-014217');
+    expect(sheetOf(listing({ id: 'L-METIS' }))?.code).toBe('SAV-TRACE-2026-009101');
+    expect(sheetOf(listing({ id: 'L-OEUFS' }))?.code).toBe('SAV-TRACE-2026-021830');
+    expect(sheetOf(listing({ id: 'L-CAJOU' }))?.code).toBe('SAV-TRACE-2026-031449');
+    expect(sheetOf(listing({ id: 'ALIM-50' }))?.code).toBe('SAV-TRACE-2026-040150');
+    expect(sheetOf(listing({ id: 'L-COUVEUSE' }))?.code).toBe('SAV-TRACE-2026-051228');
   });
   it('ne fabrique pas de fiche pour une annonce qui n’en a pas', () => {
     expect(sheetOf(listing({ id: 'L-NDAMA' }))).toBeUndefined();

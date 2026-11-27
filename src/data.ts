@@ -1902,8 +1902,12 @@ export const store = {
   has: (role: string) => state.session.loggedIn && state.session.roles.includes(role),
   isBreeder: () => store.has('eleveur'),
   canSell: () => ['eleveur', 'agri', 'vendeur', 'fourn'].some((r) => store.has(r)),
-  /** Restaurant ou hôtel vérifié : il a renseigné son RCCM (contrôlé par l'équipe en production). Il voit les prix pro. */
-  isVerifiedPro: () => store.has('resto') && !!state.session.pro?.['resto.rccm']?.trim(),
+  /** Restaurant ou hôtel vérifié : il a renseigné son RCCM et son dossier KYC n'est ni en attente ni refusé par l'équipe. Il voit les prix pro. */
+  isVerifiedPro: () => {
+    if (!store.has('resto') || !state.session.pro?.['resto.rccm']?.trim()) return false;
+    const kyc = store.kycOf();
+    return kyc ? kyc.status === 'verified' : true;
+  },
   /** Prix appliqué à ce compte : le prix pro pour un professionnel vérifié, sinon le prix normal. */
   priceFor: (l: Listing): number => {
     const pro = proPriceOf(l);

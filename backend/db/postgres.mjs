@@ -375,7 +375,13 @@ export async function resetPgDb() {
         savaa_couriers,
         savaa_threads,
         savaa_reviews,
-        savaa_kv
+        savaa_kv,
+        savaa_otps,
+        savaa_orders,
+        savaa_investors,
+        savaa_projects,
+        savaa_proposals,
+        savaa_audit_logs
     `);
     const meta = await bumpRev(client);
     await client.query('COMMIT');
@@ -386,4 +392,24 @@ export async function resetPgDb() {
   } finally {
     client.release();
   }
+}
+
+/** Enregistre une entrée dans le journal d'audit PostgreSQL (`savaa_audit_logs`). */
+export async function recordAuditToPg(actor, action, targetId, details) {
+  await pool.query(
+    `INSERT INTO savaa_audit_logs (actor, action, target_id, details, created_at)
+     VALUES ($1, $2, $3, $4::jsonb, NOW())`,
+    [actor || 'système', action, targetId || null, JSON.stringify(details || {})],
+  );
+}
+
+/** Lit les 100 dernières entrées du journal d'audit PostgreSQL. */
+export async function loadAuditLogsFromPg() {
+  const res = await pool.query(
+    `SELECT id, actor, action, target_id AS "targetId", details, created_at AS "createdAt"
+     FROM savaa_audit_logs
+     ORDER BY id DESC
+     LIMIT 100`,
+  );
+  return res.rows;
 }

@@ -57,6 +57,15 @@ describe('parcours multi-rôles et architecture Client-Serveur (Web & Mobile)', 
     expect(store.priceFor(listing)).toBe(2600);
 
     store.login({ name: 'Restaurant Le Baobab', phone: '0722222222', roles: ['resto'], pro: { 'resto.rccm': 'CI-KGO-2025-B-412' } });
+    // Tant que le dossier KYC soumis est en attente de validation ('review'), le prix pro reste bloqué
+    store.submitKyc([['RCCM', 'CI-KGO-2025-B-412']], [{ label: 'Extrait RCCM' }]);
+    expect(store.isVerifiedPro()).toBe(false);
+    expect(store.priceFor(listing)).toBe(2600);
+
+    // Une fois validé par l'équipe SAVAA dans /admin, le prix pro est débloqué
+    const kyc = store.kycOf();
+    expect(kyc).toBeTruthy();
+    store.answerKyc(kyc!.id, 'verified');
     expect(store.isVerifiedPro()).toBe(true);
     expect(store.priceFor(listing)).toBe(2400);
   });

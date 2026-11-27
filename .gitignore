@@ -12,6 +12,7 @@ dist
 apps/web/dist
 apps/mobile/dist
 backend/db/*.json
+backend/uploads/*
 dist-ssr
 *.local
 

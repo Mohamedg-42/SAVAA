@@ -174,3 +174,79 @@ CREATE TABLE IF NOT EXISTS savaa_kv (
   value JSONB NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- =============================================================================
+-- Tables additionnelles Lots 1 à 4 (OTP SMS, Commandes, Investisseurs, Audit)
+-- =============================================================================
+
+-- Codes OTP SMS temporaires (Lot 1 : Authentification)
+CREATE TABLE IF NOT EXISTS savaa_otps (
+  phone VARCHAR(20) PRIMARY KEY,
+  code VARCHAR(8) NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  attempts SMALLINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Commandes clients et paiements Mobile Money / Séquestre 20 % (Lot 3)
+CREATE TABLE IF NOT EXISTS savaa_orders (
+  ref VARCHAR(64) PRIMARY KEY,
+  buyer_phone VARCHAR(20),
+  method VARCHAR(48) NOT NULL,
+  payment_mode VARCHAR(16) NOT NULL DEFAULT 'full',
+  total INTEGER NOT NULL DEFAULT 0,
+  paid_now INTEGER NOT NULL DEFAULT 0,
+  balance_due INTEGER NOT NULL DEFAULT 0,
+  delivery BOOLEAN NOT NULL DEFAULT true,
+  code VARCHAR(8) NOT NULL,
+  cancelled BOOLEAN NOT NULL DEFAULT false,
+  payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_savaa_orders_buyer ON savaa_orders(buyer_phone);
+
+-- Dossiers investisseurs structurés (Lot 4)
+CREATE TABLE IF NOT EXISTS savaa_investors (
+  id VARCHAR(64) PRIMARY KEY,
+  ref VARCHAR(64) UNIQUE,
+  phone VARCHAR(20),
+  investor_type VARCHAR(24) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'brouillon',
+  payload JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_savaa_investors_status ON savaa_investors(status);
+
+-- Catalogue de projets agricoles (Lot 4)
+CREATE TABLE IF NOT EXISTS savaa_projects (
+  id VARCHAR(64) PRIMARY KEY,
+  title TEXT NOT NULL,
+  filiere VARCHAR(64) NOT NULL,
+  region VARCHAR(64) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'brouillon',
+  target_amount BIGINT NOT NULL DEFAULT 0,
+  payload JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Propositions de projets envoyées aux investisseurs (Lot 4)
+CREATE TABLE IF NOT EXISTS savaa_proposals (
+  id VARCHAR(64) PRIMARY KEY,
+  dossier_id VARCHAR(64) NOT NULL,
+  project_id VARCHAR(64) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'envoyee',
+  payload JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_savaa_proposals_dossier ON savaa_proposals(dossier_id);
+
+-- Journal d'audit de sécurité et des décisions Back-Office (Lots 1 à 4)
+CREATE TABLE IF NOT EXISTS savaa_audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  actor TEXT NOT NULL,
+  action VARCHAR(64) NOT NULL,
+  target_id VARCHAR(128),
+  details JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+

@@ -1,16 +1,22 @@
 import { createServer } from 'node:http';
 import {
   EMPTY_NET,
+  loadAuditLogsFromPg,
   loadStateFromPg,
   migratePgSchema,
+  recordAuditToPg,
   resetPgDb,
   saveAccountsToPg,
   saveKvToPg,
   saveNetToPg,
 } from './db/postgres.mjs';
+import { handleLot1AuthKyc } from './routes/lot1-auth-kyc.mjs';
+import { handleLot2CatalogTraceVet } from './routes/lot2-catalog-trace-vet.mjs';
+import { handleLot3CommerceDelivery } from './routes/lot3-commerce-delivery.mjs';
+import { handleLot4InvestAdmin } from './routes/lot4-invest-admin.mjs';
 
 /*
-  Serveur Backend API REST SAVAA avec Base de Données PostgreSQL.
+  Serveur Backend API REST SAVAA avec Base de Données PostgreSQL (Lots 1 à 4).
   Partagé en architecture Client-Serveur entre :
   - Client 1 : Site Web (apps/web, port 5173 / production) + Back-Office (/admin)
   - Client 2 : Application Mobile native Android & iOS (apps/mobile, port 5174 / Capacitor)
@@ -26,13 +32,14 @@ let cache = {
   accounts: {},
   kv: {},
 };
+let memoryAuditLogs = [];
 
 async function initPg() {
   try {
     await migratePgSchema();
     cache = await loadStateFromPg();
     pgReady = true;
-    console.log('[SAVAA PostgreSQL] Connecté à PostgreSQL et tables initialisées.');
+    console.log('[SAVAA PostgreSQL] Connecté à PostgreSQL et 22 tables initialisées.');
   } catch (err) {
     pgReady = false;
     console.warn(
@@ -58,8 +65,8 @@ function broadcast(source = '') {
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Client-Source');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Staff-Code, X-Client-Source');
 }
 
 function sendJson(res, status, data) {
@@ -84,6 +91,57 @@ function readBody(req) {
   });
 }
 
+async function persistState(patch, source = '') {
+  let meta = { rev: cache.rev + 1, updatedAt: new Date().toISOString() };
+  if (patch.net) {
+    const nextNet = { ...EMPTY_NET, ...cache.net, ...patch.net };
+    if (pgReady) meta = await saveNetToPg(nextNet);
+    cache.net = nextNet;
+  }
+  if (patch.accounts) {
+    if (pgReady) meta = await saveAccountsToPg(patch.accounts);
+    cache.accounts = { ...cache.accounts, ...patch.accounts };
+  }
+  if (patch.kv) {
+    if (pgReady) meta = await saveKvToPg(patch.kv);
+    cache.kv = { ...cache.kv, ...patch.kv };
+  }
+  cache.rev = meta.rev;
+  cache.updatedAt = meta.updatedAt;
+  broadcast(source);
+  return meta;
+}
+
+async function recordAudit(actor, action, targetId, details = {}) {
+  const entry = {
+    id: memoryAuditLogs.length + 1,
+    actor: actor || 'système',
+    action,
+    targetId: targetId || null,
+    details,
+    createdAt: new Date().toISOString(),
+  };
+  memoryAuditLogs = [entry, ...memoryAuditLogs.slice(0, 99)];
+  if (pgReady) {
+    try {
+      await recordAuditToPg(actor, action, targetId, details);
+    } catch {
+      /* journal en mémoire conservé */
+    }
+  }
+}
+
+async function getAuditLogs() {
+  if (pgReady) {
+    try {
+      return await loadAuditLogsFromPg();
+    } catch {
+      return memoryAuditLogs;
+    }
+  }
+  return memoryAuditLogs;
+}
+
 export const server = createServer(async (req, res) => {
   setCors(res);
   if (req.method === 'OPTIONS') {
@@ -94,22 +152,24 @@ export const server = createServer(async (req, res) => {
 
   const url = new URL(req.url || '/', `http://localhost:${PORT}`);
   const path = url.pathname;
+  const method = req.method || 'GET';
   const source = String(req.headers['x-client-source'] || '');
 
   try {
-    if (req.method === 'GET' && path === '/api/health') {
+    if (method === 'GET' && path === '/api/health') {
       sendJson(res, 200, {
         ok: true,
         service: 'savaa-backend',
         database: 'postgresql',
         pgConnected: pgReady,
+        lots: ['lot1-auth-kyc', 'lot2-catalog-trace-vet', 'lot3-commerce-delivery', 'lot4-invest-admin'],
         rev: cache.rev,
         updatedAt: cache.updatedAt,
       });
       return;
     }
 
-    if (req.method === 'GET' && path === '/api/events') {
+    if (method === 'GET' && path === '/api/events') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -121,7 +181,7 @@ export const server = createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET' && path === '/api/sync') {
+    if (method === 'GET' && path === '/api/sync') {
       if (pgReady) {
         cache = await loadStateFromPg();
       }
@@ -129,34 +189,25 @@ export const server = createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'PUT' && path === '/api/net') {
+    if (method === 'PUT' && path === '/api/net') {
       const body = await readBody(req);
       if (body && typeof body === 'object') {
-        const nextNet = { ...EMPTY_NET, ...cache.net, ...body };
-        const meta = pgReady
-          ? await saveNetToPg(nextNet)
-          : { rev: cache.rev + 1, updatedAt: new Date().toISOString() };
-        cache = { ...cache, ...meta, net: nextNet };
-        broadcast(source);
+        await persistState({ net: body }, source);
       }
       sendJson(res, 200, { ok: true, rev: cache.rev, updatedAt: cache.updatedAt });
       return;
     }
 
-    if (req.method === 'PUT' && path === '/api/accounts') {
+    if (method === 'PUT' && path === '/api/accounts') {
       const body = await readBody(req);
       if (body && typeof body === 'object') {
-        const meta = pgReady
-          ? await saveAccountsToPg(body)
-          : { rev: cache.rev + 1, updatedAt: new Date().toISOString() };
-        cache = { ...cache, ...meta, accounts: { ...cache.accounts, ...body } };
-        broadcast(source);
+        await persistState({ accounts: body }, source);
       }
       sendJson(res, 200, { ok: true, rev: cache.rev, updatedAt: cache.updatedAt });
       return;
     }
 
-    if (req.method === 'PUT' && path === '/api/kv') {
+    if (method === 'PUT' && path === '/api/kv') {
       const body = await readBody(req);
       const entries =
         body && typeof body.key === 'string'
@@ -165,17 +216,13 @@ export const server = createServer(async (req, res) => {
             ? body.kv
             : null;
       if (entries) {
-        const meta = pgReady
-          ? await saveKvToPg(entries)
-          : { rev: cache.rev + 1, updatedAt: new Date().toISOString() };
-        cache = { ...cache, ...meta, kv: { ...cache.kv, ...entries } };
-        broadcast(source);
+        await persistState({ kv: entries }, source);
       }
       sendJson(res, 200, { ok: true, rev: cache.rev, updatedAt: cache.updatedAt });
       return;
     }
 
-    if (req.method === 'POST' && path === '/api/reset') {
+    if (method === 'POST' && path === '/api/reset') {
       const meta = pgReady
         ? await resetPgDb()
         : { rev: cache.rev + 1, updatedAt: new Date().toISOString() };
@@ -185,10 +232,32 @@ export const server = createServer(async (req, res) => {
         accounts: {},
         kv: {},
       };
+      memoryAuditLogs = [];
       broadcast(source);
       sendJson(res, 200, { ok: true, rev: cache.rev, updatedAt: cache.updatedAt });
       return;
     }
+
+    const ctx = {
+      req,
+      res,
+      url,
+      path,
+      method,
+      source,
+      readBody,
+      sendJson,
+      setCors,
+      state: cache,
+      persistState: (patch) => persistState(patch, source),
+      recordAudit,
+      getAuditLogs,
+    };
+
+    if (await handleLot1AuthKyc(ctx)) return;
+    if (await handleLot2CatalogTraceVet(ctx)) return;
+    if (await handleLot3CommerceDelivery(ctx)) return;
+    if (await handleLot4InvestAdmin(ctx)) return;
 
     sendJson(res, 404, { ok: false, error: 'Route API introuvable' });
   } catch (err) {
@@ -196,7 +265,7 @@ export const server = createServer(async (req, res) => {
   }
 });
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   void initPg().then(() => {
     server.listen(PORT, () => {
       console.log(`[SAVAA Backend API + PostgreSQL] Serveur démarré sur http://localhost:${PORT}`);
