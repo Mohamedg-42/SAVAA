@@ -23,18 +23,33 @@ export const EMPTY_NET = {
   reviews: [],
 };
 
-/** Configuration du Pool PostgreSQL (via DATABASE_URL ou variables PG*). */
+/** Configuration du Pool PostgreSQL calibré pour la production (via DATABASE_URL ou variables PG*). */
 export function createPgPool() {
   const connectionString =
     process.env.DATABASE_URL ||
     `postgresql://${process.env.PGUSER || 'postgres'}:${process.env.PGPASSWORD || 'postgres'}@${process.env.PGHOST || 'localhost'}:${process.env.PGPORT || '5432'}/${process.env.PGDATABASE || 'savaa'}`;
   return new Pool({
     connectionString,
-    connectionTimeoutMillis: 4000,
+    max: Number(process.env.PG_POOL_MAX || 15),
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 4_000,
   });
 }
 
 export const pool = createPgPool();
+
+/** Probe de disponibilité PostgreSQL (`SELECT 1`) pour `/api/ready`. */
+export async function pingPg() {
+  const start = Date.now();
+  await pool.query('SELECT 1');
+  return {
+    healthy: true,
+    latencyMs: Date.now() - start,
+    totalCount: pool.totalCount,
+    idleCount: pool.idleCount,
+    waitingCount: pool.waitingCount,
+  };
+}
 
 /** Exécute backend/db/schema.sql pour créer toutes les tables et index PostgreSQL. */
 export async function migratePgSchema(client = pool) {
@@ -120,10 +135,65 @@ export async function loadStateFromPg() {
   };
 }
 
-async function replaceRows(client, table, items, insertSql, mapValues) {
-  await client.query(`DELETE FROM ${table}`);
-  for (const item of items || []) {
-    await client.query(insertSql, mapValues(item));
+/**
+ * Synchronise une table PostgreSQL par UPSERT atomique (INSERT ... ON CONFLICT DO UPDATE)
+ * et supprime uniquement les lignes retirées, sans jamais vider toute la table.
+ */
+async function replaceRows(client, table, items, insertSql, mapValues, pkCol = 'id') {
+  const list = items || [];
+  if (list.length === 0) {
+    await client.query(`DELETE FROM ${table}`);
+    return;
+  }
+  const ids = list.map((it) => String(it[pkCol]));
+  await client.query(`DELETE FROM ${table} WHERE NOT (${pkCol} = ANY($1::varchar[]))`, [ids]);
+  const upsertSql = `${insertSql} ON CONFLICT (${pkCol}) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()`;
+  for (const item of list) {
+    await client.query(upsertSql, mapValues(item));
+  }
+}
+
+/**
+ * Verrouillage pessimiste PostgreSQL (`SELECT ... FOR UPDATE`) trié par ID croissant
+ * pour empêcher les conditions de concurrence (survente de stock) et les deadlocks.
+ */
+export async function reserveStockPgForUpdate(lines) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SET LOCAL lock_timeout = '2s'`);
+    const sorted = [...(lines || [])].sort((a, b) => String(a.listingId).localeCompare(String(b.listingId)));
+    for (const line of sorted) {
+      const res = await client.query(
+        `SELECT id, status, payload FROM savaa_listings WHERE id = $1 FOR UPDATE`,
+        [line.listingId],
+      );
+      if (res.rows.length > 0) {
+        const listing = res.rows[0].payload;
+        const qty = Number(line.qty || 1);
+        if (listing.stock !== undefined && listing.stock < qty) {
+          throw new Error(`Stock insuffisant en base pour « ${listing.title} » (disponible : ${listing.stock}).`);
+        }
+        const left = (listing.stock ?? 1) - qty;
+        const nextStatus = left > 0 ? listing.status : listing.stock === undefined ? 'sold' : 'out';
+        const nextListing = {
+          ...listing,
+          stock: listing.stock === undefined ? undefined : Math.max(0, left),
+          status: nextStatus,
+        };
+        await client.query(
+          `UPDATE savaa_listings SET status = $2, payload = $3::jsonb, updated_at = NOW() WHERE id = $1`,
+          [line.listingId, nextStatus, JSON.stringify(nextListing)],
+        );
+      }
+    }
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
   }
 }
 
@@ -262,6 +332,7 @@ export async function saveNetToPg(net) {
         `INSERT INTO savaa_couriers (phone, name, vehicle, base, radius, online, payload, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW())`,
         (c) => [c.phone, c.name || '', c.vehicle || 'moto', c.base || '', Number(c.radius || 15), Boolean(c.online), JSON.stringify(c)],
+        'phone',
       );
     }
 
@@ -381,7 +452,9 @@ export async function resetPgDb() {
         savaa_investors,
         savaa_projects,
         savaa_proposals,
-        savaa_audit_logs
+        savaa_audit_logs,
+        savaa_idempotency_keys,
+        savaa_revoked_tokens
     `);
     const meta = await bumpRev(client);
     await client.query('COMMIT');

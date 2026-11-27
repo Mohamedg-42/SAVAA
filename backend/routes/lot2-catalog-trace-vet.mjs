@@ -1,4 +1,4 @@
-import { isStaffAuthorized } from '../auth-token.mjs';
+import { getAuthUser, isStaffAuthorized, normalizeCiPhone } from '../auth-token.mjs';
 
 /*
   LOT 2 — Catalogue, Annonces, Traçabilité SAV-TRACE, Alertes Sanitaires & Validations Vétérinaires
@@ -53,7 +53,26 @@ export async function handleLot2CatalogTraceVet(ctx) {
           (l.sheet?.code || '').toLowerCase().includes(q),
       );
     }
-    sendJson(res, 200, { ok: true, count: list.length, listings: list });
+    const total = list.length;
+    const pageParam = Number(url.searchParams.get('page') || 0);
+    const limitParam = Number(url.searchParams.get('limit') || 0);
+    if (pageParam > 0 && limitParam > 0) {
+      const page = Math.max(1, Math.floor(pageParam));
+      const limit = Math.min(100, Math.max(1, Math.floor(limitParam)));
+      const offset = (page - 1) * limit;
+      const paged = list.slice(offset, offset + limit);
+      sendJson(res, 200, {
+        ok: true,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        count: paged.length,
+        listings: paged,
+      });
+      return true;
+    }
+    sendJson(res, 200, { ok: true, total, count: list.length, listings: list });
     return true;
   }
 
@@ -141,6 +160,16 @@ export async function handleLot2CatalogTraceVet(ctx) {
         sendJson(res, 403, {
           ok: false,
           error: 'Seule l’équipe SAVAA peut valider et mettre en ligne une annonce en modération.',
+        });
+        return true;
+      }
+      // Protection Anti-IDOR : un vendeur authentifié ne peut pas modifier l'annonce d'un autre vendeur
+      const authUser = getAuthUser(req);
+      const ownerDigits = normalizeCiPhone(found.ownerPhone);
+      if (authUser && ownerDigits && authUser.phone !== ownerDigits && !isStaffAuthorized(req)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Accès refusé (IDOR) : vous ne pouvez modifier que vos propres annonces.',
         });
         return true;
       }

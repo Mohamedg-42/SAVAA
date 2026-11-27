@@ -1,11 +1,15 @@
 import { createServer } from 'node:http';
-import { isStaffAuthorized } from './auth-token.mjs';
+import { gzipSync } from 'node:zlib';
+import { clearRevokedTokens, isStaffAuthorized } from './auth-token.mjs';
 import {
   EMPTY_NET,
   loadAuditLogsFromPg,
   loadStateFromPg,
   migratePgSchema,
+  pingPg,
+  pool,
   recordAuditToPg,
+  reserveStockPgForUpdate,
   resetPgDb,
   saveAccountsToPg,
   saveKvToPg,
@@ -19,6 +23,7 @@ import {
   applySecurityHeaders,
   checkRateLimit,
   readBoundedJsonBody,
+  resetIdempotencyStore,
   resetRateLimiter,
 } from './security.mjs';
 
@@ -76,8 +81,20 @@ function setCors(res, req) {
 
 function sendJson(res, status, data, req) {
   applySecurityHeaders(req, res);
+  const raw = Buffer.from(JSON.stringify(data), 'utf8');
+  const acceptEncoding = String(req?.headers?.['accept-encoding'] || '');
+  if (raw.length >= 1024 && acceptEncoding.includes('gzip')) {
+    const compressed = gzipSync(raw);
+    res.writeHead(status, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Encoding': 'gzip',
+      Vary: 'Accept-Encoding',
+    });
+    res.end(compressed);
+    return;
+  }
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(data));
+  res.end(raw);
 }
 
 function readBody(req) {
@@ -164,15 +181,50 @@ export const server = createServer(async (req, res) => {
 
   try {
     if (method === 'GET' && path === '/api/health') {
-      sendJson(res, 200, {
-        ok: true,
-        service: 'savaa-backend',
-        database: 'postgresql',
-        pgConnected: pgReady,
-        lots: ['lot1-auth-kyc', 'lot2-catalog-trace-vet', 'lot3-commerce-delivery', 'lot4-invest-admin'],
-        rev: cache.rev,
-        updatedAt: cache.updatedAt,
-      });
+      sendJson(
+        res,
+        200,
+        {
+          ok: true,
+          service: 'savaa-backend',
+          database: 'postgresql',
+          pgConnected: pgReady,
+          lots: ['lot1-auth-kyc', 'lot2-catalog-trace-vet', 'lot3-commerce-delivery', 'lot4-invest-admin'],
+          rev: cache.rev,
+          updatedAt: cache.updatedAt,
+        },
+        req,
+      );
+      return;
+    }
+
+    if (method === 'GET' && path === '/api/ready') {
+      if (pgReady) {
+        try {
+          const pgStats = await pingPg();
+          sendJson(res, 200, { ok: true, ready: true, database: 'postgresql', pg: pgStats }, req);
+          return;
+        } catch (e) {
+          sendJson(
+            res,
+            503,
+            { ok: false, ready: false, database: 'postgresql', error: e instanceof Error ? e.message : 'DB indisponible' },
+            req,
+          );
+          return;
+        }
+      }
+      sendJson(
+        res,
+        200,
+        {
+          ok: true,
+          ready: true,
+          database: 'memory-fallback',
+          pgConnected: false,
+        },
+        req,
+      );
       return;
     }
 
@@ -245,8 +297,10 @@ export const server = createServer(async (req, res) => {
       };
       memoryAuditLogs = [];
       resetRateLimiter();
+      resetIdempotencyStore();
+      clearRevokedTokens();
       broadcast(source);
-      sendJson(res, 200, { ok: true, rev: cache.rev, updatedAt: cache.updatedAt });
+      sendJson(res, 200, { ok: true, rev: cache.rev, updatedAt: cache.updatedAt }, req);
       return;
     }
 
@@ -258,10 +312,11 @@ export const server = createServer(async (req, res) => {
       method,
       source,
       readBody,
-      sendJson,
+      sendJson: (r, st, d) => sendJson(r, st, d, req),
       setCors: (r) => setCors(r, req),
       state: cache,
       persistState: (patch) => persistState(patch, source),
+      reserveStockForUpdate: pgReady ? (lines) => reserveStockPgForUpdate(lines) : undefined,
       recordAudit,
       getAuditLogs,
     };
@@ -282,7 +337,44 @@ export const server = createServer(async (req, res) => {
   }
 });
 
+let shuttingDown = false;
+
+export async function handleGracefulShutdown(signal = 'SIGTERM') {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[SAVAA Backend] Signal ${signal} reçu. Arrêt gracieux en cours…`);
+
+  for (const res of sseClients) {
+    try {
+      res.end();
+    } catch {
+      /* client déjà fermé */
+    }
+  }
+  sseClients.clear();
+
+  const forceTimer = setTimeout(() => {
+    console.error('[SAVAA Backend] Délai d’arrêt dépassé (10 s), fermeture forcée.');
+    process.exit(1);
+  }, 10_000);
+  forceTimer.unref();
+
+  await new Promise((resolve) => server.close(() => resolve()));
+  try {
+    await pool.end();
+    console.log('[SAVAA Backend] Serveur HTTP et Pool PostgreSQL fermés proprement.');
+  } catch {
+    /* pool déjà fermé */
+  }
+}
+
 if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+  process.on('SIGTERM', () => {
+    void handleGracefulShutdown('SIGTERM').then(() => process.exit(0));
+  });
+  process.on('SIGINT', () => {
+    void handleGracefulShutdown('SIGINT').then(() => process.exit(0));
+  });
   void initPg().then(() => {
     server.listen(PORT, () => {
       console.log(`[SAVAA Backend API + PostgreSQL] Serveur démarré sur http://localhost:${PORT}`);

@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
 /*
   Module de Sécurité & Durcissement (Hardening OWASP Top 10) du Serveur Backend SAVAA :
@@ -33,8 +33,17 @@ export function applySecurityHeaders(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Staff-Code, X-Client-Source, X-Webhook-Signature',
+    'Content-Type, Authorization, X-Staff-Code, X-Client-Source, X-Webhook-Signature, Idempotency-Key, X-Request-Id',
   );
+  res.setHeader('Access-Control-Expose-Headers', 'X-Request-Id, X-Idempotent-Replay, Retry-After');
+
+  // Correlation ID unique par requête HTTP (traçabilité distribuée)
+  if (req) {
+    if (!req._requestId) {
+      req._requestId = String(req.headers?.['x-request-id'] || '').trim() || randomUUID();
+    }
+    res.setHeader('X-Request-Id', req._requestId);
+  }
 
   // En-têtes de durcissement HTTP
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -187,4 +196,51 @@ export function verifyWebhookSignature(payloadObj, signatureHeader) {
   const a = Buffer.from(signatureHeader.trim());
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * Gestionnaire de clés d'idempotence (`Idempotency-Key` + hash SHA-256 du corps de la requête).
+ * Empêche la double facturation et la double création de commande sur réseau mobile instable.
+ */
+const idempotencyStore = new Map();
+
+export function resetIdempotencyStore() {
+  idempotencyStore.clear();
+}
+
+function hashPayload(payloadObj) {
+  return createHash('sha256').update(JSON.stringify(payloadObj ?? {})).digest('hex');
+}
+
+export function checkIdempotencyKey(req, payloadObj) {
+  const key = String(req?.headers?.['idempotency-key'] || '').trim();
+  if (!key) return { hasKey: false, hit: false };
+  const requestHash = hashPayload(payloadObj);
+  const existing = idempotencyStore.get(key);
+  if (!existing) {
+    return { hasKey: true, key, requestHash, hit: false };
+  }
+  if (existing.requestHash !== requestHash) {
+    return { hasKey: true, key, requestHash, hit: true, conflict: true };
+  }
+  return {
+    hasKey: true,
+    key,
+    requestHash,
+    hit: true,
+    conflict: false,
+    status: existing.status,
+    body: existing.body,
+  };
+}
+
+export function storeIdempotencyResult(req, payloadObj, status, body) {
+  const key = String(req?.headers?.['idempotency-key'] || '').trim();
+  if (!key) return;
+  idempotencyStore.set(key, {
+    requestHash: hashPayload(payloadObj),
+    status,
+    body,
+    createdAt: Date.now(),
+  });
 }

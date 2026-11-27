@@ -381,4 +381,121 @@ describe('Serveur Backend API REST SAVAA (Lots 1 à 4)', () => {
     const badUpload = await api('/api/uploads', 'POST', { dataUrl: fakePng });
     expect(badUpload.status).toBe(400);
   });
+
+  it('Best Practices Production (1 à 7) : X-Request-Id, /api/ready, révocation JWT logout, Anti-IDOR, Idempotency-Key (SHA-256) et pagination', async () => {
+    // 1. Readiness probe (/api/ready) & Correlation ID (X-Request-Id)
+    const readyRaw = await fetch(`${baseUrl}/api/ready`, {
+      headers: { 'X-Request-Id': 'req-savaa-test-001' },
+    });
+    expect(readyRaw.status).toBe(200);
+    expect(readyRaw.headers.get('x-request-id')).toBe('req-savaa-test-001');
+    const readyData = await readyRaw.json();
+    expect(readyData.ready).toBe(true);
+
+    // 2. Authentification de 2 utilisateurs distincts (User A et User B)
+    const otpA = await api('/api/auth/verify-otp', 'POST', { phone: '0711111111', code: '1234' });
+    const tokenA = otpA.data.token as string;
+    const otpB = await api('/api/auth/verify-otp', 'POST', { phone: '0722222222', code: '1234' });
+    const tokenB = otpB.data.token as string;
+
+    // 3. Protection Anti-IDOR (OWASP API1) : User A tente de modifier le profil de User B -> 403 Forbidden
+    const idorProfile = await api(
+      '/api/users/0722222222',
+      'PUT',
+      { session: { name: 'Pirate', roles: ['acheteur'] } },
+      { Authorization: `Bearer ${tokenA}` },
+    );
+    expect(idorProfile.status).toBe(403);
+
+    // User B publie une annonce qui lui appartient (ownerPhone: 0722222222)
+    await api('/api/listings', 'POST', {
+      id: 'L-OWNER-B',
+      title: 'Igname Kponan de User B',
+      price: 10000,
+      category: 'Récoltes',
+      place: 'Dikodougou',
+      seller: 'Ferme B',
+      ownerPhone: '0722222222',
+      stock: 10,
+      status: 'online',
+    });
+
+    // User A tente de modifier l'annonce de User B -> 403 Forbidden (Anti-IDOR)
+    const idorListing = await api(
+      '/api/listings/L-OWNER-B',
+      'PATCH',
+      { price: 1000 },
+      { Authorization: `Bearer ${tokenA}` },
+    );
+    expect(idorListing.status).toBe(403);
+
+    // User B peut modifier sa propre annonce -> 200 OK
+    const ownListing = await api(
+      '/api/listings/L-OWNER-B',
+      'PATCH',
+      { price: 12000 },
+      { Authorization: `Bearer ${tokenB}` },
+    );
+    expect(ownListing.status).toBe(200);
+
+    // 4. Clé d'Idempotence (Idempotency-Key + SHA-256) sur POST /api/orders
+    const orderPayload = {
+      method: 'Orange Money',
+      delivery: false,
+      lines: [{ listingId: 'L-OWNER-B', title: 'Igname Kponan de User B', seller: 'Ferme B', qty: 3, price: 12000 }],
+    };
+    const firstOrder = await api('/api/orders', 'POST', orderPayload, {
+      'Idempotency-Key': 'idem-order-key-001',
+    });
+    expect(firstOrder.status).toBe(201);
+
+    // Rejeu réseau avec la MÊME clé et le MÊME panier -> renvoie la même commande sans re-débiter le stock (stock reste à 7, pas 4)
+    const replayOrder = await api('/api/orders', 'POST', orderPayload, {
+      'Idempotency-Key': 'idem-order-key-001',
+    });
+    expect(replayOrder.status).toBe(201);
+    expect(replayOrder.data.order.ref).toBe(firstOrder.data.order.ref);
+
+    const listingCheck = await api('/api/listings/L-OWNER-B');
+    expect(listingCheck.data.listing.stock).toBe(7);
+
+    // Réutilisation de la MÊME clé Idempotency-Key avec un panier DIFFÉRENT -> 409 Conflict
+    const conflictOrder = await api(
+      '/api/orders',
+      'POST',
+      {
+        ...orderPayload,
+        lines: [{ listingId: 'L-OWNER-B', title: 'Igname Kponan de User B', seller: 'Ferme B', qty: 1, price: 12000 }],
+      },
+      { 'Idempotency-Key': 'idem-order-key-001' },
+    );
+    expect(conflictOrder.status).toBe(409);
+
+    // 5. Pagination du catalogue (/api/listings?page=1&limit=1)
+    await api('/api/listings', 'POST', {
+      id: 'L-PAGE-2',
+      title: 'Maïs jaune',
+      price: 15000,
+      category: 'Récoltes',
+      place: 'Korhogo',
+      seller: 'Coop',
+    });
+    const pagedRes = await api('/api/listings?page=1&limit=1');
+    expect(pagedRes.status).toBe(200);
+    expect(pagedRes.data.total).toBe(2);
+    expect(pagedRes.data.count).toBe(1);
+    expect(pagedRes.data.totalPages).toBe(2);
+
+    // 6. Révocation immédiate du JWT lors de la déconnexion (POST /api/auth/logout)
+    const meBefore = await api('/api/auth/me', 'GET', undefined, { Authorization: `Bearer ${tokenA}` });
+    expect(meBefore.status).toBe(200);
+
+    const logoutRes = await api('/api/auth/logout', 'POST', {}, { Authorization: `Bearer ${tokenA}` });
+    expect(logoutRes.status).toBe(200);
+    expect(logoutRes.data.revoked).toBe(true);
+
+    // Le jeton révoqué est immédiatement refusé (401 Unauthorized)
+    const meAfter = await api('/api/auth/me', 'GET', undefined, { Authorization: `Bearer ${tokenA}` });
+    expect(meAfter.status).toBe(401);
+  });
 });

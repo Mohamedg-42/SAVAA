@@ -2,6 +2,7 @@ import {
   getAuthUser,
   isStaffAuthorized,
   normalizeCiPhone,
+  revokeTokenJti,
   signToken,
   validateRolesRule,
 } from '../auth-token.mjs';
@@ -105,7 +106,7 @@ export async function handleLot1AuthKyc(ctx) {
   if (method === 'GET' && path === '/api/auth/me') {
     const user = getAuthUser(req);
     if (!user) {
-      sendJson(res, 401, { ok: false, error: 'Jeton d’authentification manquant ou invalide.' });
+      sendJson(res, 401, { ok: false, error: 'Jeton d’authentification manquant, invalide ou révoqué.' });
       return true;
     }
     const account = state.accounts[user.phone] || null;
@@ -114,7 +115,20 @@ export async function handleLot1AuthKyc(ctx) {
     return true;
   }
 
-  // 4. Lecture ou mise à jour d'un compte utilisateur (/api/users/:phone)
+  // 3b. Déconnexion avec révocation immédiate du jeton JWT (jti) (/api/auth/logout)
+  if (method === 'POST' && path === '/api/auth/logout') {
+    const user = getAuthUser(req);
+    if (!user) {
+      sendJson(res, 401, { ok: false, error: 'Jeton d’authentification manquant ou déjà invalide.' });
+      return true;
+    }
+    revokeTokenJti(user.jti);
+    await recordAudit(user.phone, 'AUTH_LOGOUT_TOKEN_REVOKED', user.jti || user.phone, {});
+    sendJson(res, 200, { ok: true, revoked: true, jti: user.jti });
+    return true;
+  }
+
+  // 4. Lecture ou mise à jour d'un compte utilisateur (/api/users/:phone) avec protection Anti-IDOR
   const userMatch = /^\/api\/users\/([^/]+)$/.exec(path);
   if (userMatch) {
     const phone = normalizeCiPhone(decodeURIComponent(userMatch[1]));
@@ -134,6 +148,15 @@ export async function handleLot1AuthKyc(ctx) {
     }
 
     if (method === 'PUT') {
+      // Protection Anti-IDOR (OWASP API1:2023) : un utilisateur authentifié ne peut pas modifier le compte d'un autre numéro
+      const authUser = getAuthUser(req);
+      if (authUser && authUser.phone !== phone && !isStaffAuthorized(req)) {
+        sendJson(res, 403, {
+          ok: false,
+          error: 'Accès refusé (IDOR) : vous ne pouvez modifier que votre propre compte.',
+        });
+        return true;
+      }
       const body = await readBody(req);
       const roles = body.session?.roles ?? body.roles ?? [];
       const check = validateRolesRule(roles);

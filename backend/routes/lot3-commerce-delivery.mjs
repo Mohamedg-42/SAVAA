@@ -28,16 +28,33 @@
 */
 
 import { computeRoadRoute, initiateMobileMoneyPayment } from '../providers.mjs';
-import { verifyWebhookSignature } from '../security.mjs';
+import {
+  checkIdempotencyKey,
+  storeIdempotencyResult,
+  verifyWebhookSignature,
+} from '../security.mjs';
 
 const processedWebhookTx = new Set();
 
 export async function handleLot3CommerceDelivery(ctx) {
-  const { req, res, url, path, method, readBody, sendJson, state, persistState, recordAudit } = ctx;
+  const { req, res, url, path, method, readBody, sendJson, state, persistState, recordAudit, reserveStockForUpdate } = ctx;
 
   // 0. Paiement Mobile Money direct & Webhook (/api/payments/initiate, /api/payments/webhook) et Itinéraire (/api/delivery/route)
   if (path === '/api/payments/initiate' && method === 'POST') {
     const body = await readBody(req);
+    const idem = checkIdempotencyKey(req, body);
+    if (idem.hit) {
+      if (idem.conflict) {
+        sendJson(res, 409, {
+          ok: false,
+          error: 'Conflit Idempotency-Key : cette clé a déjà été utilisée avec des paramètres de paiement différents.',
+        });
+        return true;
+      }
+      res.setHeader('X-Idempotent-Replay', 'true');
+      sendJson(res, idem.status, idem.body);
+      return true;
+    }
     if (!body.amount || Number(body.amount) <= 0) {
       sendJson(res, 400, { ok: false, error: 'Montant Mobile Money invalide.' });
       return true;
@@ -49,6 +66,7 @@ export async function handleLot3CommerceDelivery(ctx) {
       phone: body.phone,
       paymentMode: body.paymentMode || 'full',
     });
+    storeIdempotencyResult(req, body, 200, payment);
     await recordAudit(body.phone || 'acheteur', 'PAYMENT_INITIATED', payment.txId, payment);
     sendJson(res, 200, payment);
     return true;
@@ -93,6 +111,19 @@ export async function handleLot3CommerceDelivery(ctx) {
 
   if (path === '/api/orders' && method === 'POST') {
     const body = await readBody(req);
+    const idem = checkIdempotencyKey(req, body);
+    if (idem.hit) {
+      if (idem.conflict) {
+        sendJson(res, 409, {
+          ok: false,
+          error: 'Conflit Idempotency-Key : cette clé a déjà été utilisée avec un panier différent.',
+        });
+        return true;
+      }
+      res.setHeader('X-Idempotent-Replay', 'true');
+      sendJson(res, idem.status, idem.body);
+      return true;
+    }
     const lines = Array.isArray(body.lines) ? body.lines : [];
     if (lines.length === 0) {
       sendJson(res, 400, { ok: false, error: 'Une commande doit contenir au moins un article.' });
@@ -216,6 +247,9 @@ export async function handleLot3CommerceDelivery(ctx) {
       });
     }
 
+    if (typeof reserveStockForUpdate === 'function') {
+      await reserveStockForUpdate(sanitizedLines);
+    }
     const allOrders = [order, ...(state.kv['orders.all'] || [])];
     await persistState({
       net: {
@@ -226,13 +260,15 @@ export async function handleLot3CommerceDelivery(ctx) {
       },
       kv: { 'orders.all': allOrders },
     });
+    const responsePayload = { ok: true, order };
+    storeIdempotencyResult(req, body, 201, responsePayload);
     await recordAudit(order.buyer.phone || 'acheteur', 'ORDER_PLACED', ref, {
       total,
       paymentMode: order.paymentMode,
       paidNow,
       balanceDue,
     });
-    sendJson(res, 201, { ok: true, order });
+    sendJson(res, 201, responsePayload);
     return true;
   }
 

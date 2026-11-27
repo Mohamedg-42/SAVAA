@@ -250,3 +250,21 @@ CREATE TABLE IF NOT EXISTS savaa_audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Clés d'idempotence API (anti double-commande & anti double-paiement sur réseau mobile instable)
+CREATE TABLE IF NOT EXISTS savaa_idempotency_keys (
+  key VARCHAR(128) PRIMARY KEY,
+  request_hash VARCHAR(64) NOT NULL,
+  response_status INTEGER NOT NULL,
+  response_body JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Liste de révocation des jetons JWT (jti invalidés lors d'un /api/auth/logout)
+CREATE TABLE IF NOT EXISTS savaa_revoked_tokens (
+  jti VARCHAR(64) PRIMARY KEY,
+  phone VARCHAR(20),
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+

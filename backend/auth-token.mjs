@@ -1,12 +1,27 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
 /*
-  Gestion des jetons d'authentification (JWT HMAC-SHA256) et contrôle d'accès
-  du Serveur Backend SAVAA (Lot 1 : Auth OTP & StaffGuard serveur).
+  Gestion des jetons d'authentification (JWT HMAC-SHA256 avec identifiant jti et révocation)
+  et contrôle d'accès du Serveur Backend SAVAA (Lot 1 : Auth OTP, Logout & StaffGuard serveur).
 */
 
 const JWT_SECRET = process.env.JWT_SECRET || 'savaa-ci-secret-key-2026-prod';
 export const STAFF_CODE = process.env.SAVAA_STAFF_CODE || 'SAVAA-EQUIPE';
+
+/** Liste noire en mémoire des identifiants `jti` de jetons JWT révoqués via `/api/auth/logout`. */
+const revokedJtis = new Set();
+
+export function revokeTokenJti(jti) {
+  if (jti) revokedJtis.add(String(jti));
+}
+
+export function isTokenRevoked(jti) {
+  return Boolean(jti && revokedJtis.has(String(jti)));
+}
+
+export function clearRevokedTokens() {
+  revokedJtis.clear();
+}
 
 function base64UrlEncode(input) {
   return Buffer.from(input).toString('base64url');
@@ -16,13 +31,15 @@ function base64UrlDecode(input) {
   return Buffer.from(input, 'base64url').toString('utf8');
 }
 
-/** Crée un jeton JWT signé (validité par défaut : 30 jours). */
+/** Crée un jeton JWT signé contenant un identifiant unique `jti` (validité par défaut : 30 jours). */
 export function signToken(payload, expiresInSec = 30 * 24 * 3600) {
   const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now = Math.floor(Date.now() / 1000);
+  const jti = payload.jti || randomUUID();
   const body = base64UrlEncode(
     JSON.stringify({
       ...payload,
+      jti,
       iat: now,
       exp: now + expiresInSec,
     }),
@@ -31,7 +48,7 @@ export function signToken(payload, expiresInSec = 30 * 24 * 3600) {
   return `${header}.${body}.${sig}`;
 }
 
-/** Vérifie et décode un jeton JWT. Renvoie `null` si invalide ou expiré. */
+/** Vérifie et décode un jeton JWT. Renvoie `null` si invalide, expiré ou révoqué (`jti`). */
 export function verifyToken(token) {
   if (!token || typeof token !== 'string') return null;
   const parts = token.split('.');
@@ -45,6 +62,7 @@ export function verifyToken(token) {
     const parsed = JSON.parse(base64UrlDecode(body));
     const now = Math.floor(Date.now() / 1000);
     if (parsed.exp && parsed.exp < now) return null;
+    if (parsed.jti && isTokenRevoked(parsed.jti)) return null;
     return parsed;
   } catch {
     return null;
