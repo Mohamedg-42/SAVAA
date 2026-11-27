@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from './data';
-import { readImage } from './device';
+import { printPage, readImage } from './device';
 import { photoFor } from './photos';
 import { clearToast, showToast, useToast } from './toast';
 
@@ -40,6 +40,7 @@ const ICONS = {
   send: <path d="M4 12 20 4l-6 16-3-7z" />,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8v.01" /></>,
   fail: <><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></>,
+  mic: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7" /></>,
 } as const;
 
 export type IconName = keyof typeof ICONS;
@@ -265,5 +266,177 @@ export function Check({ on }: { on: boolean }) {
     <span className={`check${on ? ' on' : ''}`}>
       <Icon name="tick" size="sm" style={{ strokeWidth: 3 }} />
     </span>
+  );
+}
+
+/** État réseau du navigateur / téléphone, mis à jour en temps réel. */
+export function useOnline(): boolean {
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  useEffect(() => {
+    const on = () => { setOnline(true); showToast('Connexion rétablie.'); };
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+  return online;
+}
+
+/** Bandeau affiché automatiquement quand le téléphone perd la connexion (monté une seule fois dans App). */
+export function OfflineBanner() {
+  const online = useOnline();
+  if (online) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="row small"
+      style={{
+        position: 'fixed',
+        top: 'env(safe-area-inset-top)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 60,
+        width: 'min(390px, 100%)',
+        background: '#FCF1DC',
+        color: '#5E3904',
+        borderBottom: '1px solid #E8CFA0',
+        padding: '8px 14px',
+        gap: 8,
+        boxShadow: '0 2px 8px rgba(0,0,0,.1)',
+      }}
+    >
+      <Icon name="offline" size="sm" />
+      <span className="grow">Hors connexion. Vos données enregistrées restent consultables.</span>
+    </div>
+  );
+}
+
+/** Données d'aperçu plein écran : galerie photos ou fiche document/facture/justificatif. */
+export type PreviewData = {
+  title: string;
+  subtitle?: string;
+  badge?: [string, Tone];
+  images?: string[];
+  startIndex?: number;
+  details?: [string, string][];
+  note?: string;
+  printable?: boolean;
+};
+
+/** Modale universelle d'aperçu (zoom photo avec galerie, justificatif, facture ou détail démo). */
+export function PreviewModal({ data, onClose }: { data: PreviewData | null; onClose: () => void }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    setIdx(data?.startIndex ?? 0);
+  }, [data]);
+  useEffect(() => {
+    if (!data) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [data, onClose]);
+
+  if (!data) return null;
+  const imgs = data.images?.filter(Boolean) ?? [];
+  const curImg = imgs[idx] ?? imgs[0];
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={data.title}
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 80,
+        background: 'rgba(15, 22, 18, 0.78)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div
+        className="card col"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 420,
+          maxHeight: '88dvh',
+          overflowY: 'auto',
+          borderRadius: 14,
+          boxShadow: '0 16px 40px rgba(0,0,0,.35)',
+        }}
+      >
+        <div className="row between" style={{ padding: '12px 14px', borderBottom: '1px solid #E3E7E4', gap: 10 }}>
+          <div className="col grow" style={{ minWidth: 0, gap: 2 }}>
+            <span className="b small ell">{data.title}</span>
+            {data.subtitle && <span className="xs muted ell">{data.subtitle}</span>}
+          </div>
+          {data.badge && <Badge tone={data.badge[1]}>{data.badge[0]}</Badge>}
+          <button className="iconbtn" style={{ width: 34, height: 34 }} aria-label="Fermer l’aperçu" onClick={onClose}>
+            <Icon name="close" size="sm" />
+          </button>
+        </div>
+
+        <div className="col" style={{ padding: 14, gap: 12 }}>
+          {curImg && (
+            <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={curImg} alt={data.title} style={{ width: '100%', maxHeight: '55dvh', objectFit: 'contain', display: 'block' }} />
+              {imgs.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="iconbtn"
+                    aria-label="Photo précédente"
+                    onClick={() => setIdx((idx - 1 + imgs.length) % imgs.length)}
+                    style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: 17, background: 'rgba(23,32,27,.7)', color: '#fff' }}
+                  >
+                    <Icon name="back" size="sm" />
+                  </button>
+                  <button
+                    type="button"
+                    className="iconbtn"
+                    aria-label="Photo suivante"
+                    onClick={() => setIdx((idx + 1) % imgs.length)}
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, borderRadius: 17, background: 'rgba(23,32,27,.7)', color: '#fff' }}
+                  >
+                    <Icon name="chevron" size="sm" />
+                  </button>
+                  <span className="xs num" style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(23,32,27,.72)', color: '#fff', padding: '2px 8px', borderRadius: 10 }}>
+                    {idx + 1} / {imgs.length}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
+          {!!data.details?.length && (
+            <dl className="kv">
+              {data.details.map(([k, v]) => (
+                <div key={k} style={{ display: 'contents' }}>
+                  <dt>{k}</dt>
+                  <dd>{v}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+          {data.note && <p className="xs muted" style={{ lineHeight: 1.5 }}>{data.note}</p>}
+
+          <div className="row" style={{ gap: 8 }}>
+            {data.printable && (
+              <button className="btn btn-s grow" onClick={printPage}><Icon name="download" size="sm" />Imprimer / PDF</button>
+            )}
+            <button className="btn btn-p grow" onClick={onClose}>Fermer</button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

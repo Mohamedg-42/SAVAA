@@ -2,9 +2,9 @@ import { Fragment, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { PROOF, fcfa, useStore, type Listing, type Proof, type TraceEvent, type TraceSheet } from '../data';
-import { share } from '../device';
+import { printPage, share } from '../device';
 import { ficheUrl, sheetOf, sheetStatus, traceCategory, unitPrice, unitQty } from '../trace';
-import { Badge, Header, Icon, NotFound, Photo, Section } from '../ui';
+import { Badge, Header, Icon, NotFound, Photo, PreviewModal, Section, type PreviewData } from '../ui';
 
 /* Fiche d'identité et de traçabilité d'un produit (parties A à E du cahier des charges), ouverte depuis l'annonce ou par son QR code. */
 
@@ -61,25 +61,56 @@ const sortKey = (d: string) => {
 
 /** Historique en frise, du plus récent au plus ancien. */
 export function TraceTimeline({ events }: { events: TraceEvent[] }) {
+  const [preview, setPreview] = useState<PreviewData | null>(null);
   const list = [...events].sort((a, b) => sortKey(b.date).localeCompare(sortKey(a.date)));
   if (!list.length) return <span className="small muted">Aucun événement enregistré.</span>;
   return (
-    <div className="tl">
-      {list.map((e, i) => (
-        <div key={i} className="tli">
-          <span className={e.proof === 'declared' ? 'tld' : 'tld f'}></span>
-          <div className="col" style={{ gap: 4, minWidth: 0 }}>
-            <div className="row between" style={{ gap: 8, alignItems: 'flex-start' }}>
-              <span className="small b">{e.kind}</span>
-              <Badge tone={PROOF[e.proof].tone}>{PROOF[e.proof].label}</Badge>
+    <>
+      <div className="tl">
+        {list.map((e, i) => (
+          <div key={i} className="tli">
+            <span className={e.proof === 'declared' ? 'tld' : 'tld f'}></span>
+            <div className="col" style={{ gap: 4, minWidth: 0 }}>
+              <div className="row between" style={{ gap: 8, alignItems: 'flex-start' }}>
+                <span className="small b">{e.kind}</span>
+                <Badge tone={PROOF[e.proof].tone}>{PROOF[e.proof].label}</Badge>
+              </div>
+              <span className="xs muted num">{e.date}{e.place ? `, ${e.place}` : ''}</span>
+              <span className="small" style={{ lineHeight: 1.45 }}>{e.text}</span>
+              <span className="xs muted">
+                Responsable : {e.by}
+                {e.file && (
+                  <>
+                    {' · '}
+                    <button
+                      type="button"
+                      className="link plain xs"
+                      onClick={() => setPreview({
+                        title: e.file ?? 'Justificatif',
+                        subtitle: e.kind,
+                        badge: [PROOF[e.proof].label, PROOF[e.proof].tone],
+                        details: [
+                          ['Pièce jointe', e.file ?? '—'],
+                          ['Événement', e.kind],
+                          ['Date', e.date],
+                          ['Responsable', e.by],
+                          ...(e.place ? [['Lieu', e.place] as [string, string]] : []),
+                        ],
+                        note: e.text,
+                        printable: true,
+                      })}
+                    >
+                      Voir « {e.file} »
+                    </button>
+                  </>
+                )}
+              </span>
             </div>
-            <span className="xs muted num">{e.date}{e.place ? `, ${e.place}` : ''}</span>
-            <span className="small" style={{ lineHeight: 1.45 }}>{e.text}</span>
-            <span className="xs muted">Responsable : {e.by}{e.file ? `. Justificatif : ${e.file}` : ''}</span>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+      <PreviewModal data={preview} onClose={() => setPreview(null)} />
+    </>
   );
 }
 
@@ -118,7 +149,7 @@ function ProductSheetInner({ l, sheet }: { l: Listing; sheet: TraceSheet }) {
 
   return (
     <div className="app">
-      <Header back title="Fiche produit" />
+      <Header back title="Fiche produit" actions={<button className="iconbtn" aria-label="Imprimer ou enregistrer en PDF" onClick={printPage}><Icon name="download" /></button>} />
       <div className="body" style={{ gap: 14 }}>
         <div className="card pad col" style={{ gap: 12 }}>
           <div className="row top" style={{ gap: 12 }}>
@@ -180,7 +211,7 @@ function ProductSheetInner({ l, sheet }: { l: Listing; sheet: TraceSheet }) {
 
         <Section title="Prix et vente">
           <dl className="kv">
-            <dt>Prix</dt><dd className="num">{fcfa(l.price)} FCFA {l.unit ?? unitPrice(sale.unit)}</dd>
+            <dt>Prix</dt><dd className="num">{fcfa(s.priceFor(l))} FCFA {l.unit ?? unitPrice(sale.unit)}{s.priceFor(l) < l.price ? ' (prix pro)' : ''}</dd>
             <dt>Négociable</dt><dd>{l.negotiable ? 'Oui' : 'Non'}</dd>
             <dt>Disponible</dt><dd className="num">{unitQty(l.stock ?? 1, sale.unit)}</dd>
             <dt>Commande minimale</dt><dd className="num">{unitQty(sale.minQty, sale.unit)}</dd>

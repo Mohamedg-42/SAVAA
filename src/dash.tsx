@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from './data';
+import { ReliefIcon } from './relief';
+import type { ReliefName } from './relief-icons';
 import { Icon, type IconName } from './ui';
 
 /*
@@ -23,15 +25,23 @@ export function Avatar({ size = 44, name }: { size?: number; name: string }) {
 
 /** En-tête vert d'un espace métier : photo, métier, nom, et une action à droite. */
 export function DashHeader({ label, name, action }: { label: string; name: string; action?: ReactNode }) {
+  const s = useStore();
   /* Les initiales sont celles de la personne connectée, pas du titre affiché (« Bonjour, … », nom de boutique). */
-  const person = useStore().session().name || name;
+  const person = s.session().name || name;
+  const unreadMsg = s.unreadMessages();
   return (
-    <header className="hdr" style={{ paddingLeft: 16, gap: 12, minHeight: 72 }}>
+    <header className="hdr" style={{ paddingLeft: 16, gap: 8, minHeight: 72 }}>
       <Link to="/compte" aria-label="Mon compte" style={{ flex: 'none', display: 'flex' }}><Avatar name={person} /></Link>
       <div className="col grow" style={{ gap: 1, minWidth: 0 }}>
         <span className="xs" style={{ color: '#CFE0D4' }}>{label}</span>
         <span className="b ell" style={{ fontSize: 17 }}>{name}</span>
       </div>
+      {s.session().loggedIn && (
+        <Link className="iconbtn" to="/messages" aria-label={`Messages, ${unreadMsg} non lu${unreadMsg > 1 ? 's' : ''}`}>
+          <Icon name="chat" />
+          {unreadMsg > 0 && <span className="dot">{unreadMsg}</span>}
+        </Link>
+      )}
       {action}
     </header>
   );
@@ -66,16 +76,17 @@ export function Kpis({ items }: { items: Kpi[] }) {
   );
 }
 
-export type QuickAction = { label: string; icon: IconName; to?: string; onClick?: () => void };
+export type QuickAction = { label: string; icon?: IconName; relief?: ReliefName; to?: string; onClick?: () => void };
 
-/** Actions rapides en tuiles. */
+/** Actions rapides en tuiles (icônes en relief SAVAA par défaut, ou icône au trait en repli). */
 export function QuickActions({ items }: { items: QuickAction[] }) {
+  const glyph = (a: QuickAction) => (a.relief ? <ReliefIcon name={a.relief} size={30} /> : a.icon ? <Icon name={a.icon} size="lg" /> : null);
   return (
     <div className={items.length === 3 ? 'grid3' : 'grid4'}>
       {items.map((a) => a.to ? (
-        <Link key={a.label} className="tile" to={a.to}><Icon name={a.icon} size="lg" />{a.label}</Link>
+        <Link key={a.label} className="tile" to={a.to}>{glyph(a)}{a.label}</Link>
       ) : (
-        <button key={a.label} className="tile" onClick={a.onClick} style={{ font: 'inherit', cursor: 'pointer' }}><Icon name={a.icon} size="lg" />{a.label}</button>
+        <button key={a.label} className="tile" onClick={a.onClick} style={{ font: 'inherit', cursor: 'pointer' }}>{glyph(a)}{a.label}</button>
       ))}
     </div>
   );

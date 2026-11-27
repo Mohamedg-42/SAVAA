@@ -134,11 +134,15 @@ export type TraceSheet = {
   events: TraceEvent[];
 };
 
-export type CartItem = { listingId: string; qty: number };
+export type CartItem = { listingId: string; qty: number; /** Prix négocié accepté en messagerie (remplace le prix affiché). */ agreedPrice?: number };
 export type Cart = {
   items: CartItem[]; delivery: boolean; method: string; /** Adresse de livraison saisie au panier. */ address?: string;
   /** Ville ou village de livraison (sert au calcul de la distance), véhicule choisi, livraison dans la journée. */
   town?: string; vehicle?: VehicleId; urgent?: boolean;
+  /** Paiement intégral (100 %) ou acompte de réservation (20 %, solde à la remise). */
+  paymentMode?: 'full' | 'deposit';
+  /** Numéro Mobile Money saisi pour le règlement. */
+  payPhone?: string;
 };
 
 export type OrderLine = { listingId: string; title: string; seller: string; qty: number; price: number };
@@ -156,8 +160,15 @@ export type Order = {
   vehicle?: VehicleId;
   km?: number;
   total: number;
+  /** Paiement séquestre : montant versé immédiatement et solde éventuel à la remise. */
+  paymentMode?: 'full' | 'deposit';
+  paidNow?: number;
+  balanceDue?: number;
+  payPhone?: string;
   /** Code de remise à donner au livreur. */
   code: string;
+  /** Commande annulée avant prise en charge. */
+  cancelled?: boolean;
   /** Commande de la maquette, avec son suivi déjà avancé. */
   demo?: boolean;
 };
@@ -1187,7 +1198,7 @@ export type Session = {
   town?: string;
   roles: string[];
   prefs: { push: boolean; mkt: boolean };
-  docs: { name: string; date: string; status: 'verified' | 'documented' | 'review' }[];
+  docs: { name: string; date: string; status: 'verified' | 'documented' | 'review'; photo?: string }[];
   /** Photo du compte (réduite), affichée dans l'en-tête des espaces métiers et la page Compte. */
   photo?: string;
   /** Profil métier saisi après le choix du rôle (voir profils.ts) : clé → valeur. */
@@ -1300,7 +1311,7 @@ export type NetPerson = { name: string; phone: string };
 export type NetAlert = {
   id: string; animalId: string; animal: string; photo?: string; photos?: string[]; sign: string; text: string;
   urgency: 'Élevée' | 'Moyenne' | 'Faible'; farm: string; from: NetPerson; date: string;
-  status: 'open' | 'taken' | 'done'; vet?: NetPerson;
+  status: 'open' | 'taken' | 'done'; vet?: NetPerson; note?: string;
 };
 export type NetMission = {
   id: string; orderRef: string; title: string; photo?: string; pickup: string; dropoff: string; buyer: NetPerson;
@@ -1351,13 +1362,119 @@ export type NetSale = {
 /** Demande de vérification d'une fiche animale, de l'éleveur vers les vétérinaires. */
 export type NetValidation = {
   id: string; animalId: string; animal: string; photo?: string; officialId?: string; details: string; care: string; farm: string;
-  from: NetPerson; date: string; status: 'open' | 'verified'; vet?: NetPerson; answeredAt?: string;
+  from: NetPerson; date: string; status: 'open' | 'verified' | 'rejected'; vet?: NetPerson; answeredAt?: string; reason?: string;
+};
+/** Message dans une conversation interne SAVAA (texte, photo éventuelle, ou offre de prix). */
+export type NetMessage = {
+  id: string;
+  from: NetPerson;
+  text: string;
+  time: string;
+  photo?: string;
+  /** Note vocale enregistrée au micro (data URL audio) et sa durée en secondes. */
+  audio?: string;
+  audioSec?: number;
+  offer?: { amount: number; status: 'pending' | 'accepted' | 'declined' };
+};
+/** Fil de conversation interne entre deux comptes SAVAA (annonce, commande ou livraison). */
+export type NetThread = {
+  id: string;
+  kind: 'listing' | 'order' | 'delivery';
+  refId?: string;
+  subject: string;
+  price?: number;
+  negotiable?: boolean;
+  photo?: string;
+  participants: NetPerson[];
+  messages: NetMessage[];
+  updatedAt: string;
+  readBy: string[];
+};
+/** Avis laissé par un acheteur sur un vendeur. */
+export type NetReview = {
+  id: string;
+  seller: string;
+  author: string;
+  rating: number;
+  comment: string;
+  date: string;
+  verified?: boolean;
+  reply?: string;
+  replyDate?: string;
 };
 export type Net = {
   alerts: NetAlert[]; missions: NetMission[]; quotes: NetQuote[]; listings: Listing[]; sales: NetSale[]; validations: NetValidation[];
   invoices: NetInvoice[]; recurring: NetRecurring[]; visits: NetVisit[]; kyc: NetKyc[]; couriers: NetCourier[];
+  threads: NetThread[]; reviews: NetReview[];
 };
-const EMPTY_NET: Net = { alerts: [], missions: [], quotes: [], listings: [], sales: [], validations: [], invoices: [], recurring: [], visits: [], kyc: [], couriers: [] };
+const EMPTY_NET: Net = { alerts: [], missions: [], quotes: [], listings: [], sales: [], validations: [], invoices: [], recurring: [], visits: [], kyc: [], couriers: [], threads: [], reviews: [] };
+
+const DEMO_REVIEWS: NetReview[] = [
+  { id: 'REV-D1', seller: 'Ferme Koné & Fils', author: 'Boucherie Fofana', rating: 5, comment: 'Bœuf conforme à la fiche, poids annoncé exact. Livraison à l’heure.', date: '28/10/2026', verified: true },
+  { id: 'REV-D2', seller: 'Ferme Koné & Fils', author: 'Kouassi A.', rating: 4, comment: 'Bon bélier, un jour de retard sur la livraison mais animal en très bon état.', date: '14/10/2026', verified: true },
+  { id: 'REV-D3', seller: 'Provenderie du Nord', author: 'Ferme Traoré', rating: 5, comment: 'Sacs bien fermés, poids conforme, livraison rapide à Korhogo.', date: '05/11/2026', verified: true },
+];
+
+/** Conversations d'exemple visibles avec le compte de démonstration (Adama Koné). */
+const DEMO_THREADS: NetThread[] = [
+  {
+    id: 'TH-DEMO-1',
+    kind: 'listing',
+    refId: 'L-FK0142',
+    subject: 'Taurillon Zébu Goudali, 20 mois',
+    price: 420000,
+    negotiable: true,
+    photo: 'images/taurillon-goudali.jpg',
+    participants: [
+      { name: 'Moussa Coulibaly', phone: '05 44 19 82 10' },
+      { name: 'Ferme Koné & Fils', phone: '07 48 12 33 90' },
+    ],
+    messages: [
+      {
+        id: 'MSG-D1',
+        from: { name: 'Moussa Coulibaly', phone: '05 44 19 82 10' },
+        text: 'Bonjour, le taurillon FK-0142 est-il toujours disponible à Sinématiali ?',
+        time: '18/11/2026, 09:15',
+      },
+      {
+        id: 'MSG-D2',
+        from: { name: 'Ferme Koné & Fils', phone: '07 48 12 33 90' },
+        text: 'Bonjour Moussa, oui il est disponible et à jour de ses vaccins. Vous pouvez venir le voir ou commander avec livraison.',
+        time: '18/11/2026, 09:42',
+      },
+      {
+        id: 'MSG-D3',
+        from: { name: 'Moussa Coulibaly', phone: '05 44 19 82 10' },
+        text: 'Je propose 395 000 FCFA avec paiement immédiat via SAVAA.',
+        time: '18/11/2026, 11:05',
+        offer: { amount: 395000, status: 'pending' },
+      },
+    ],
+    updatedAt: '18/11/2026, 11:05',
+    readBy: ['05 44 19 82 10'],
+  },
+  {
+    id: 'TH-DEMO-2',
+    kind: 'delivery',
+    refId: 'SAV-2026-11-004812',
+    subject: 'Livraison commande SAV-2026-11-004812',
+    photo: 'images/taurillon-goudali.jpg',
+    participants: [
+      { name: 'Ferme Koné & Fils', phone: '07 48 12 33 90' },
+      { name: 'Transports Ouattara', phone: '01 40 22 18 05' },
+    ],
+    messages: [
+      {
+        id: 'MSG-D4',
+        from: { name: 'Transports Ouattara', phone: '01 40 22 18 05' },
+        text: 'Bonjour, la bétaillère AB 4512 CI sera au point de retrait demain à 7 h 30.',
+        time: '18/11/2026, 14:20',
+      },
+    ],
+    updatedAt: '18/11/2026, 14:20',
+    readBy: ['01 40 22 18 05', '07 48 12 33 90'],
+  },
+];
 
 /* Dates au format AAAA-MM-JJ (champs date, tri, calcul des prochaines livraisons). */
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -1423,6 +1540,23 @@ function clearCurrent() {
   listeners.forEach((l) => l());
 }
 
+/** Conversations du compte connecté : réseau de l'appareil + fils de démonstration (pour le compte démo). */
+function myPhone(): string {
+  return state.session.demo ? DEMO_SELLER.phone : state.session.phone;
+}
+function mergedThreads(): NetThread[] {
+  const net = readNet().threads;
+  const phone = myPhone();
+  if (!phone) return [];
+  const demoExtra = state.session.demo ? DEMO_THREADS.filter((d) => !net.some((t) => t.id === d.id)) : [];
+  return [...net, ...demoExtra].filter((t) => t.participants.some((p) => p.phone === phone));
+}
+function upsertThread(t: NetThread) {
+  const n = readNet();
+  const others = n.threads.filter((x) => x.id !== t.id);
+  writeNet({ ...n, threads: [t, ...others] });
+}
+
 export const store = {
   /** Efface tout ce qui a été saisi, y compris les comptes créés sur l'appareil, et revient aux données de la maquette. */
   reset() {
@@ -1437,10 +1571,136 @@ export const store = {
 
   /* Réseau de l'appareil (voir plus haut) */
   net: (): Net => readNet(),
-  /** Le vétérinaire prend en charge ou clôture une alerte d'éleveur. */
-  answerAlert(id: string, status: 'taken' | 'done') {
+
+  /* Messagerie interne (conversations entre comptes dans l'application) */
+  threads: (): NetThread[] => mergedThreads(),
+  thread: (id: string): NetThread | undefined => mergedThreads().find((t) => t.id === id),
+  unreadMessages: (): number => {
+    const phone = myPhone();
+    if (!phone) return 0;
+    return mergedThreads().filter((t) => t.messages.length > 0 && !t.readBy.includes(phone)).length;
+  },
+  /** Ouvre une conversation existante sur le même contexte/interlocuteur, ou la crée. Renvoie son identifiant. */
+  openThread(opts: { kind: NetThread['kind']; refId?: string; subject: string; other: NetPerson; price?: number; negotiable?: boolean; photo?: string }): string {
+    const phone = myPhone();
+    const self: NetPerson = state.session.demo ? DEMO_SELLER : me();
+    const existing = mergedThreads().find(
+      (t) =>
+        t.kind === opts.kind &&
+        t.refId === opts.refId &&
+        t.participants.some((p) => p.phone === opts.other.phone),
+    );
+    if (existing) return existing.id;
+    const t: NetThread = {
+      id: netId('TH'),
+      kind: opts.kind,
+      refId: opts.refId,
+      subject: opts.subject,
+      price: opts.price,
+      negotiable: opts.negotiable,
+      photo: opts.photo,
+      participants: [self, opts.other],
+      messages: [],
+      updatedAt: `${today()}, ${nowTime()}`,
+      readBy: [phone],
+    };
+    upsertThread(t);
+    return t.id;
+  },
+  /** Envoie un message (texte, photo, note vocale ou offre de prix) dans une conversation. */
+  sendMessage(threadId: string, text: string, extra?: { photo?: string; audio?: string; audioSec?: number; offerAmount?: number }) {
+    const t = mergedThreads().find((x) => x.id === threadId);
+    if (!t) return;
+    const phone = myPhone();
+    const self: NetPerson = state.session.demo ? DEMO_SELLER : me();
+    const time = `${today()}, ${nowTime()}`;
+    const msg: NetMessage = {
+      id: netId('MSG'),
+      from: self,
+      text: text.trim(),
+      time,
+      photo: extra?.photo,
+      audio: extra?.audio,
+      audioSec: extra?.audioSec,
+      offer: extra?.offerAmount ? { amount: extra.offerAmount, status: 'pending' } : undefined,
+    };
+    upsertThread({
+      ...t,
+      messages: [...t.messages, msg],
+      updatedAt: time,
+      readBy: [phone],
+    });
+  },
+  /** Accepte ou refuse une offre de prix proposée dans la conversation. */
+  answerOffer(threadId: string, msgId: string, status: 'accepted' | 'declined') {
+    const t = mergedThreads().find((x) => x.id === threadId);
+    if (!t) return;
+    const phone = myPhone();
+    const self: NetPerson = state.session.demo ? DEMO_SELLER : me();
+    const target = t.messages.find((m) => m.id === msgId);
+    if (!target?.offer) return;
+    const time = `${today()}, ${nowTime()}`;
+    const reply: NetMessage = {
+      id: netId('MSG'),
+      from: self,
+      text: status === 'accepted'
+        ? `Offre de ${fcfa(target.offer.amount)} FCFA acceptée.`
+        : `Offre de ${fcfa(target.offer.amount)} FCFA refusée.`,
+      time,
+    };
+    upsertThread({
+      ...t,
+      messages: [
+        ...t.messages.map((m) => (m.id === msgId && m.offer ? { ...m, offer: { ...m.offer, status } } : m)),
+        reply,
+      ],
+      updatedAt: time,
+      readBy: [phone],
+    });
+  },
+  /** Marque la conversation comme lue pour le compte connecté. */
+  markThreadRead(threadId: string) {
+    const t = mergedThreads().find((x) => x.id === threadId);
+    const phone = myPhone();
+    if (!t || !phone || t.readBy.includes(phone)) return;
+    upsertThread({ ...t, readBy: [...t.readBy, phone] });
+  },
+
+  /* Avis vendeurs */
+  reviewsFor(seller: string): NetReview[] {
+    const net = readNet().reviews.filter((r) => r.seller === seller);
+    const demo = DEMO_REVIEWS.filter((r) => r.seller === seller && !net.some((x) => x.id === r.id));
+    return [...net, ...demo];
+  },
+  addReview(r: { seller: string; rating: number; comment: string }) {
     const n = readNet();
-    writeNet({ ...n, alerts: n.alerts.map((a) => (a.id === id ? { ...a, status, vet: me() } : a)) });
+    const author = state.session.name || 'Acheteur SAVAA';
+    const verified = state.orders.some((o) => o.lines.some((l) => l.seller === r.seller));
+    const review: NetReview = {
+      id: netId('REV'),
+      seller: r.seller,
+      author,
+      rating: Math.max(1, Math.min(5, Math.round(r.rating))),
+      comment: r.comment.trim(),
+      date: today(),
+      verified,
+    };
+    writeNet({ ...n, reviews: [review, ...n.reviews] });
+  },
+  /** Réponse du vendeur à un avis client. */
+  replyReview(id: string, reply: string) {
+    const text = reply.trim();
+    if (!text) return;
+    const n = readNet();
+    const existing = n.reviews.find((r) => r.id === id) ?? DEMO_REVIEWS.find((r) => r.id === id);
+    if (!existing) return;
+    const updated: NetReview = { ...existing, reply: text, replyDate: today() };
+    writeNet({ ...n, reviews: [updated, ...n.reviews.filter((r) => r.id !== id)] });
+  },
+  /** Le vétérinaire prend en charge ou clôture une alerte d'éleveur (avec compte-rendu optionnel). */
+  answerAlert(id: string, status: 'taken' | 'done', note?: string) {
+    const n = readNet();
+    writeNet({ ...n, alerts: n.alerts.map((a) => (a.id === id ? { ...a, status, vet: me(), note: note?.trim() || a.note } : a)) });
   },
   /** Le transporteur accepte une mission ou fait avancer la livraison. */
   moveMission(id: string, status: NetMission['status']) {
@@ -1522,6 +1782,10 @@ export const store = {
     const n = readNet();
     writeNet({ ...n, visits: n.visits.map((v) => (v.id === id ? { ...v, status: 'done', doneAt: today() } : v)) });
   },
+  cancelVisit(id: string) {
+    const n = readNet();
+    writeNet({ ...n, visits: n.visits.filter((v) => v.id !== id) });
+  },
   /** Envoie (ou renvoie) les justificatifs du compte à l'équipe SAVAA. */
   submitKyc(summary: [string, string][], docs: { label: string; photo?: string }[]) {
     if (state.session.demo || !state.session.phone) return;
@@ -1544,6 +1808,11 @@ export const store = {
     const n = readNet();
     const offer: NetOffer = { id: netId('OF'), supplier: { ...me(), org }, price, delay, date: today() };
     writeNet({ ...n, quotes: n.quotes.map((q) => (q.id === id ? { ...q, offers: [...q.offers.filter((o) => o.supplier.phone !== offer.supplier.phone), offer] } : q)) });
+  },
+  /** Retire l'offre envoyée par le fournisseur connecté sur un devis encore ouvert. */
+  withdrawOffer(id: string) {
+    const n = readNet();
+    writeNet({ ...n, quotes: n.quotes.map((q) => (q.id === id && q.status === 'open' ? { ...q, offers: q.offers.filter((o) => o.supplier.phone !== state.session.phone) } : q)) });
   },
   /** Prénom et nom du compte déjà créé sur cet appareil avec ce numéro (10 chiffres), sinon null. */
   knownAccount: (digits: string): string | null => readAccounts()[digits]?.session.name ?? null,
@@ -1569,6 +1838,12 @@ export const store = {
   nextAnimalId: () => `FK-${String(Math.max(150, ...state.animals.map((a) => Number(a.id.slice(3)) || 0)) + 1).padStart(4, '0')}`,
   addAnimal(a: Animal) {
     commit({ animals: [{ ...a, mine: true }, ...state.animals] });
+  },
+  updateAnimal(id: string, patch: Partial<Animal>) {
+    commit({ animals: state.animals.map((a) => (a.id === id ? { ...a, ...patch } : a)) });
+  },
+  removeAnimal(id: string) {
+    commit({ animals: state.animals.filter((a) => a.id !== id) });
   },
   addEvent(e: HealthEvent) {
     commit({ events: [e, ...state.events] });
@@ -1659,6 +1934,9 @@ export const store = {
   markAllRead() {
     commit({ notifs: state.notifs.map((n) => ({ ...n, unread: false })) });
   },
+  removeNotif(id: number) {
+    commit({ notifs: state.notifs.filter((n) => n.id !== id) });
+  },
 
   /* Petites données d'écran gardées telles quelles (CRM : prospects ajoutés, journaux, conversions). */
   get<T>(key: string, fallback: T): T {
@@ -1712,10 +1990,10 @@ export const store = {
   },
   /** Dernière demande de vérification envoyée par ce compte pour cet animal. */
   validationOf: (animalId: string): NetValidation | undefined => readNet().validations.find((v) => v.animalId === animalId && v.from.phone === state.session.phone),
-  /** Le vétérinaire valide la fiche demandée. */
-  answerValidation(id: string) {
+  /** Le vétérinaire valide ou refuse (avec motif) la fiche demandée. */
+  answerValidation(id: string, status: 'verified' | 'rejected' = 'verified', reason?: string) {
     const n = readNet();
-    writeNet({ ...n, validations: n.validations.map((v) => (v.id === id ? { ...v, status: 'verified', vet: me(), answeredAt: `${today()}, ${nowTime()}` } : v)) });
+    writeNet({ ...n, validations: n.validations.map((v) => (v.id === id ? { ...v, status, reason: reason?.trim() || undefined, vet: me(), answeredAt: `${today()}, ${nowTime()}` } : v)) });
   },
   /** Ventes d'une commande, pour le suivi de l'acheteur. */
   salesOf: (ref: string): NetSale[] => readNet().sales.filter((x) => x.orderRef === ref),
@@ -1736,25 +2014,32 @@ export const store = {
   cartLines() {
     return state.cart.items.flatMap((it) => {
       const l = findListing(it.listingId);
-      return l ? [{ listing: l, qty: it.qty, amount: store.priceFor(l) * it.qty }] : [];
+      const unit = it.agreedPrice ?? (l ? store.priceFor(l) : 0);
+      return l ? [{ listing: l, qty: it.qty, unitPrice: unit, amount: unit * it.qty }] : [];
     });
   },
-  addToCart(listingId: string, qty = 1) {
+  addToCart(listingId: string, qty = 1, agreedPrice?: number) {
     const l = findListing(listingId);
     if (!l) return;
-    const max = l.stock ?? 1;
+    const min = Math.max(1, l.sheet?.sale.minQty ?? 1);
+    const max = l.stock ?? Math.max(1, min);
     const has = state.cart.items.find((i) => i.listingId === listingId);
     const items = has
-      ? state.cart.items.map((i) => (i.listingId === listingId ? { ...i, qty: Math.min(max, i.qty + qty) } : i))
-      : [...state.cart.items, { listingId, qty: Math.min(max, qty) }];
+      ? state.cart.items.map((i) => (i.listingId === listingId ? { ...i, qty: Math.min(max, Math.max(min, i.qty + qty)), agreedPrice: agreedPrice ?? i.agreedPrice } : i))
+      : [...state.cart.items, { listingId, qty: Math.min(max, Math.max(min, qty)), agreedPrice }];
     commit({ cart: { ...state.cart, items } });
   },
   setQty(listingId: string, qty: number) {
-    const max = findListing(listingId)?.stock ?? 1;
-    commit({ cart: { ...state.cart, items: state.cart.items.map((i) => (i.listingId === listingId ? { ...i, qty: Math.max(1, Math.min(max, qty)) } : i)) } });
+    const l = findListing(listingId);
+    const min = Math.max(1, l?.sheet?.sale.minQty ?? 1);
+    const max = l?.stock ?? Math.max(1, min);
+    commit({ cart: { ...state.cart, items: state.cart.items.map((i) => (i.listingId === listingId ? { ...i, qty: Math.max(min, Math.min(max, qty)) } : i)) } });
   },
   removeFromCart(listingId: string) {
     commit({ cart: { ...state.cart, items: state.cart.items.filter((i) => i.listingId !== listingId) } });
+  },
+  clearCart() {
+    commit({ cart: { ...state.cart, items: [] } });
   },
   /** Livraison du panier : charge, distance, véhicules possibles et véhicule retenu (le moins cher, ou celui choisi). */
   deliveryQuote(): DeliveryQuote {
@@ -1792,18 +2077,25 @@ export const store = {
     const lines = store.cartLines();
     const items = lines.reduce((n, l) => n + l.amount, 0);
     const shipping = state.cart.delivery && lines.length ? store.deliveryQuote().chosen?.price ?? 0 : 0;
-    return { items, shipping, total: items + shipping, count: lines.length, sellers: new Set(lines.map((l) => l.listing.seller)).size };
+    const total = items + shipping;
+    const isDeposit = state.cart.paymentMode === 'deposit' && total >= 10000;
+    const dueNow = isDeposit ? Math.max(500, Math.round((total * 0.2) / 500) * 500) : total;
+    const balanceDue = Math.max(0, total - dueNow);
+    return { items, shipping, total, dueNow, balanceDue, isDeposit, count: lines.length, sellers: new Set(lines.map((l) => l.listing.seller)).size };
   },
 
   /* Assistance */
   tickets: () => state.tickets,
   addTicket(t: Omit<Ticket, 'id' | 'date' | 'status'>): Ticket {
-    const num = Math.max(...state.tickets.map((x) => Number(x.id.slice(3)) || 0), 1092) + 1;
+    const num = Math.max(...state.tickets.map((x) => Number(x.id.slice(3)) || 0), 1100) + 1;
     const d = new Date();
     const ticket: Ticket = { ...t, id: `TK-${num}`, date: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`, status: 'open' };
     commit({ tickets: [ticket, ...state.tickets] });
     store.notify({ c: 'cmd', title: `Ticket ${ticket.id} ouvert`, text: `${ticket.motif}${ticket.order ? `, ${ticket.order}` : ''}. Première réponse sous ${ticket.urgent ? '1 h' : '4 h'}.`, to: '/assistance?onglet=reclamation' });
     return ticket;
+  },
+  closeTicket(id: string) {
+    commit({ tickets: state.tickets.map((t) => (t.id === id ? { ...t, status: 'closed' } : t)) });
   },
   chat: () => state.chat,
   addChat(text: string) {
@@ -1814,6 +2106,15 @@ export const store = {
   orders: () => state.orders,
   order: (ref: string) => state.orders.find((o) => o.ref === ref),
   lastOrder: () => state.orders[0],
+  cancelOrder(ref: string) {
+    commit({ orders: state.orders.map((o) => (o.ref === ref ? { ...o, cancelled: true } : o)) });
+    const n = readNet();
+    writeNet({
+      ...n,
+      missions: n.missions.filter((m) => m.orderRef !== ref),
+      sales: n.sales.filter((x) => x.orderRef !== ref),
+    });
+  },
   /** Paiement confirmé : la commande est créée et le panier vidé. */
   placeOrder(): Order {
     const t = store.cartTotals();
@@ -1832,8 +2133,12 @@ export const store = {
       vehicle: state.cart.delivery ? q.chosen?.vehicle.id : undefined,
       km: state.cart.delivery ? q.km : undefined,
       total: t.total,
+      paymentMode: t.isDeposit ? 'deposit' : 'full',
+      paidNow: t.dueNow,
+      balanceDue: t.balanceDue,
+      payPhone: state.cart.payPhone?.trim() || undefined,
       code: String(Math.floor(Math.random() * 9000) + 1000),
-      lines: store.cartLines().map(({ listing, qty }) => ({ listingId: listing.id, title: listing.title, seller: listing.seller, qty, price: store.priceFor(listing) })),
+      lines: store.cartLines().map(({ listing, qty, unitPrice }) => ({ listingId: listing.id, title: listing.title, seller: listing.seller, qty, price: unitPrice })),
     };
     /* Le stock baisse ; un animal ou un lot vendu passe en « vendu ». */
     const sold = (l: Listing): Listing => {

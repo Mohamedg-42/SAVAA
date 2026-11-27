@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fcfa, useStore, type NetSale } from '../data';
 import { showToast } from '../toast';
 import { DashHeader, Kpis, QuickActions, TodayCard } from '../dash';
-import { Badge, Icon, Photo, TabBar } from '../ui';
+import { Badge, Icon, Photo, PreviewModal, TabBar, type PreviewData } from '../ui';
 
 /* Tableau de bord du vendeur / commerçant (accueil de son espace). */
 
@@ -38,6 +39,7 @@ export function SalesList({ sales }: { sales: NetSale[] }) {
 
 export function VendorHome() {
   const s = useStore();
+  const [preview, setPreview] = useState<PreviewData | null>(null);
   const demo = !!s.session().demo;
   const shop = s.shop();
   const mine = s.myListings();
@@ -122,8 +124,20 @@ export function VendorHome() {
           <div className="sech"><h2>À traiter</h2></div>
           {demo ? (
             <div className="card list">
-              <div className="li"><Badge tone="red">Refusée</Badge><span className="small grow">Annonce « Tourteau de coton » : photo floue</span></div>
-              <Link className="li" to="/assistance"><Badge tone="amber">Message</Badge><span className="small grow">Un acheteur attend une réponse depuis 3 h</span><Icon name="chevron" size="sm" /></Link>
+              <button
+                type="button"
+                className="li"
+                onClick={() => setPreview({
+                  title: 'Annonce « Tourteau de coton »',
+                  subtitle: 'Motif de refus en modération',
+                  badge: ['Refusée', 'red'],
+                  images: ['images/tourteau-coton.jpg'],
+                  details: [['Motif', 'Photo floue ou illisible'], ['Action', 'Remplacez la photo principale depuis Vendre puis soumettez à nouveau']],
+                })}
+              >
+                <Badge tone="red">Refusée</Badge><span className="small grow">Annonce « Tourteau de coton » : photo floue</span><Icon name="chevron" size="sm" />
+              </button>
+              <Link className="li" to="/messages"><Badge tone="amber">Message</Badge><span className="small grow">Un acheteur attend une réponse depuis 3 h</span><Icon name="chevron" size="sm" /></Link>
             </div>
           ) : review.length + out.length + lowStock.length === 0 ? (
             <div className="card pad"><span className="small muted">Rien à traiter pour l’instant.</span></div>
@@ -137,12 +151,13 @@ export function VendorHome() {
         </div>
 
         <QuickActions items={[
-          { label: 'Publier', icon: 'plus', to: '/vendre' },
-          { label: 'Mettre en avant', icon: 'megaphone', to: '/campagne' },
-          { label: 'Messages', icon: 'chat', to: '/assistance' },
-          { label: 'Statistiques', icon: 'scale', to: '/campagne/stats' },
+          { label: 'Publier', relief: 'publier', to: '/vendre' },
+          { label: 'Mettre en avant', relief: 'promo', to: '/campagne' },
+          { label: 'Messages', relief: 'messages', to: '/messages' },
+          { label: 'Statistiques', relief: 'stats', to: '/campagne/stats' },
         ]} />
       </div>
+      <PreviewModal data={preview} onClose={() => setPreview(null)} />
       <TabBar />
     </div>
   );

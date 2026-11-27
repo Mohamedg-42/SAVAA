@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { DAYS, FREQ, fcfa, frDate, useStore, type NetQuote, type NetRecurring } from '../data';
 import { downloadCSV } from '../device';
 import { showToast } from '../toast';
-import { Badge, Header, Icon, TabBar } from '../ui';
+import { Badge, Header, Icon, PreviewModal, TabBar, type PreviewData } from '../ui';
 
 /*
   Devis entre acheteurs et fournisseurs (réseau de l'appareil).
@@ -180,6 +180,7 @@ export function ClientRecurring() {
 /** Factures reçues des fournisseurs, à régler (paiement simulé). */
 export function ClientInvoices() {
   const s = useStore();
+  const [preview, setPreview] = useState<PreviewData | null>(null);
   const list = s.net().invoices.filter((x) => x.client.phone === s.session().phone);
   if (!list.length) return null;
   const due = list.filter((x) => x.status === 'due').reduce((t, x) => t + x.amount, 0);
@@ -193,11 +194,30 @@ export function ClientInvoices() {
       <div className="card list">
         {list.map((x) => (
           <div className="li" key={x.id} style={{ alignItems: 'flex-start' }}>
-            <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
+            <button
+              type="button"
+              className="col grow plain"
+              style={{ gap: 2, minWidth: 0 }}
+              onClick={() => setPreview({
+                title: `Facture ${x.ref}`,
+                subtitle: x.supplier.org || x.supplier.name,
+                badge: [x.status === 'paid' ? 'Payée' : 'À régler', x.status === 'paid' ? 'green' : 'amber'],
+                details: [
+                  ['Référence', x.ref],
+                  ['Fournisseur', x.supplier.org || x.supplier.name],
+                  ['Objet', x.label],
+                  ['Montant', `${fcfa(x.amount)} FCFA`],
+                  ['Émise le', x.date],
+                  ['Échéance', x.due],
+                  ['Statut', x.status === 'paid' ? `Payée le ${x.paidAt}` : 'À régler'],
+                ],
+                printable: true,
+              })}
+            >
               <span className="small b num">{x.ref}</span>
               <span className="xs muted">{x.supplier.org || x.supplier.name}, {x.label}</span>
               <span className="xs muted num">{fcfa(x.amount)} FCFA, {x.status === 'paid' ? `payée le ${x.paidAt}` : `à régler avant le ${x.due}`}</span>
-            </div>
+            </button>
             {x.status === 'paid' ? <Badge tone="green">Payée</Badge> : (
               <button className="btn btn-p btn-sm" style={{ flex: 'none' }} onClick={() => { s.payInvoice(x.id); showToast(`Facture ${x.ref} réglée (paiement simulé).`); }}>Payer</button>
             )}
@@ -205,6 +225,7 @@ export function ClientInvoices() {
         ))}
       </div>
       <span className="xs muted">Paiement simulé : aucun argent n’est débité dans cette démonstration.</span>
+      <PreviewModal data={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

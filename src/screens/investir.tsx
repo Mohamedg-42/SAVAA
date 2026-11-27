@@ -7,6 +7,8 @@ import {
   type Data, type Dossier, type IField, type InvestorType, type Val,
 } from '../invest';
 import { KEYS, LOCAL_ID, PROPOSAL_STATUS, SEED_PROJECTS, type Project, type Proposal, type ProposalStatus } from '../invest-admin';
+import { ReliefIcon } from '../relief';
+import type { ReliefName } from '../relief-icons';
 import { clearToast, showToast } from '../toast';
 import { Badge, Check, Foot, Header, Icon, NotFound, Photo, PhotoAdd, TabBar } from '../ui';
 
@@ -108,13 +110,13 @@ export function InvestHome() {
           <div className="sech"><h2>Mon espace</h2></div>
           <div className="card list">
             {([
-              ['Mon dossier d’investissement', dossier.type ? (dossier.type === 'entreprise' ? 'Personne morale' : 'Personne physique') : 'À constituer', '/investir/dossier', 'file'],
-              ['Mes propositions de projets', proposals.length ? `${proposals.length} reçue${proposals.length > 1 ? 's' : ''}` : 'Après validation du dossier', '/investir/propositions', 'flag'],
-              ['Assistance', 'Une question sur votre dossier', '/assistance', 'chat'],
-              ['Mon compte et paramètres', 'Profil, photo, préférences', '/compte', 'user'],
-            ] as const).map(([t, d, to, icon]) => (
+              ['Mon dossier d’investissement', dossier.type ? (dossier.type === 'entreprise' ? 'Personne morale' : 'Personne physique') : 'À constituer', '/investir/dossier', 'fiche'],
+              ['Mes propositions de projets', proposals.length ? `${proposals.length} reçue${proposals.length > 1 ? 's' : ''}` : 'Après validation du dossier', '/investir/propositions', 'mobile-money'],
+              ['Assistance', 'Une question sur votre dossier', '/assistance', 'messages'],
+              ['Mon compte et paramètres', 'Profil, photo, préférences', '/compte', 'certifie'],
+            ] as [string, string, string, ReliefName][]).map(([t, d, to, ic]) => (
               <Link key={t} className="li" to={to}>
-                <Icon name={icon} style={{ color: '#145C3A' }} />
+                <ReliefIcon name={ic} size={28} shadow={false} />
                 <div className="col grow" style={{ minWidth: 0 }}><span className="small b">{t}</span><span className="xs muted ell">{d}</span></div>
                 <Icon name="chevron" size="sm" />
               </Link>

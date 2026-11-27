@@ -4,7 +4,7 @@ import { nowTime, PROOF, today, useStore, type Animal, type EventKind, type Heal
 import { printPage, share } from '../device';
 import { showToast } from '../toast';
 import { animalMeasure, animalOrigin, animalPurpose, animalStatus, animalUrl, ficheUrl, sheetOf } from '../trace';
-import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, Section } from '../ui';
+import { Badge, Foot, Header, Icon, NotFound, Photo, PhotoAdd, PreviewModal, Section, useOnline, type PreviewData } from '../ui';
 import { QrDialog, TraceTimeline } from './fiche';
 
 /* Seul le taurillon FK-0142 a une fiche complète dans la maquette (race, ascendance, mouvements…). */
@@ -49,6 +49,7 @@ const ANIMAL_PHOTO_LABELS = ['Profil', 'Trois-quarts', 'En parc', 'Boucle offici
 
 function AnimalSheetInner({ a }: { a: Animal }) {
   const s = useStore();
+  const navigate = useNavigate();
   const full = a.id === DEMO_ID;
   const recent = s.eventsFor(a.id).filter((e) => e.summary !== false).slice(0, 4);
   /* Seul le propriétaire (éleveur) saisit des observations ; les acheteurs consultent. */
@@ -57,8 +58,35 @@ function AnimalSheetInner({ a }: { a: Animal }) {
   const tabs = ['Identité', 'Santé', 'Ascendance', 'Mouvements', 'Historique'];
   const gallery = a.photos?.length ? a.photos : a.photo ? [a.photo] : ['images/taurillon-goudali.jpg'];
   const [photoIdx, setPhotoIdx] = useState(0);
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const [docPreview, setDocPreview] = useState<PreviewData | null>(null);
   const activePhoto = gallery[photoIdx] ?? gallery[0];
   const [qr, setQr] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState(a.name);
+  const [editDetails, setEditDetails] = useState(a.details);
+  const [editOfficial, setEditOfficial] = useState(a.officialId ?? '');
+  const [editWeight, setEditWeight] = useState(() => {
+    const w = animalMeasure(a)?.weight;
+    return w ? String(w) : '';
+  });
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  const saveAnimal = () => {
+    if (!editName.trim()) {
+      showToast('Indiquez le nom de l’animal.');
+      return;
+    }
+    const w = Number(editWeight.replace(/\D/g, ''));
+    s.updateAnimal(a.id, {
+      name: editName.trim(),
+      details: editDetails.trim() || a.details,
+      officialId: editOfficial.trim() || undefined,
+      measure: w > 0 ? { ...(a.measure ?? {}), weight: w, weighedOn: today() } : a.measure,
+    });
+    setEditOpen(false);
+    showToast(`Fiche ${a.id} mise à jour.`);
+  };
   /* Vérification de la fiche demandée aux vétérinaires (réseau de l'appareil). */
   const check = owner ? s.validationOf(a.id) : undefined;
 
@@ -85,7 +113,9 @@ function AnimalSheetInner({ a }: { a: Animal }) {
       <div className="body flush">
         <div style={{ background: '#fff', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="row top" style={{ gap: 14 }}>
-            <Photo label="Photo" w={96} h={96} radius={8} src={activePhoto} />
+            <button type="button" className="plain" style={{ flex: 'none', cursor: 'zoom-in' }} aria-label="Agrandir la photo" onClick={() => setZoomOpen(true)}>
+              <Photo label="Photo" w={96} h={96} radius={8} src={activePhoto} />
+            </button>
             <div className="col grow" style={{ gap: 3 }}>
               <span className="small muted num">{a.id}, n° interne</span>
               <span className="b" style={{ fontSize: 17, lineHeight: 1.25 }}>{a.name}</span>
@@ -94,9 +124,57 @@ function AnimalSheetInner({ a }: { a: Animal }) {
                 <Badge tone={a.tone}>{a.status}</Badge>
                 {full && <Link className="badge bd-grey" to={`/annonce/${a.id}`}>Voir l’annonce</Link>}
                 <button className="badge bd-grey" style={{ border: 0, cursor: 'pointer', font: 'inherit' }} onClick={() => setQr(true)}>QR code</button>
+                {owner && (
+                  <button className="badge bd-blue" style={{ border: 0, cursor: 'pointer', font: 'inherit' }} onClick={() => setEditOpen((v) => !v)}>
+                    {editOpen ? 'Fermer' : 'Modifier'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
+
+          {owner && editOpen && (
+            <div className="card pad col" style={{ gap: 8, background: '#F8FAF8' }}>
+              <span className="small b">Modifier {a.id}</span>
+              <div className="grid2" style={{ gap: 8 }}>
+                <div className="field">
+                  <label className="xs muted" htmlFor="an-name">Nom / race</label>
+                  <input id="an-name" className="input" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="xs muted" htmlFor="an-weight">Poids (kg)</label>
+                  <input id="an-weight" className="input num" inputMode="numeric" placeholder="Ex. 320" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid2" style={{ gap: 8 }}>
+                <div className="field">
+                  <label className="xs muted" htmlFor="an-det">Détails (sexe, âge)</label>
+                  <input id="an-det" className="input" value={editDetails} onChange={(e) => setEditDetails(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="xs muted" htmlFor="an-oid">Identifiant officiel</label>
+                  <input id="an-oid" className="input num" placeholder="CI-BOV-…" value={editOfficial} onChange={(e) => setEditOfficial(e.target.value)} />
+                </div>
+              </div>
+              <div className="row between" style={{ gap: 8, flexWrap: 'wrap' }}>
+                {!confirmDel ? (
+                  <button className="plain xs" style={{ color: '#A0221A', cursor: 'pointer' }} onClick={() => setConfirmDel(true)}>Supprimer du cheptel</button>
+                ) : (
+                  <button
+                    className="btn btn-danger btn-sm"
+                    style={{ flex: 'none' }}
+                    onClick={() => { s.removeAnimal(a.id); showToast(`${a.id} retiré du cheptel.`); navigate('/cheptel', { replace: true }); }}
+                  >
+                    Confirmer la suppression
+                  </button>
+                )}
+                <div className="row" style={{ gap: 6 }}>
+                  <button className="btn btn-ghost btn-sm" style={{ flex: 'none' }} onClick={() => { setEditOpen(false); setConfirmDel(false); }}>Annuler</button>
+                  <button className="btn btn-p btn-sm" style={{ flex: 'none' }} onClick={saveAnimal}>Enregistrer</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {gallery.length > 1 && (
             <div className="col" style={{ gap: 6 }}>
@@ -174,7 +252,16 @@ function AnimalSheetInner({ a }: { a: Animal }) {
           )}
           {tab === 0 && !full && !!a.docs?.length && (
             <div className="card list">
-              {a.docs.map((d) => <div className="li" key={d}><Icon name="file" /><span className="grow small b ell">{d}</span><Badge>Déclaré</Badge></div>)}
+              {a.docs.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className="li"
+                  onClick={() => setDocPreview({ title: d, subtitle: `${a.id}, ${a.name}`, badge: ['Déclaré', 'grey'], details: [['Document', d], ['Animal', `${a.id}, ${a.name}`]], printable: true })}
+                >
+                  <Icon name="file" /><span className="grow small b ell">{d}</span><Badge>Déclaré</Badge>
+                </button>
+              ))}
             </div>
           )}
           {tab === 0 && full && (
@@ -184,7 +271,7 @@ function AnimalSheetInner({ a }: { a: Animal }) {
                   <dt>Espèce / race</dt><dd>Bovin, Zébu Goudali</dd>
                   <dt>Robe</dt><dd>Blanc pie, cornes en lyre</dd>
                   <dt>Signes</dt><dd>Cicatrice flanc droit</dd>
-                  <dt>Poids</dt><dd className="num">312 kg, pesé le 04/11/2026 <Badge tone="blue">Documenté</Badge></dd>
+                  <dt>Poids</dt><dd className="num">{a.measure?.weight ?? 312} kg, pesé le {a.measure?.weighedOn ?? '04/11/2026'} <Badge tone="blue">{a.measure?.weight ? 'Déclaré' : 'Documenté'}</Badge></dd>
                   <dt>Exploitation</dt><dd>Ferme Koné &amp; Fils, Sinématiali</dd>
                   <dt>Détenteur</dt><dd>Adama Koné</dd>
                   <dt>Élevage</dt><dd>Semi-intensif, pâturage + complément</dd>
@@ -310,6 +397,10 @@ function AnimalSheetInner({ a }: { a: Animal }) {
           <p className="xs muted" style={{ lineHeight: 1.45 }}>Mise à jour le 14/11/2026. Ne remplace pas un certificat sanitaire officiel.</p>
         </div>
       </div>
+      <PreviewModal
+        data={docPreview ?? (zoomOpen ? { title: `${a.id}, ${a.name}`, subtitle: ANIMAL_PHOTO_LABELS[photoIdx] ?? `Photo ${photoIdx + 1}`, images: gallery, startIndex: photoIdx } : null)}
+        onClose={() => { setZoomOpen(false); setDocPreview(null); }}
+      />
       {qr && <QrDialog code={sheet?.code ?? a.id} title={a.name} url={sheet ? ficheUrl(sheet.code) : animalUrl(a.id)} onClose={() => setQr(false)} />}
       <Foot>
         {owner && <Link className="btn btn-s" to={`/animal/${a.id}/observation`}>Observation</Link>}
@@ -327,9 +418,51 @@ export function HealthRecord() {
 function HealthRecordInner({ a }: { a: Animal }) {
   const s = useStore();
   const [filter, setFilter] = useState<EventKind | 'all'>('all');
+  const [careOpen, setCareOpen] = useState(false);
+  const [careKind, setCareKind] = useState<'vac' | 'trt' | 'pesee'>('vac');
+  const [careTitle, setCareTitle] = useState('');
+  const [careText, setCareText] = useState('');
+  const [careWeight, setCareWeight] = useState('');
+  const [preview, setPreview] = useState<PreviewData | null>(null);
   const all = s.eventsFor(a.id);
   const events = all.filter((e) => filter === 'all' || e.kind === filter);
   const F: [EventKind | 'all', string][] = [['all', 'Tout'], ['obs', 'Observ.'], ['trt', 'Traitem.'], ['vac', 'Vaccins']];
+
+  const saveCare = () => {
+    if (careKind === 'pesee') {
+      const w = Number(careWeight.replace(/\D/g, ''));
+      if (!w || w < 1) {
+        showToast('Indiquez un poids valide en kg.');
+        return;
+      }
+      s.updateAnimal(a.id, { measure: { ...(a.measure ?? {}), weight: w, weighedOn: today() } });
+      s.addEvent({
+        animalId: a.id,
+        kind: 'trt',
+        date: today(),
+        title: `Pesée : ${w} kg`,
+        text: careText.trim() || `Nouvelle pesée enregistrée (${w} kg).`,
+        proof: 'declared',
+      });
+      setCareWeight(''); setCareText(''); setCareOpen(false);
+      showToast(`Pesée de ${w} kg enregistrée.`);
+      return;
+    }
+    if (!careTitle.trim()) {
+      showToast('Indiquez le nom du vaccin ou traitement.');
+      return;
+    }
+    s.addEvent({
+      animalId: a.id,
+      kind: careKind,
+      date: today(),
+      title: careTitle.trim(),
+      text: careText.trim() || (careKind === 'vac' ? 'Vaccination enregistrée par l’éleveur.' : 'Traitement enregistré par l’éleveur.'),
+      proof: 'declared',
+    });
+    setCareTitle(''); setCareText(''); setCareOpen(false);
+    showToast(careKind === 'vac' ? 'Vaccin enregistré.' : 'Traitement enregistré.');
+  };
 
   return (
     <div className="app">
@@ -340,10 +473,39 @@ function HealthRecordInner({ a }: { a: Animal }) {
         </div>
       </div>
       <div className="body">
+        {careOpen && a.mine && s.isBreeder() && (
+          <div className="card pad col" style={{ gap: 10, background: '#F8FAF8', borderColor: '#CFE0D4' }}>
+            <div className="row between">
+              <span className="small b">Enregistrer un soin ou une pesée</span>
+              <button className="plain xs muted" onClick={() => setCareOpen(false)}>Fermer</button>
+            </div>
+            <div className="seg">
+              <button className={careKind === 'vac' ? 'on' : ''} onClick={() => setCareKind('vac')}>Vaccin</button>
+              <button className={careKind === 'trt' ? 'on' : ''} onClick={() => setCareKind('trt')}>Traitement</button>
+              <button className={careKind === 'pesee' ? 'on' : ''} onClick={() => setCareKind('pesee')}>Pesée</button>
+            </div>
+            {careKind === 'pesee' ? (
+              <div className="field">
+                <label className="xs muted" htmlFor="care-w">Poids mesuré (kg)</label>
+                <input id="care-w" className="input num" inputMode="numeric" placeholder="Ex. 325" value={careWeight} onChange={(e) => setCareWeight(e.target.value)} />
+              </div>
+            ) : (
+              <div className="field">
+                <label className="xs muted" htmlFor="care-t">{careKind === 'vac' ? 'Vaccin administré' : 'Traitement / vermifuge'}</label>
+                <input id="care-t" className="input" placeholder={careKind === 'vac' ? 'Ex. Vaccination PPCB' : 'Ex. Vermifuge Ivermectine'} value={careTitle} onChange={(e) => setCareTitle(e.target.value)} />
+              </div>
+            )}
+            <div className="field">
+              <label className="xs muted" htmlFor="care-n">Notes (optionnel)</label>
+              <input id="care-n" className="input" placeholder="Lot, dose, vétérinaire…" value={careText} onChange={(e) => setCareText(e.target.value)} />
+            </div>
+            <button className="btn btn-p btn-sm" onClick={saveCare}>Enregistrer au dossier</button>
+          </div>
+        )}
         <div className="grid3">
-          <div className="card stat" style={{ padding: 12 }}><span className="v">{all.filter((e) => e.kind === 'vac').length}</span><span className="l">Vaccins</span></div>
-          <div className="card stat" style={{ padding: 12 }}><span className="v">{all.filter((e) => e.kind === 'trt').length}</span><span className="l">Traitements</span></div>
-          <div className="card stat" style={{ padding: 12 }}><span className="v">{all.filter((e) => e.pending).length}</span><span className="l">En attente d’envoi</span></div>
+          <button type="button" className="card stat" style={{ padding: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }} onClick={() => setFilter(filter === 'vac' ? 'all' : 'vac')}><span className="v">{all.filter((e) => e.kind === 'vac').length}</span><span className="l">Vaccins</span></button>
+          <button type="button" className="card stat" style={{ padding: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }} onClick={() => setFilter(filter === 'trt' ? 'all' : 'trt')}><span className="v">{all.filter((e) => e.kind === 'trt').length}</span><span className="l">Traitements</span></button>
+          <button type="button" className="card stat" style={{ padding: 12, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }} onClick={() => setFilter(filter === 'obs' ? 'all' : 'obs')}><span className="v">{all.filter((e) => e.pending).length}</span><span className="l">En attente d’envoi</span></button>
         </div>
         {a.id === DEMO_ID && (
           <div className="notice n-grey">
@@ -364,10 +526,30 @@ function HealthRecordInner({ a }: { a: Animal }) {
                   </span>
                   <span className="b small">{e.title}</span>
                   <span className="small muted" style={{ lineHeight: 1.45 }}>{e.text}</span>
-                  {e.file && <span className="row xs" style={{ gap: 6, color: '#145C3A', fontWeight: 600 }}><Icon name="file" size="sm" />{e.file}</span>}
+                  {e.file && (
+                    <button
+                      type="button"
+                      className="row xs plain"
+                      style={{ gap: 6, color: '#145C3A', fontWeight: 600, cursor: 'pointer' }}
+                      onClick={() => setPreview({
+                        title: e.file ?? 'Justificatif sanitaire',
+                        subtitle: `${a.id}, ${a.name}`,
+                        badge: [PROOF[e.proof].label, PROOF[e.proof].tone],
+                        details: [['Événement', e.title], ['Date', e.date], ['Fichier', e.file ?? '—']],
+                        note: e.text,
+                        printable: true,
+                      })}
+                    >
+                      <Icon name="file" size="sm" />{e.file}
+                    </button>
+                  )}
                   {!!e.photos?.length && (
                     <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-                      {e.photos.map((p, i) => <Photo key={i} src={p} label={`Photo ${i + 1}`} w={64} h={64} radius={6} />)}
+                      {e.photos.map((p, i) => (
+                        <button key={i} type="button" className="plain" style={{ cursor: 'zoom-in' }} onClick={() => setPreview({ title: e.title, subtitle: `${a.id}, ${e.date}`, images: e.photos, startIndex: i })}>
+                          <Photo src={p} label={`Photo ${i + 1}`} w={64} h={64} radius={6} />
+                        </button>
+                      ))}
                     </span>
                   )}
                 </TimelineItem>
@@ -376,7 +558,13 @@ function HealthRecordInner({ a }: { a: Animal }) {
           )}
         </div>
       </div>
-      {a.mine && s.isBreeder() && <Foot><Link className="btn btn-p" to={`/animal/${a.id}/observation`}>Ajouter une observation</Link></Foot>}
+      {a.mine && s.isBreeder() && (
+        <Foot>
+          <button className="btn btn-s" onClick={() => setCareOpen((v) => !v)}>{careOpen ? 'Fermer' : 'Soin / Pesée'}</button>
+          <Link className="btn btn-p" to={`/animal/${a.id}/observation`}>Observation</Link>
+        </Foot>
+      )}
+      <PreviewModal data={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }
@@ -403,6 +591,7 @@ export function Observation() {
 function ObservationInner({ a }: { a: Animal }) {
   const s = useStore();
   const navigate = useNavigate();
+  const online = useOnline();
   const [sel, setSel] = useState<string[]>([]);
   const [level, setLevel] = useState('Moyenne');
   const [text, setText] = useState('');
@@ -420,7 +609,7 @@ function ObservationInner({ a }: { a: Animal }) {
       title: `Observation : ${sel.length ? sel.join(', ').toLowerCase() : 'signe non précisé'}`,
       text: `${text.trim()} Urgence ${level.toLowerCase()}, relevée à ${time}.`,
       proof: 'declared',
-      pending: true,
+      pending: !online,
       photos,
     });
     setDone(true);
@@ -429,16 +618,18 @@ function ObservationInner({ a }: { a: Animal }) {
   return (
     <div className="app">
       <Header close title="Nouvelle observation" />
-      <div className="row small" style={{ background: '#FCF1DC', color: '#5E3904', padding: '8px 16px', flex: 'none' }}>
-        <Icon name="offline" size="sm" />
-        <span className="grow">Hors connexion. Envoi automatique au retour du réseau.</span>
-      </div>
+      {!online && (
+        <div className="row small" style={{ background: '#FCF1DC', color: '#5E3904', padding: '8px 16px', flex: 'none' }}>
+          <Icon name="offline" size="sm" />
+          <span className="grow">Hors connexion. Envoi automatique au retour du réseau.</span>
+        </div>
+      )}
       {!done ? (
         <>
           <div className="body" style={{ gap: 20 }}>
             <div className="card row" style={{ padding: '10px 12px' }}>
               <Photo w={44} h={44} radius={6} src={a.photo} />
-              <div className="col grow"><span className="b small ell">{a.id}, {a.name}</span><span className="xs muted">Ferme Koné &amp; Fils</span></div>
+              <div className="col grow"><span className="b small ell">{a.id}, {a.name}</span><span className="xs muted">{s.shop().created ? s.shop().name : s.session().pro?.['eleveur.ferme'] || s.session().name}</span></div>
             </div>
             <div className="field">
               <span className="lbl">Signes observés</span>
@@ -454,7 +645,6 @@ function ObservationInner({ a }: { a: Animal }) {
             <div className="field">
               <span className="lbl">Photo ou vidéo</span>
               <div className="grid3">
-                {photos.length === 0 && <Photo label="IMG_0412" h={84} radius={8} />}
                 {photos.map((p, i) => <Photo key={i} src={p} label={`Photo ${i + 1}`} h={84} radius={8} onRemove={() => setPhotos(photos.filter((_, j) => j !== i))} />)}
                 {photos.length < 5 && <PhotoAdd height={84} onAdd={(p) => setPhotos((x) => [...x, p])} />}
               </div>
@@ -487,7 +677,7 @@ function ObservationInner({ a }: { a: Animal }) {
             </dl>
           </div>
           <button className="btn btn-p btn-block" onClick={() => navigate(`/animal/${a.id}/sante`, { replace: true })}>Voir le dossier</button>
-          <button className="btn btn-ghost btn-block" onClick={() => { setDone(false); setSel([]); }}>Nouvelle observation</button>
+          <button className="btn btn-ghost btn-block" onClick={() => { setDone(false); setSel([]); setText(''); setPhotos([]); setLevel('Moyenne'); }}>Nouvelle observation</button>
         </div>
       )}
     </div>

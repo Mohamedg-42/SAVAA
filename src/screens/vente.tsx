@@ -5,8 +5,9 @@ import { CI_REGIONS, fcfa, priceLabel, today, useStore, type Listing, type Trace
 import { ACTORS, HANDOVER, HERD_SPECIES, TRACE_CATEGORIES, UNITS, newTraceCode, nowStamp, sheetOf, subsFor, traceCategory, unitPrice, unitQty } from '../trace';
 import { DashHeader, Kpis, TodayCard } from '../dash';
 import { downloadCSV } from '../device';
+import { ReliefIcon } from '../relief';
 import { clearToast, showToast } from '../toast';
-import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd, TabBar } from '../ui';
+import { Badge, Check, Foot, Header, Icon, Photo, PhotoAdd, PreviewModal, TabBar, type PreviewData } from '../ui';
 import { SalesList } from './tableaux';
 import { ClientInvoices, ClientRecurring, RecurringSetup } from './devis';
 
@@ -149,13 +150,79 @@ export function Shop() {
   const shop = s.shop();
   const mine = s.myListings();
   const [tab, setTab] = useState<ShopTab>('ads');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState('');
+  const [editProPrice, setEditProPrice] = useState('');
+  const [editStock, setEditStock] = useState('');
+  const [editStatus, setEditStatus] = useState<Listing['status']>('online');
+  const [editNego, setEditNego] = useState(false);
+  const [editShopOpen, setEditShopOpen] = useState(false);
+  const [shopName, setShopName] = useState(shop.name);
+  const [shopTown, setShopTown] = useState(shop.town);
+  const [shopDesc, setShopDesc] = useState(shop.desc);
+  const [shopLogo, setShopLogo] = useState(shop.logo ?? '');
+  const [adQuery, setAdQuery] = useState('');
+  const [adFilter, setAdFilter] = useState<'all' | Listing['status']>('all');
+  const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [preview, setPreview] = useState<PreviewData | null>(null);
+
+  const openEditShop = () => {
+    setShopName(shop.name);
+    setShopTown(shop.town);
+    setShopDesc(shop.desc);
+    setShopLogo(shop.logo ?? '');
+    setEditShopOpen(true);
+  };
+  const saveShop = () => {
+    if (!shopName.trim()) {
+      showToast('Indiquez le nom de la boutique.');
+      return;
+    }
+    s.setShop({ name: shopName.trim(), town: shopTown || shop.town, desc: shopDesc.trim(), logo: shopLogo || undefined });
+    setEditShopOpen(false);
+    showToast('Boutique mise à jour.');
+  };
+  const filteredMine = mine.filter((l) => {
+    if (adFilter !== 'all' && l.status !== adFilter) return false;
+    if (adQuery.trim() && !`${l.title} ${l.category} ${l.place}`.toLowerCase().includes(adQuery.trim().toLowerCase())) return false;
+    return true;
+  });
+
   const statCell: CSSProperties = { padding: 10, borderRight: '1px solid #E3E7E4', minWidth: 0 };
   const initials = shop.name.split(/\s+/).filter((w) => /^\p{L}/u.test(w)).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   /* Le compte de démonstration garde l'historique de la maquette ; un nouveau vendeur part de zéro. */
   const demo = !!s.session().demo;
-  const tabs: [ShopTab, string][] = [['ads', `Annonces (${(demo ? 4 : 0) + mine.length})`], ['orders', `Commandes (${(demo ? 3 : 0) + s.mySales().length})`], ['reviews', `Avis (${demo ? 23 : 0})`]];
-  const buyerView = demo ? '/annonce/FK-0142' : mine[0] ? `/annonce/${mine[0].id}` : null;
+  const shopReviews = s.reviewsFor(shop.name);
+  const avgRating = shopReviews.length ? (shopReviews.reduce((acc, r) => acc + r.rating, 0) / shopReviews.length).toFixed(1).replace('.', ',') : '–';
+  const tabs: [ShopTab, string][] = [['ads', `Annonces (${(demo ? 4 : 0) + mine.length})`], ['orders', `Commandes (${(demo ? 3 : 0) + s.mySales().length})`], ['reviews', `Avis (${shopReviews.length})`]];
+  const buyerView = `/boutique-publique/${encodeURIComponent(shop.name)}`;
   const empty = (t: string) => <div className="card pad"><span className="small muted">{t}</span></div>;
+
+  const startEdit = (l: Listing) => {
+    setEditingId(l.id);
+    setEditPrice(String(l.price));
+    setEditProPrice(l.proPrice ? String(l.proPrice) : '');
+    setEditStock(l.stock !== undefined ? String(l.stock) : '');
+    setEditStatus(l.status);
+    setEditNego(!!l.negotiable);
+  };
+
+  const saveEdit = (l: Listing) => {
+    const price = Number(editPrice.replace(/\D/g, ''));
+    if (!price || price < 100) {
+      showToast('Indiquez un prix valide en FCFA.');
+      return;
+    }
+    const proVal = Number(editProPrice.replace(/\D/g, ''));
+    const proPrice = proVal > 0 && proVal < price ? proVal : undefined;
+    const stockTrim = editStock.trim();
+    const stock = stockTrim === '' ? undefined : Math.max(0, Number(stockTrim.replace(/\D/g, '')) || 0);
+    const nextStatus: Listing['status'] = stock === 0 && editStatus === 'online' ? 'out' : editStatus;
+    s.updateListing(l.id, { price, proPrice, stock, negotiable: editNego, status: nextStatus });
+    setEditingId(null);
+    showToast(`« ${l.title} » mise à jour.`);
+  };
 
   return (
     <div className="app">
@@ -173,16 +240,50 @@ export function Shop() {
             </div>
           </div>
           <div className="grid4" style={{ gap: 0, border: '1px solid #E3E7E4', borderRadius: 10 }}>
-            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>{demo ? 41 : 0}</span><span className="l">ventes</span></div>
-            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>{demo ? '4,7' : '–'}</span><span className="l">{demo ? '23 avis' : 'aucun avis'}</span></div>
+            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>{demo ? 41 + s.mySales().length : s.mySales().length}</span><span className="l">ventes</span></div>
+            <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>{avgRating}</span><span className="l">{shopReviews.length ? `${shopReviews.length} avis` : 'aucun avis'}</span></div>
             <div className="stat" style={statCell}><span className="v" style={{ fontSize: 18 }}>{demo ? '2 h' : '–'}</span><span className="l">réponse</span></div>
             <div className="stat" style={{ ...statCell, borderRight: 0 }}><span className="v" style={{ fontSize: 18 }}>{demo ? '98 %' : '–'}</span><span className="l">livrées</span></div>
           </div>
           <div className="grid3" style={{ gap: 8 }}>
             <Link className="btn btn-s btn-sm" style={wrapBtn} to="/vendre">Publier</Link>
-            <Link className="btn btn-s btn-sm" style={wrapBtn} to="/campagne">Mettre en avant</Link>
-            <Link className="btn btn-s btn-sm" style={wrapBtn} to="/campagne/stats">Statistiques</Link>
+            <button className="btn btn-s btn-sm" style={wrapBtn} onClick={() => (editShopOpen ? setEditShopOpen(false) : openEditShop())}>{editShopOpen ? 'Fermer' : 'Modifier boutique'}</button>
+            <Link className="btn btn-s btn-sm" style={wrapBtn} to="/messages">Messages</Link>
           </div>
+          {editShopOpen && (
+            <div className="card pad col" style={{ gap: 10, background: '#F8FAF8' }}>
+              <span className="small b">Modifier ma boutique</span>
+              <div className="grid2" style={{ gap: 8 }}>
+                <div className="field">
+                  <label className="xs muted" htmlFor="es-name">Nom</label>
+                  <input id="es-name" className="input" value={shopName} onChange={(e) => setShopName(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="xs muted" htmlFor="es-town">Commune</label>
+                  <select id="es-town" className="input" value={shopTown} onChange={(e) => setShopTown(e.target.value)}>
+                    {CI_REGIONS.map((g) => (
+                      <optgroup key={g.region} label={g.region}>
+                        {g.towns.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="field">
+                <label className="xs muted" htmlFor="es-desc">Description</label>
+                <textarea id="es-desc" className="input" style={{ minHeight: 60 }} value={shopDesc} onChange={(e) => setShopDesc(e.target.value)} />
+              </div>
+              <div className="row between" style={{ gap: 8 }}>
+                <div style={{ width: 92 }}>
+                  <PhotoAdd height={44} label={shopLogo ? 'Changer logo' : 'Logo'} icon="camera" onAdd={(p) => setShopLogo(p)} />
+                </div>
+                <div className="row" style={{ gap: 6 }}>
+                  <button className="btn btn-ghost btn-sm" style={{ flex: 'none' }} onClick={() => setEditShopOpen(false)}>Annuler</button>
+                  <button className="btn btn-p btn-sm" style={{ flex: 'none' }} onClick={saveShop}>Enregistrer</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="utabs" role="tablist">
           {tabs.map(([id, t]) => (
@@ -193,28 +294,91 @@ export function Shop() {
           {tab === 'ads' && !demo && mine.length === 0 && empty('Aucune annonce pour l’instant. Touchez « Publier » pour mettre en vente.')}
           {tab === 'orders' && s.mySales().length > 0 && <SalesList sales={s.mySales()} />}
           {tab === 'orders' && !demo && !s.mySales().length && empty('Aucune commande reçue pour l’instant.')}
-          {tab === 'reviews' && !demo && empty('Aucun avis : ils arrivent après les premières ventes livrées.')}
+          {tab === 'reviews' && shopReviews.length === 0 && empty('Aucun avis : ils arrivent après les premières ventes livrées.')}
           {tab === 'ads' && (demo || mine.length > 0) && (
-            <div className="card list">
-              {mine.map((l) => {
+            <>
+              {mine.length > 0 && (
+                <div className="col" style={{ gap: 8 }}>
+                  <div className="search">
+                    <Icon name="search" size="sm" />
+                    <input className="plain grow" style={{ outline: 'none', minWidth: 0 }} aria-label="Rechercher dans mes annonces" placeholder="Rechercher dans mes annonces…" value={adQuery} onChange={(e) => setAdQuery(e.target.value)} />
+                    {adQuery && <button className="iconbtn" style={{ width: 28, height: 28 }} aria-label="Effacer" onClick={() => setAdQuery('')}><Icon name="close" size="sm" /></button>}
+                  </div>
+                  <div className="chips">
+                    {([['all', 'Toutes'], ['online', 'En ligne'], ['review', 'En revue'], ['out', 'Rupture'], ['sold', 'Vendues'], ['archived', 'Archivées']] as const).map(([k, lbl]) => (
+                      <button key={k} className={`chip${adFilter === k ? ' on' : ''}`} onClick={() => setAdFilter(k)}>{lbl}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="card list">
+              {filteredMine.map((l) => {
                 const [label, tone] = LISTING_BADGE[l.status];
+                const isEditing = editingId === l.id;
                 return (
-                  <div className="li" key={l.id}>
-                    <Link to={`/annonce/${l.id}`} className="row grow" style={{ gap: 12, minWidth: 0 }}>
-                      <Photo w={52} h={52} radius={6} src={l.photos?.[0]} />
-                      <div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">{l.title}</span><span className="xs muted num ell">{priceLabel(l)}, publiée le {l.date}</span></div>
-                    </Link>
-                    {l.status === 'review' ? (
-                      <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => { s.updateListing(l.id, { status: 'online' }); showToast('Annonce validée et mise en ligne.'); }} title="En démonstration, valide l’annonce comme le ferait l’équipe SAVAA">Valider</button>
-                    ) : (
-                      <span className="col" style={{ alignItems: 'flex-end', gap: 4, flex: 'none' }}>
-                        <Badge tone={tone}>{label}</Badge>
-                        {l.status === 'archived' ? (
-                          <button className="link plain xs" onClick={() => { s.updateListing(l.id, { status: 'review' }); showToast('Annonce renvoyée en relecture avant sa remise en vente.'); }}>Remettre en vente</button>
-                        ) : (
-                          <button className="link plain xs" style={{ color: '#5D6862' }} onClick={() => { s.updateListing(l.id, { status: 'archived' }); showToast(`« ${l.title} » archivée : elle n’est plus visible des acheteurs.`); }}>Archiver</button>
-                        )}
-                      </span>
+                  <div className="col" key={l.id} style={{ borderBottom: '1px solid #EDF0EE' }}>
+                    <div className="li" style={{ borderBottom: 0 }}>
+                      <Link to={`/annonce/${l.id}`} className="row grow" style={{ gap: 12, minWidth: 0 }}>
+                        <Photo w={52} h={52} radius={6} src={l.photos?.[0]} />
+                        <div className="col grow" style={{ minWidth: 0 }}>
+                          <span className="small b ell">{l.title}</span>
+                          <span className="xs muted num ell">
+                            {priceLabel(l)}{l.stock !== undefined ? `, stock ${l.stock}` : ''}, publiée le {l.date}
+                          </span>
+                        </div>
+                      </Link>
+                      {l.status === 'review' ? (
+                        <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => { s.updateListing(l.id, { status: 'online' }); showToast('Annonce validée et mise en ligne.'); }} title="En démonstration, valide l’annonce comme le ferait l’équipe SAVAA">Valider</button>
+                      ) : (
+                        <span className="col" style={{ alignItems: 'flex-end', gap: 4, flex: 'none' }}>
+                          <Badge tone={tone}>{label}</Badge>
+                          <span className="row" style={{ gap: 8 }}>
+                            <button className="link plain xs" onClick={() => (isEditing ? setEditingId(null) : startEdit(l))}>{isEditing ? 'Fermer' : 'Modifier'}</button>
+                            {l.status === 'archived' ? (
+                              <button className="link plain xs" onClick={() => { s.updateListing(l.id, { status: 'review' }); showToast('Annonce renvoyée en relecture avant sa remise en vente.'); }}>Remettre</button>
+                            ) : (
+                              <button className="link plain xs" style={{ color: '#5D6862' }} onClick={() => { s.updateListing(l.id, { status: 'archived' }); showToast(`« ${l.title} » archivée : elle n’est plus visible des acheteurs.`); }}>Archiver</button>
+                            )}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                    {isEditing && (
+                      <div className="col" style={{ gap: 8, padding: '0 14px 12px', background: '#F8FAF8' }}>
+                        <div className="grid2" style={{ gap: 8 }}>
+                          <div className="field">
+                            <label className="xs muted" htmlFor={`ep-${l.id}`}>Prix (FCFA)</label>
+                            <input id={`ep-${l.id}`} className="input num" inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+                          </div>
+                          <div className="field">
+                            <label className="xs muted" htmlFor={`epp-${l.id}`}>Prix pro (optionnel)</label>
+                            <input id={`epp-${l.id}`} className="input num" inputMode="numeric" placeholder="Moins que le prix" value={editProPrice} onChange={(e) => setEditProPrice(e.target.value)} />
+                          </div>
+                          <div className="field">
+                            <label className="xs muted" htmlFor={`es-${l.id}`}>Stock disponible</label>
+                            <input id={`es-${l.id}`} className="input num" inputMode="numeric" placeholder="Vide = 1 lot" value={editStock} onChange={(e) => setEditStock(e.target.value)} />
+                          </div>
+                          <div className="field">
+                            <label className="xs muted" htmlFor={`est-${l.id}`}>Statut</label>
+                            <select id={`est-${l.id}`} className="input" value={editStatus} onChange={(e) => setEditStatus(e.target.value as Listing['status'])}>
+                              <option value="online">En ligne</option>
+                              <option value="out">Rupture de stock</option>
+                              <option value="sold">Vendu</option>
+                              <option value="archived">Archivée</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="row between" style={{ flexWrap: 'wrap', gap: 8 }}>
+                          <button type="button" className="row xs" style={{ gap: 6, background: 'none', border: 0, padding: 0, cursor: 'pointer' }} onClick={() => setEditNego(!editNego)}>
+                            <span className={`toggle${editNego ? ' on' : ''}`} />
+                            <span>Prix négociable</span>
+                          </button>
+                          <div className="row" style={{ gap: 6 }}>
+                            <button className="btn btn-ghost btn-sm" style={{ flex: 'none' }} onClick={() => setEditingId(null)}>Annuler</button>
+                            <button className="btn btn-p btn-sm" style={{ flex: 'none' }} onClick={() => saveEdit(l)}>Enregistrer</button>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
@@ -222,34 +386,100 @@ export function Shop() {
               {demo && <>
                 <Link className="li" to="/annonce/FK-0142">{thumb}<div className="col grow"><span className="small b ell">Taurillon Zébu Goudali</span><span className="xs muted num">650 000 FCFA, 214 vues, 9 contacts</span></div><Badge tone="blue">Vendu</Badge></Link>
                 <Link className="li" to="/campagne/stats"><Photo w={52} h={52} radius={6} src="images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b ell">Béliers Sahéliens, lot de 6</span><span className="xs muted num">117 500 / tête, stock 6</span></div><Badge tone="sp">Sponsorisé</Badge></Link>
-                <div className="li"><Photo w={52} h={52} radius={6} src="images/genisse-metisse.jpg" /><div className="col grow"><span className="small b ell">Génisse métisse, 19 mois</span><span className="xs muted num">480 000 FCFA, en modération</span></div><Badge tone="amber">En revue</Badge></div>
+                <Link className="li" to="/animal/FK-0091"><Photo w={52} h={52} radius={6} src="images/genisse-metisse.jpg" /><div className="col grow"><span className="small b ell">Génisse métisse, 19 mois</span><span className="xs muted num">480 000 FCFA, en modération</span></div><Badge tone="amber">En revue</Badge></Link>
                 <Link className="li" to="/annonce/L-FUMIER"><Photo w={52} h={52} radius={6} src="images/fumier-composte.jpg" /><div className="col grow"><span className="small b ell">Fumier composté, sac 40 kg</span><span className="xs muted num">2 000 FCFA, stock 0</span></div><Badge tone="red">Rupture</Badge></Link>
               </>}
-            </div>
+              {!demo && filteredMine.length === 0 && <div className="li"><span className="small muted">Aucune annonce ne correspond à ce filtre.</span></div>}
+              </div>
+            </>
           )}
           {tab === 'orders' && demo && (
             <div className="card list">
               <Link className="li" to="/commande"><Photo w={48} h={48} radius={6} src="images/taurillon-goudali.jpg" /><div className="col grow"><span className="small b">SAV-2026-11-004812</span><span className="xs muted">Fatou Ouattara, taurillon, 650 000 FCFA</span></div><Badge tone="blue">En livraison</Badge></Link>
-              <div className="li"><Photo w={48} h={48} radius={6} src="images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b">SAV-2026-11-004655</span><span className="xs muted">Maquis Le Carrefour, 2 béliers</span></div><Badge tone="amber">À préparer</Badge></div>
-              <div className="li"><Photo w={48} h={48} radius={6} src="images/taureau-reproducteur.jpg" /><div className="col grow"><span className="small b">SAV-2026-10-003910</span><span className="xs muted">Boucherie Fofana, 1 bœuf</span></div><Badge tone="green">Livrée</Badge></div>
+              <button
+                type="button"
+                className="li"
+                onClick={() => setPreview({
+                  title: 'Commande SAV-2026-11-004655',
+                  subtitle: 'Maquis Le Carrefour',
+                  badge: ['À préparer', 'amber'],
+                  images: ['images/beliers-saheliens.jpg'],
+                  details: [['Client', 'Maquis Le Carrefour'], ['Articles', '2 béliers Sahéliens'], ['Montant', '235 000 FCFA'], ['Statut', 'À préparer pour enlèvement']],
+                })}
+              >
+                <Photo w={48} h={48} radius={6} src="images/beliers-saheliens.jpg" /><div className="col grow"><span className="small b">SAV-2026-11-004655</span><span className="xs muted">Maquis Le Carrefour, 2 béliers</span></div><Badge tone="amber">À préparer</Badge>
+              </button>
+              <button
+                type="button"
+                className="li"
+                onClick={() => setPreview({
+                  title: 'Commande SAV-2026-10-003910',
+                  subtitle: 'Boucherie Fofana',
+                  badge: ['Livrée', 'green'],
+                  images: ['images/taureau-reproducteur.jpg'],
+                  details: [['Client', 'Boucherie Fofana'], ['Articles', '1 bœuf Goudali'], ['Montant', '520 000 FCFA'], ['Statut', 'Livrée et fonds libérés']],
+                  printable: true,
+                })}
+              >
+                <Photo w={48} h={48} radius={6} src="images/taureau-reproducteur.jpg" /><div className="col grow"><span className="small b">SAV-2026-10-003910</span><span className="xs muted">Boucherie Fofana, 1 bœuf</span></div><Badge tone="green">Livrée</Badge>
+              </button>
             </div>
           )}
-          {tab === 'reviews' && demo && (
+          {tab === 'reviews' && shopReviews.length > 0 && (
             <>
-              <div className="card pad col" style={{ gap: 6 }}>
-                <span className="row between"><span className="small b">Boucherie Fofana</span><span className="small num">5 / 5</span></span>
-                <span className="small muted">Bœuf conforme à la fiche, poids annoncé exact. Livraison à l’heure.</span>
-                <span className="xs muted">Achat vérifié, 28/10/2026</span>
-              </div>
-              <div className="card pad col" style={{ gap: 6 }}>
-                <span className="row between"><span className="small b">Kouassi A.</span><span className="small num">4 / 5</span></span>
-                <span className="small muted">Bon bélier, un jour de retard sur la livraison.</span>
-                <span className="xs muted">Achat vérifié, 14/10/2026</span>
-              </div>
+              {shopReviews.map((r) => (
+                <div key={r.id} className="card pad col" style={{ gap: 6 }}>
+                  <span className="row between"><span className="small b">{r.author}</span><span className="small b num" style={{ color: '#145C3A' }}>{r.rating} / 5</span></span>
+                  <span className="small muted">{r.comment}</span>
+                  <div className="row between">
+                    <span className="xs muted">{r.verified ? 'Achat vérifié, ' : ''}{r.date}</span>
+                    {!r.reply && (
+                      <button
+                        className="link plain xs"
+                        onClick={() => {
+                          if (replyOpenId === r.id) { setReplyOpenId(null); } else { setReplyOpenId(r.id); setReplyDraft(''); }
+                        }}
+                      >
+                        {replyOpenId === r.id ? 'Fermer' : 'Répondre'}
+                      </button>
+                    )}
+                  </div>
+                  {r.reply && (
+                    <div style={{ marginTop: 2, padding: '8px 10px', borderRadius: 8, background: '#F3F9F4', borderLeft: '3px solid #145C3A' }}>
+                      <span className="xs b" style={{ color: '#145C3A', display: 'block' }}>Votre réponse{r.replyDate ? `, ${r.replyDate}` : ''}</span>
+                      <span className="xs muted">{r.reply}</span>
+                    </div>
+                  )}
+                  {replyOpenId === r.id && (
+                    <div className="row" style={{ gap: 6, marginTop: 4 }}>
+                      <input
+                        className="input grow"
+                        placeholder="Votre réponse publique…"
+                        value={replyDraft}
+                        onChange={(e) => setReplyDraft(e.target.value)}
+                      />
+                      <button
+                        className="btn btn-p btn-sm"
+                        style={{ flex: 'none' }}
+                        disabled={!replyDraft.trim()}
+                        onClick={() => {
+                          s.replyReview(r.id, replyDraft);
+                          setReplyOpenId(null);
+                          setReplyDraft('');
+                          showToast('Réponse publiée.');
+                        }}
+                      >
+                        Publier
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </>
           )}
         </div>
       </div>
+      <PreviewModal data={preview} onClose={() => setPreview(null)} />
       <TabBar />
     </div>
   );
@@ -866,7 +1096,7 @@ export function Campaign() {
       <div className="app">
         <Header back title="Mettre en avant" />
         <div className="body" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 12, padding: 32 }}>
-          <Icon name="megaphone" style={{ width: 52, height: 52, color: '#5D6862', strokeWidth: 1.4 }} />
+          <ReliefIcon name="promo" size={60} />
           <h2 style={{ fontSize: 19, fontWeight: 600 }}>Aucune annonce en ligne</h2>
           <p className="small muted" style={{ lineHeight: 1.5 }}>Une annonce doit être validée et en ligne avant d’être mise en avant.</p>
           <Link className="btn btn-p btn-block" to="/vendre">Publier une annonce</Link>
@@ -1160,11 +1390,15 @@ function RestoOverview({ req }: { req: RestoRequest | null }) {
 
 export function Restaurant() {
   const s = useStore();
+  const navigate = useNavigate();
   const demo = !!s.session().demo;
-  const [sel, setSel] = useState(1);
+  const [sel, setSel] = useState(0);
   const [ordered, setOrdered] = useState<string | null>(null);
   const [manage, setManage] = useState(false);
   const [paused, setPaused] = useState<Record<number, boolean>>({});
+  const [searchQ, setSearchQ] = useState('');
+  const [offerSort, setOfferSort] = useState<'price' | 'verified'>('price');
+  const [invPreview, setInvPreview] = useState<PreviewData | null>(null);
   /* Un nouveau restaurant saisit sa propre demande ; le compte de démonstration garde celle de la maquette. */
   const saved = s.get<RestoRequest | null>('resto.request', null);
   const req: RestoRequest | null = demo ? { product: 'Poulets de chair prêts à cuire', kg: WEEKLY_KG, place: 'Abidjan-Plateau' } : saved;
@@ -1173,9 +1407,10 @@ export function Restaurant() {
   const [place, setPlace] = useState('');
   /* Offres : celles de la maquette pour la démo ; sinon les réponses des fournisseurs à la demande envoyée. */
   const quote = !demo && req?.quoteId ? s.net().quotes.find((q) => q.id === req.quoteId) : undefined;
-  const offers = demo ? OFFERS.map((o) => ({ ...o, id: o.n })) : (quote?.offers ?? []).map((o) => ({
+  const rawOffers = demo ? OFFERS.map((o) => ({ ...o, id: o.n })) : (quote?.offers ?? []).map((o) => ({
     id: o.id, n: o.supplier.org || o.supplier.name, kg: o.price, d: `Délai : ${o.delay}. Contact +225 ${o.supplier.phone}`, v: 'Fournisseur', verified: false, note: `Reçue le ${o.date}`, photo: 'images/aliment-betail.jpg',
   }));
+  const offers = [...rawOffers].sort((a, b) => (offerSort === 'verified' ? (b.verified ? 1 : 0) - (a.verified ? 1 : 0) || a.kg - b.kg : a.kg - b.kg));
   const chosen = offers[Math.min(sel, offers.length - 1)] ?? offers[0];
   /* Hors démo, « Commander » retient l'offre : le fournisseur la voit et émet ses factures. */
   const kept = quote?.accepted ? offers.find((o) => o.id === quote.accepted) : undefined;
@@ -1183,7 +1418,7 @@ export function Restaurant() {
   if (!req) {
     return (
       <div className="app">
-        <DashHeader label="Espace professionnel" name={s.session().pro?.['resto.nom'] || s.session().name} action={<Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>} />
+        <DashHeader label="Espace professionnel" name={s.session().pro?.['resto.nom'] || s.session().name} action={<Link className="iconbtn" to="/notifications" aria-label="Notifications"><Icon name="bell" /></Link>} />
         <div className="body" style={{ gap: 18 }}>
           <RestoOverview req={null} />
           <div className="col" style={{ gap: 4 }}><h2 style={{ fontSize: 18, fontWeight: 600 }}>Demander un devis</h2><span className="small muted">Les fournisseurs vérifiés de la zone vous répondent avec leur prix.</span></div>
@@ -1212,21 +1447,67 @@ export function Restaurant() {
 
   return (
     <div className="app">
-      <DashHeader label="Espace professionnel" name={demo ? 'La Terrasse du Plateau' : s.session().pro?.['resto.nom'] || s.session().name} action={<Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>} />
+      <DashHeader label="Espace professionnel" name={demo ? 'La Terrasse du Plateau' : s.session().pro?.['resto.nom'] || s.session().name} action={<Link className="iconbtn" to="/notifications" aria-label="Notifications"><Icon name="bell" /></Link>} />
       <div className="body">
         <RestoOverview req={req} />
-        <label className="search">
+        <form
+          className="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (searchQ.trim()) navigate(`/explorer?q=${encodeURIComponent(searchQ.trim())}`);
+          }}
+        >
           <Icon name="search" />
-          <input className="plain grow" placeholder="Produit et volume, ex. tomate 200 kg" aria-label="Rechercher un produit" style={{ outline: 'none', cursor: 'text', minWidth: 0 }} />
-        </label>
+          <input
+            className="plain grow"
+            placeholder="Rechercher un produit au catalogue (ex. tomate, poulet)…"
+            aria-label="Rechercher un produit"
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            style={{ outline: 'none', cursor: 'text', minWidth: 0 }}
+          />
+          {searchQ.trim() && <button type="submit" className="btn btn-p btn-sm" style={{ flex: 'none' }}>Chercher</button>}
+        </form>
 
         <div className="sec">
-          <div className="sech"><h2>Demande de devis</h2><Badge tone={offers.length ? 'blue' : 'grey'}>{offers.length} offre{offers.length > 1 ? 's' : ''}</Badge></div>
+          <div className="sech">
+            <h2>Demande de devis</h2>
+            <div className="row" style={{ gap: 6 }}>
+              {offers.length > 1 && (
+                <select
+                  aria-label="Trier les offres"
+                  value={offerSort}
+                  onChange={(e) => { setOfferSort(e.target.value as 'price' | 'verified'); setSel(0); }}
+                  style={{ border: '1px solid #C5CDC7', borderRadius: 6, padding: '2px 6px', background: '#fff', fontSize: 12 }}
+                >
+                  <option value="price">Prix croissant</option>
+                  <option value="verified">Vérifiés d’abord</option>
+                </select>
+              )}
+              <Badge tone={offers.length ? 'blue' : 'grey'}>{offers.length} offre{offers.length > 1 ? 's' : ''}</Badge>
+            </div>
+          </div>
           <div className="card pad col" style={{ gap: 4 }}>
             <span className="b small">{req.product}, {fcfa(req.kg)} kg / semaine</span>
             <span className="xs muted">Livraison {req.place}{demo ? ', lundi avant 8 h, réponse avant le 20/11' : ''}</span>
             {!demo && <span className="xs muted">Envoyée aux fournisseurs de SAVAA. Chaque réponse arrive ici avec son prix au kg.</span>}
-            {!demo && <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => { if (req.quoteId && !kept) s.closeQuote(req.quoteId); s.put('resto.request', null); }}>{kept ? 'Faire une nouvelle demande' : 'Modifier la demande'}</button>}
+            {!demo && (
+              <button
+                className="link plain"
+                style={{ alignSelf: 'flex-start' }}
+                onClick={() => {
+                  if (!kept) {
+                    setProduct(req.product);
+                    setKg(req.kg);
+                    setPlace(req.place);
+                    if (req.quoteId) s.closeQuote(req.quoteId);
+                  }
+                  s.put('resto.request', null);
+                }}
+              >
+                {kept ? 'Faire une nouvelle demande' : 'Modifier la demande'}
+              </button>
+            )}
           </div>
           {!offers.length && (
             <div className="card pad col" style={{ gap: 4 }}><span className="b small">En attente des fournisseurs</span><span className="small muted">Les fournisseurs reçoivent votre demande dans leur espace. Leurs offres s’afficheront ici dès leur réponse.</span></div>
@@ -1291,12 +1572,26 @@ export function Restaurant() {
           <div className="sech"><h2>Factures</h2><button className="link plain" onClick={() => downloadCSV('factures-savaa.csv', [['Facture', 'Fournisseur', 'Montant (FCFA)', 'Statut'], ...INVOICES.map(([n, f, m, st]) => [n, f, m, st])])}>Exporter</button></div>
           <div className="card list">
             {INVOICES.map(([n, f, m, st, tone]) => (
-              <div className="li" key={n}><div className="col grow"><span className="small b num">{n}</span><span className="xs muted">{f}, {fcfa(m)} FCFA</span></div><Badge tone={tone}>{st}</Badge></div>
+              <button
+                type="button"
+                className="li"
+                key={n}
+                onClick={() => setInvPreview({
+                  title: `Facture ${n}`,
+                  subtitle: f,
+                  badge: [st, tone],
+                  details: [['Référence', n], ['Fournisseur', f], ['Montant', `${fcfa(m)} FCFA`], ['Statut', st]],
+                  printable: true,
+                })}
+              >
+                <div className="col grow"><span className="small b num">{n}</span><span className="xs muted">{f}, {fcfa(m)} FCFA</span></div><Badge tone={tone}>{st}</Badge>
+              </button>
             ))}
           </div>
         </div>
         </>}
       </div>
+      <PreviewModal data={invPreview} onClose={() => setInvPreview(null)} />
       <TabBar />
     </div>
   );

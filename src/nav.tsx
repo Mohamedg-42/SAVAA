@@ -20,6 +20,7 @@ export function DesktopNav() {
   const session = s.session();
   const logged = session.loggedIn;
   const unread = s.unread();
+  const unreadMsg = s.unreadMessages();
   const cart = s.cartLines().length;
   const main = tabs.slice(0, -1);
   const first = session.name.trim().split(/\s+/)[0];
@@ -37,6 +38,11 @@ export function DesktopNav() {
           ))}
         </nav>
         <div className="dnav-side">
+          {logged && (
+            <Link className="dnav-icon" to="/messages" aria-label={`Messages, ${unreadMsg} non lu${unreadMsg > 1 ? 's' : ''}`}>
+              <Icon name="chat" />{unreadMsg > 0 && <span className="dot">{unreadMsg}</span>}
+            </Link>
+          )}
           {logged && (
             <Link className="dnav-icon" to="/notifications" aria-label={`Notifications, ${unread} non lue${unread > 1 ? 's' : ''}`}>
               <Icon name="bell" />{unread > 0 && <span className="dot">{unread}</span>}

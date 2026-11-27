@@ -146,6 +146,19 @@ Back-office investisseurs : trois graphiques calculés sur les dossiers (reçus 
 
 Pour une démonstration : faire l’observation et la commande avec le compte de démonstration, se déconnecter, créer un compte vétérinaire puis un compte transporteur, et revenir.
 
+## Livraison : véhicule, prix, zones des livreurs
+
+Le calcul est dans `src/livraison.ts` (testé par `livraison.test.ts`). Les tarifs et capacités sont des valeurs de départ, à valider avec des transporteurs de Korhogo.
+
+- **Charge :** chaque ligne du panier est convertie en kg, bovins, petits ruminants, produit frais (sac de 50 kg, plateau 2 kg, bovin 300 kg, ovin 40 kg, lot de N têtes…). Un service ne se livre pas.
+- **Distance :** entre villes connues (`PLACES`), à vol d’oiseau × 1,2. Plusieurs vendeurs : trajet le plus long + 5 km par arrêt. Lieu inconnu : 15 km, affiché « estimée ».
+- **Véhicule :** moto, tricycle, pick-up, petite bétaillère, camion, camion frigorifique, groupage. Un véhicule n’est proposé que s’il peut porter la charge, sur cette distance, pour ce type de produit (animal vivant → bétaillère, frais → frigorifique au-delà de 20 km). Le moins cher est choisi par défaut ; l’acheteur peut en prendre un autre.
+- **Prix :** prise en charge + prix au km ; +20 % si le véhicule est rempli à plus de moitié ; manutention 1 000 FCFA par bovin et 300 par petit ruminant ; +30 % pour une livraison dans la journée ; groupage à 10 FCFA par kg et par 100 km (minimum 1 500). Arrondi à 500 FCFA.
+- **Commission SAVAA : 5 %.** Le livreur voit ce qui lui revient avant d’accepter.
+- **Livreurs :** véhicule, ville de base, rayon (plafonné par véhicule : moto 15 km, bétaillère 100 km…) et bouton « En service », partagés sur le réseau de l’appareil (`couriers`). Une mission n’est proposée qu’aux livreurs en service, dont le véhicule convient et dont la zone couvre l’enlèvement, de la plus proche à la plus lointaine. Le livreur peut se désister avant l’enlèvement.
+- **Panier :** ville de livraison obligatoire, choix du véhicule avec prix, option « dans la journée », nombre de livreurs compatibles en service. Si aucun véhicule ne peut faire le transport en un voyage, l’appli propose le retrait sur place.
+- **Carte :** Leaflet avec le fond OpenStreetMap (`src/carte.tsx`), dans l’espace livreur (zone et missions), sur chaque mission et dans le suivi de l’acheteur. Sans connexion, la carte le dit et les distances restent calculées. En production, il faudra un service d’itinéraire pour la vraie distance par la route.
+
 ## Ce qu'il reste
 
 À faire dans le front :

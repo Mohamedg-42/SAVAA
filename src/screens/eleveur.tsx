@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CI_REGIONS, frDate, isoToday, useStore, type Species } from '../data';
 import { downloadICS } from '../device';
 import { showToast } from '../toast';
 import { DashHeader } from '../dash';
+import { ReliefIcon } from '../relief';
 import { animalStatus } from '../trace';
 import { Badge, Foot, Header, Icon, Photo, PhotoAdd, SectionHead, TabBar } from '../ui';
 
@@ -195,9 +196,9 @@ export function Dashboard() {
         )}
 
         <div className="card grid3" style={{ gap: 0 }}>
-          <Link to="/cheptel" className="stat" style={{ padding: 14, borderRight: '1px solid #E3E7E4' }}><span className="v">{s.count('bovin')}</span><span className="l">Bovins</span></Link>
-          <Link to="/cheptel" className="stat" style={{ padding: 14, borderRight: '1px solid #E3E7E4' }}><span className="v">{s.count('ovin')}</span><span className="l">Ovins</span></Link>
-          <Link to="/cheptel" className="stat" style={{ padding: 14 }}><span className="v">{s.count('caprin')}</span><span className="l">Caprins</span></Link>
+          <Link to="/cheptel?espece=bovin" className="stat" style={{ padding: 14, borderRight: '1px solid #E3E7E4' }}><span className="v">{s.count('bovin')}</span><span className="l">Bovins</span></Link>
+          <Link to="/cheptel?espece=ovin" className="stat" style={{ padding: 14, borderRight: '1px solid #E3E7E4' }}><span className="v">{s.count('ovin')}</span><span className="l">Ovins</span></Link>
+          <Link to="/cheptel?espece=caprin" className="stat" style={{ padding: 14 }}><span className="v">{s.count('caprin')}</span><span className="l">Caprins</span></Link>
         </div>
 
         <div className="sec">
@@ -239,10 +240,10 @@ export function Dashboard() {
         <div className="sec">
           <SectionHead title="Actions rapides" />
           <div className="grid4">
-            <Link className="tile" to="/cheptel/ajout"><Icon name="sell" size="lg" />Animal</Link>
-            <Link className="tile" to={demo ? '/animal/FK-0142/observation' : first ? `/animal/${first}/observation` : '/cheptel/ajout'}><Icon name="pulse" size="lg" />Observation</Link>
-            <Link className="tile" to={demo ? '/animal/FK-0142/sante' : first ? `/animal/${first}/sante` : '/cheptel/ajout'}><Icon name="scale" size="lg" />Pesée</Link>
-            <Link className="tile" to="/vendre"><Icon name="megaphone" size="lg" />Vendre</Link>
+            <Link className="tile" to="/cheptel/ajout"><ReliefIcon name="ajout-animal" size={30} />Animal</Link>
+            <Link className="tile" to={demo ? '/animal/FK-0142/observation' : first ? `/animal/${first}/observation` : '/cheptel/ajout'}><ReliefIcon name="observation" size={30} />Observation</Link>
+            <Link className="tile" to={demo ? '/animal/FK-0142/sante' : first ? `/animal/${first}/sante` : '/cheptel/ajout'}><ReliefIcon name="pesee" size={30} />Pesée</Link>
+            <Link className="tile" to="/vendre"><ReliefIcon name="publier" size={30} />Vendre</Link>
           </div>
         </div>
 
@@ -250,7 +251,7 @@ export function Dashboard() {
         <VetVisits />
 
         <Link className="card pad row" to="/devis" style={{ gap: 12 }}>
-          <Icon name="cart" />
+          <ReliefIcon name="devis" size={34} />
           <span className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b">Aliment, intrants, matériel</span><span className="xs muted">Demandez un devis aux fournisseurs et comparez leurs prix.</span></span>
           <Icon name="chevron" size="sm" />
         </Link>
@@ -259,7 +260,7 @@ export function Dashboard() {
           <SectionHead title="Ventes" link={s.shop().created ? 'Ma boutique' : 'Créer ma boutique'} to="/boutique" />
           <div className="grid2">
             <Link className="card pad stat" to="/boutique"><span className="v">{(demo ? 3 : 0) + online}</span><span className="l">Annonces en ligne</span></Link>
-            <div className="card pad stat"><span className="v">{(demo ? 1 : 0) + s.mySales().filter((x) => x.status === 'new').length}</span><span className="l">Commande à préparer</span></div>
+            <Link className="card pad stat" to="/boutique"><span className="v">{(demo ? 1 : 0) + s.mySales().filter((x) => x.status === 'new').length}</span><span className="l">Commande à préparer</span></Link>
           </div>
           {selling.length > 0 && (
             <div className="card list">
@@ -278,15 +279,21 @@ export function Dashboard() {
   );
 }
 
-/* Écran 09 : cheptel filtrable. */
+/* Écran 09 : cheptel filtrable et triable. */
 export function Herd() {
   const s = useStore();
-  const [filter, setFilter] = useState<Species | 'all'>('all');
+  const [params] = useSearchParams();
+  const sp = params.get('espece');
+  const initialFilter: Species | 'all' = sp === 'bovin' || sp === 'ovin' || sp === 'caprin' ? sp : 'all';
+  const [filter, setFilter] = useState<Species | 'all'>(initialFilter);
+  const [sort, setSort] = useState<'id' | 'name' | 'species'>('id');
   const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
   const rows = s
     .animals()
     .filter((a) => filter === 'all' || a.species === filter)
-    .filter((a) => !q || (a.id + a.name).toLowerCase().includes(q.toLowerCase()));
+    .filter((a) => !needle || `${a.id} ${a.officialId ?? ''} ${a.name} ${a.details}`.toLowerCase().includes(needle))
+    .sort((a, b) => (sort === 'name' ? a.name.localeCompare(b.name, 'fr') : sort === 'species' ? a.species.localeCompare(b.species, 'fr') : a.id.localeCompare(b.id, 'fr')));
   const chips: [Species | 'all', string, number][] = [
     ['all', 'Tous', s.total()],
     ['bovin', 'Bovins', s.count('bovin')],
@@ -297,10 +304,11 @@ export function Herd() {
     <div className="app">
       <Header back title={`Cheptel (${s.total()})`} actions={<Link className="iconbtn" to="/cheptel/ajout" aria-label="Ajouter un animal"><Icon name="plus" /></Link>} />
       <div style={{ background: '#fff', borderBottom: '1px solid #E3E7E4', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10, flex: 'none' }}>
-        <label className="search">
+        <div className="search">
           <Icon name="search" />
           <input className="plain grow" placeholder="N° interne, identifiant officiel, nom" value={q} onChange={(e) => setQ(e.target.value)} style={{ outline: 'none' }} />
-        </label>
+          {q && <button className="iconbtn" style={{ width: 28, height: 28 }} aria-label="Effacer" onClick={() => setQ('')}><Icon name="close" size="sm" /></button>}
+        </div>
         <div className="chips">
           {chips.map(([id, t, n]) => (
             <button key={id} className={`chip${filter === id ? ' on' : ''}`} onClick={() => setFilter(id)}>{t} <span className="n">{n}</span></button>
@@ -308,7 +316,22 @@ export function Herd() {
         </div>
       </div>
       <div className="body" style={{ padding: '12px 16px', gap: 8 }}>
-        <span className="xs muted">{rows.length} affichés, tri par n° interne</span>
+        <div className="row between xs muted">
+          <span>{rows.length} affiché{rows.length > 1 ? 's' : ''}</span>
+          <label className="row" style={{ gap: 6 }}>
+            <span>Tri :</span>
+            <select
+              aria-label="Trier le cheptel"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as 'id' | 'name' | 'species')}
+              style={{ border: '1px solid #C5CDC7', borderRadius: 6, padding: '2px 6px', background: '#fff', fontSize: 12, color: '#17201B' }}
+            >
+              <option value="id">N° interne</option>
+              <option value="name">Nom</option>
+              <option value="species">Espèce</option>
+            </select>
+          </label>
+        </div>
         {rows.length === 0 ? (
           <div className="card pad small muted" style={{ textAlign: 'center' }}>Aucun animal ne correspond.</div>
         ) : (

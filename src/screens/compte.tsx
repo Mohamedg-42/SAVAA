@@ -7,7 +7,9 @@ import { showToast } from '../toast';
 import { Avatar } from '../dash';
 import { DEMO_CODE, formatPhone, nameOk, phoneDigits, phoneError } from '../phone';
 import { ID_FIELD, PRO_SECTIONS, idPhotoRequired, missingProfile, needsProfile, sectionsFor } from '../profils';
-import { Badge, Check, Header, Icon, Photo, PhotoAdd, TabBar, type IconName } from '../ui';
+import { ReliefIcon } from '../relief';
+import type { ReliefName } from '../relief-icons';
+import { Badge, Check, Header, Icon, Photo, PhotoAdd, PreviewModal, TabBar, type PreviewData } from '../ui';
 
 /* Bouton retour des en-têtes blancs (connexion, rôle). */
 function WhiteHeader({ right, onBack }: { right: React.ReactNode; onBack?: () => void }) {
@@ -299,12 +301,22 @@ const ROLES: { id: string; t: string; d: string; v?: boolean }[] = [
 
 /* Écran 04 : activité. D'abord l'intention (4 cartes), puis le métier dans ce groupe, avec les règles de combinaison. */
 type Intent = 'acheter' | 'vendre' | 'service' | 'investir';
-const INTENTS: { id: Intent; t: string; d: string; icon: IconName; roles: string[]; max: number }[] = [
-  { id: 'acheter', t: 'Acheter', d: 'Pour moi, ma famille, mon restaurant ou mon hôtel', icon: 'cart', roles: ['achat', 'resto'], max: 1 },
-  { id: 'vendre', t: 'Vendre', d: 'Mes animaux, mes récoltes, mes produits ou mon matériel', icon: 'sell', roles: ['eleveur', 'agri', 'vendeur', 'fourn'], max: 2 },
-  { id: 'service', t: 'Proposer un service', d: 'Vétérinaire, transporteur', icon: 'truck', roles: ['veto', 'coursier'], max: 1 },
-  { id: 'investir', t: 'Investir dans l’agriculture', d: 'Particulier ou entreprise, projets sélectionnés par SAVAA', icon: 'flag', roles: ['invest'], max: 1 },
+const INTENTS: { id: Intent; t: string; d: string; relief: ReliefName; roles: string[]; max: number }[] = [
+  { id: 'acheter', t: 'Acheter', d: 'Pour moi, ma famille, mon restaurant ou mon hôtel', relief: 'marche', roles: ['achat', 'resto'], max: 1 },
+  { id: 'vendre', t: 'Vendre', d: 'Mes animaux, mes récoltes, mes produits ou mon matériel', relief: 'publier', roles: ['eleveur', 'agri', 'vendeur', 'fourn'], max: 2 },
+  { id: 'service', t: 'Proposer un service', d: 'Vétérinaire, transporteur', relief: 'betaillere', roles: ['veto', 'coursier'], max: 1 },
+  { id: 'investir', t: 'Investir dans l’agriculture', d: 'Particulier ou entreprise, projets sélectionnés par SAVAA', relief: 'mobile-money', roles: ['invest'], max: 1 },
 ];
+const ROLE_RELIEF: Record<string, ReliefName> = {
+  achat: 'marche',
+  resto: 'devis',
+  eleveur: 'bovin',
+  agri: 'mais',
+  vendeur: 'publier',
+  fourn: 'sac',
+  veto: 'veto',
+  coursier: 'betaillere',
+};
 const ROLE_TEXT: Record<string, [string, string]> = {
   achat: ['Particulier', 'J’achète pour moi ou ma famille'],
   resto: ['Restaurant ou hôtel', 'J’achète en volume, avec des commandes récurrentes'],
@@ -350,7 +362,7 @@ export function RolePicker() {
     }
     /* Inscription : le compte est créé maintenant que le métier est choisi. */
     if (signingUp) s.finishSignup();
-    navigate(back ?? s.home(), { replace: true });
+    navigate(back ?? (chosen.includes('invest') ? '/investir' : s.home()), { replace: true });
   };
 
   /* Raison pour laquelle un métier ne peut pas être ajouté au choix en cours.
@@ -362,7 +374,10 @@ export function RolePicker() {
       if (others.includes('fourn')) return 'Votre compte entreprise (fournisseur) ne peut pas ajouter d’autre métier.';
       if (role === 'fourn' && others.length) return `Un compte entreprise se choisit seul : vous êtes déjà ${others.map((r) => ROLE_TEXT[r][0].toLowerCase()).join(' et ')}.`;
       const kept = group.max === 1 ? 0 : picked.filter((r) => PRO_ROLES.includes(r)).length;
-      if (others.length + kept >= 2) return `Deux métiers au plus par compte : vous êtes déjà ${others.map((r) => ROLE_TEXT[r][0].toLowerCase()).join(' et ')}${kept ? ' et vous en avez coché un' : ''}.`;
+      if (others.length + kept >= 2) {
+      if (others.length === 0) return 'Deux métiers au plus par compte : décochez-en un pour choisir celui-ci.';
+      return `Deux métiers au plus par compte : vous êtes déjà ${others.map((r) => ROLE_TEXT[r][0].toLowerCase()).join(' et ')}${kept ? ' et vous en avez coché un' : ''}.`;
+    }
     }
     if (group.max === 1) return null;
     if (role === 'fourn' && picked.length) return 'Un compte entreprise se choisit seul.';
@@ -395,7 +410,7 @@ export function RolePicker() {
           </div>
           {INTENTS.map((g) => (
             <button key={g.id} className="card row" onClick={() => { if (g.id === 'investir') { finish(['invest'], g); return; } setIntent(g.id); setPicked(existing.filter((r) => g.roles.includes(r)).slice(0, g.max)); }} style={{ padding: 16, gap: 14, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer', borderWidth: 1.5 }}>
-              <span style={{ width: 48, height: 48, borderRadius: 12, background: '#E8F3EA', color: '#145C3A', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><Icon name={g.icon} /></span>
+              <span style={{ width: 48, height: 48, borderRadius: 12, background: '#E8F3EA', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}><ReliefIcon name={g.relief} size={34} shadow={false} /></span>
               <span className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="b" style={{ fontSize: 16 }}>{g.t}</span><span className="small muted">{g.d}</span></span>
               <Icon name="chevron" size="sm" />
             </button>
@@ -427,6 +442,7 @@ export function RolePicker() {
             <button key={r} className="card row top" role={group.max > 1 ? 'checkbox' : 'radio'} aria-checked={on} aria-disabled={!!why} onClick={() => toggle(r)}
               style={{ padding: '12px 14px', gap: 12, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: why ? 'not-allowed' : 'pointer', borderWidth: 1.5, borderColor: on ? '#145C3A' : undefined, background: on ? '#E8F3EA' : why ? '#F4F6F4' : '#fff', opacity: why ? 0.6 : 1 }}>
               <Check on={on} />
+              {ROLE_RELIEF[r] && <ReliefIcon name={ROLE_RELIEF[r]} size={32} shadow={false} />}
               <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
                 <span className="b">{ROLE_TEXT[r][0]}</span>
                 <span className="small muted">{ROLE_TEXT[r][1]}</span>
@@ -605,15 +621,56 @@ export function Profile() {
   const proMissing = missingProfile(session.roles, session.pro, session.proPhotos);
   const proSections = sectionsFor(session.roles);
   const roles = ROLES.filter((r) => session.roles.includes(r.id));
-  const addDoc = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [editProfile, setEditProfile] = useState(false);
+  const [editName, setEditName] = useState(session.name);
+  const [editTown, setEditTown] = useState(session.town ?? '');
+  const [editMail, setEditMail] = useState(session.mail ?? '');
+
+  const openEditProfile = () => {
+    setEditName(session.name);
+    setEditTown(session.town ?? '');
+    setEditMail(session.mail ?? '');
+    setEditProfile(true);
+  };
+  const saveProfile = () => {
+    if (!editName.trim()) {
+      showToast('Indiquez votre nom.');
+      return;
+    }
+    s.setSession({ name: editName.trim(), town: editTown || undefined, mail: editMail.trim() || undefined });
+    setEditProfile(false);
+    showToast('Profil mis à jour.');
+  };
+  const removeRole = (roleId: string) => {
+    if (session.roles.length <= 1) {
+      showToast('Vous devez conserver au moins un rôle.');
+      return;
+    }
+    s.setSession({ roles: session.roles.filter((r) => r !== roleId) });
+    showToast('Rôle retiré.');
+  };
+  const addDoc = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
-    const docs = [...session.docs, { name: f.name, date: today(), status: 'review' as const }];
+    let photo: string | undefined;
+    if (f.type.startsWith('image/')) {
+      try {
+        photo = await readImage(f);
+      } catch {
+        /* fichier non lisible comme image, on garde le nom */
+      }
+    }
+    const docs = [...session.docs, { name: f.name, date: today(), status: 'review' as const, photo }];
     s.setSession({ docs });
     const prev = s.kycOf();
-    s.submitKyc(prev?.summary ?? [[ID_FIELD.label, session.pro?.[ID_FIELD.key] ?? '—']], [...(prev?.docs ?? []), { label: f.name }]);
+    s.submitKyc(prev?.summary ?? [[ID_FIELD.label, session.pro?.[ID_FIELD.key] ?? '—']], [...(prev?.docs ?? []), { label: f.name, photo }]);
     showToast('Justificatif reçu, il sera contrôlé par l’équipe SAVAA.');
+  };
+  const removeDoc = (idx: number) => {
+    const docs = session.docs.filter((_, i) => i !== idx);
+    s.setSession({ docs });
+    showToast('Justificatif retiré.');
   };
   /* Réponse de l'équipe SAVAA (back-office) aux justificatifs envoyés. */
   const kyc = session.demo ? undefined : s.kycOf();
@@ -621,6 +678,7 @@ export function Profile() {
   const idSent = session.docs.length > 0;
   const level = session.demo ? 2 : kyc?.status === 'verified' ? 2 : 1;
   const [confirmKind, setConfirmKind] = useState<'logout' | 'reset' | null>(null);
+  const [docPreview, setDocPreview] = useState<PreviewData | null>(null);
   /* La déconnexion elle-même est faite par l'écran de démarrage (voir Splash). */
   const doLogout = () => {
     setConfirmKind(null);
@@ -638,22 +696,77 @@ export function Profile() {
         actions={<Link className="iconbtn" to="/assistance" aria-label="Assistance"><Icon name="chat" /></Link>}
       />
       <div className="body">
-        <div className="card pad row" style={{ gap: 14 }}>
-          <div className="col" style={{ gap: 6, alignItems: 'center', flex: 'none' }}>
-            <Avatar size={56} name={session.name} />
-            <label className="link xs" style={{ cursor: 'pointer', position: 'relative' }}>
-              {session.photo ? 'Changer' : 'Ajouter une photo'}
-              <input type="file" accept="image/*" onChange={changePhoto} style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} aria-label="Photo de profil" />
-            </label>
-          </div>
-          <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
-            <span className="b" style={{ fontSize: 16 }}>{session.name}</span>
-            <span className="small muted ell">{s.shop().created ? `${s.shop().name}, ${s.shop().town}` : session.phone ? `+225 ${session.phone}` : session.mail}</span>
-            <div className="wrap" style={{ marginTop: 4 }}>
-              {roles.map((r) => <Badge key={r.id} tone={r.v ? 'amber' : 'green'}>{r.t.split(' / ')[0]}</Badge>)}
-              <Link to="/role" className="badge bd-grey">+ Ajouter un rôle</Link>
+        <div className="card pad col" style={{ gap: 12 }}>
+          <div className="row" style={{ gap: 14 }}>
+            <div className="col" style={{ gap: 4, alignItems: 'center', flex: 'none' }}>
+              <Avatar size={56} name={session.name} />
+              <label className="link xs" style={{ cursor: 'pointer', position: 'relative' }}>
+                {session.photo ? 'Changer' : 'Ajouter photo'}
+                <input type="file" accept="image/*" onChange={changePhoto} style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} aria-label="Photo de profil" />
+              </label>
+              {session.photo && (
+                <button className="plain xs muted" style={{ cursor: 'pointer' }} onClick={() => { s.setSession({ photo: undefined }); showToast('Photo retirée.'); }}>
+                  Retirer
+                </button>
+              )}
+            </div>
+            <div className="col grow" style={{ gap: 3, minWidth: 0 }}>
+              <div className="row between" style={{ gap: 8 }}>
+                <span className="b ell" style={{ fontSize: 16 }}>{session.name}</span>
+                <button className="link plain xs" style={{ flex: 'none' }} onClick={() => (editProfile ? setEditProfile(false) : openEditProfile())}>
+                  {editProfile ? 'Fermer' : 'Modifier'}
+                </button>
+              </div>
+              <span className="small muted ell">{s.shop().created ? `${s.shop().name}, ${s.shop().town}` : session.town ? `${session.town}, ${session.phone ? `+225 ${session.phone}` : session.mail}` : session.phone ? `+225 ${session.phone}` : session.mail}</span>
+              <div className="wrap" style={{ marginTop: 4 }}>
+                {roles.map((r) => (
+                  <span key={r.id} className={`badge bd-${r.v ? 'amber' : 'green'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {r.t.split(' / ')[0]}
+                    {roles.length > 1 && (
+                      <button
+                        type="button"
+                        aria-label={`Retirer le rôle ${r.t.split(' / ')[0]}`}
+                        onClick={() => removeRole(r.id)}
+                        style={{ background: 'none', border: 0, padding: '2px 6px', minWidth: 22, minHeight: 22, cursor: 'pointer', color: 'inherit', fontWeight: 700, lineHeight: 1 }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+                <Link to="/role" className="badge bd-grey">+ Ajouter un rôle</Link>
+              </div>
             </div>
           </div>
+          {editProfile && (
+            <div className="col" style={{ gap: 10, paddingTop: 10, borderTop: '1px solid #EDF0EE' }}>
+              <div className="field">
+                <label className="xs muted" htmlFor="prof-name">Nom et prénom</label>
+                <input id="prof-name" className="input" value={editName} onChange={(e) => setEditName(e.target.value)} />
+              </div>
+              <div className="grid2" style={{ gap: 8 }}>
+                <div className="field">
+                  <label className="xs muted" htmlFor="prof-town">Ville ou commune</label>
+                  <select id="prof-town" className="input" value={editTown} onChange={(e) => setEditTown(e.target.value)}>
+                    <option value="">Toute la Côte d’Ivoire</option>
+                    {CI_REGIONS.map((g) => (
+                      <optgroup key={g.region} label={g.region}>
+                        {g.towns.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="xs muted" htmlFor="prof-mail">E-mail (optionnel)</label>
+                  <input id="prof-mail" className="input" type="email" placeholder="nom@exemple.ci" value={editMail} onChange={(e) => setEditMail(e.target.value)} />
+                </div>
+              </div>
+              <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+                <button className="btn btn-ghost btn-sm" style={{ flex: 'none' }} onClick={() => setEditProfile(false)}>Annuler</button>
+                <button className="btn btn-p btn-sm" style={{ flex: 'none' }} onClick={saveProfile}>Enregistrer</button>
+              </div>
+            </div>
+          )}
         </div>
 
         {!session.demo && needsProfile(session.roles) && (
@@ -740,12 +853,44 @@ export function Profile() {
               <input type="file" accept="image/*,application/pdf" onChange={addDoc} style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />
             </label>
           </div>
-          <div className="card list">
-            {session.docs.map((d) => {
-              const [label, tone] = kyc?.status === 'rejected' && d.status === 'review' ? ['Refusé', 'red' as const] : DOC_BADGE[docStatus(d)];
-              return <div className="li" key={d.name + d.date}><Icon name="file" /><div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">{d.name}</span><span className="xs muted">Ajouté le {d.date}</span></div><Badge tone={tone}>{label}</Badge></div>;
-            })}
-          </div>
+          {session.docs.length === 0 ? (
+            <div className="card pad"><span className="small muted">Aucun justificatif ajouté pour le moment. Touchez « Ajouter » pour envoyer votre pièce d’identité ou un document professionnel.</span></div>
+          ) : (
+            <div className="card list">
+              {session.docs.map((d, idx) => {
+                const [label, tone] = kyc?.status === 'rejected' && d.status === 'review' ? ['Refusé', 'red' as const] : DOC_BADGE[docStatus(d)];
+                return (
+                  <div className="li" key={`${d.name}-${d.date}-${idx}`}>
+                    <button
+                      type="button"
+                      className="row grow plain"
+                      style={{ gap: 10, minWidth: 0 }}
+                      onClick={() => setDocPreview({
+                        title: d.name,
+                        subtitle: `Ajouté le ${d.date}`,
+                        badge: [label, tone],
+                        images: d.photo ? [d.photo] : undefined,
+                        details: [
+                          ['Fichier', d.name],
+                          ['Date d’envoi', d.date],
+                          ['Statut', label],
+                          ['Titulaire', session.name],
+                        ],
+                        note: d.photo ? undefined : 'Document de démonstration : aucun fichier image n’est joint à cette pièce d’exemple. Ajoutez une photo via « Ajouter » pour voir son aperçu visuel.',
+                      })}
+                    >
+                      {d.photo ? <img src={d.photo} alt={d.name} style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: 6, flex: 'none' }} /> : <Icon name="file" />}
+                      <div className="col grow" style={{ minWidth: 0 }}><span className="small b ell">{d.name}</span><span className="xs muted">Ajouté le {d.date}, toucher pour aperçu</span></div>
+                    </button>
+                    <Badge tone={tone}>{label}</Badge>
+                    <button className="iconbtn" style={{ width: 28, height: 28, color: '#5D6862' }} aria-label={`Retirer ${d.name}`} onClick={() => removeDoc(idx)}>
+                      <Icon name="close" size="sm" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="sec">
@@ -764,6 +909,11 @@ export function Profile() {
         </div>
 
         <div className="card list">
+          <Link className="li" to="/messages">
+            <span className="grow small b">Messages</span>
+            {s.unreadMessages() > 0 && <Badge tone="amber">{s.unreadMessages()} non lu{s.unreadMessages() > 1 ? 's' : ''}</Badge>}
+            <Icon name="chevron" size="sm" />
+          </Link>
           {s.orders().length > 0 && <Link className="li" to="/recu"><span className="grow small b">Paiements et reçus</span><Icon name="chevron" size="sm" /></Link>}
           {s.canSell() && <Link className="li" to="/boutique"><span className="grow small b">{s.shop().created ? 'Ma boutique' : 'Créer ma boutique'}</span><Icon name="chevron" size="sm" /></Link>}
           {s.has('agri') && <Link className="li" to="/recoltes"><span className="grow small b">Mes récoltes et disponibilités</span><Icon name="chevron" size="sm" /></Link>}
@@ -835,6 +985,7 @@ export function Profile() {
           </div>
         </div>
       )}
+      <PreviewModal data={docPreview} onClose={() => setDocPreview(null)} />
       <TabBar />
     </div>
   );
@@ -848,16 +999,18 @@ const CAT_STYLE: Record<NotifCat, [string, string, string]> = {
   alr: ['!', '#FDECEA', '#A0221A'],
 };
 
-const FILTERS: [NotifCat | 'all', string][] = [['all', 'Tout'], ['cmd', 'Commandes'], ['pay', 'Paiements'], ['cmp', 'Campagnes'], ['pro', 'Prospects'], ['alr', 'Alertes']];
+const FILTERS: [NotifCat | 'all' | 'unread', string][] = [['all', 'Tout'], ['unread', 'Non lues'], ['cmd', 'Commandes'], ['pay', 'Paiements'], ['cmp', 'Campagnes'], ['pro', 'Prospects'], ['alr', 'Alertes']];
 
-/* Écran 22 : notifications (filtres, lecture). */
+/* Écran 22 : notifications (filtres, lecture, suppression). */
 export function Notifications() {
   const s = useStore();
   const all = s.notifs();
-  const [filter, setFilter] = useState<NotifCat | 'all'>('all');
+  const [filter, setFilter] = useState<NotifCat | 'all' | 'unread'>('all');
   const unreadCount = s.unread();
+  const isSellerOrDemo = s.canSell() || !!s.session().demo;
+  const visibleFilters = FILTERS.filter(([id]) => isSellerOrDemo || (id !== 'cmp' && id !== 'pro'));
 
-  const shown = all.filter((n) => filter === 'all' || n.c === filter);
+  const shown = all.filter((n) => (filter === 'all' ? true : filter === 'unread' ? n.unread : n.c === filter));
   /* Groupes dans l'ordre d'apparition : « Aujourd'hui » pour ce qui arrive pendant la démo. */
   const label = (n: (typeof all)[number]) => n.g ?? (n.date === today() ? 'Aujourd’hui' : n.date ?? '');
   const groups = [...new Set(shown.map(label))].map((t) => ({ t, items: shown.filter((n) => label(n) === t) }));
@@ -875,9 +1028,9 @@ export function Notifications() {
       />
       <div style={{ background: '#fff', borderBottom: '1px solid #E3E7E4', padding: '10px 16px', flex: 'none' }}>
         <div className="chips">
-          {FILTERS.map(([id, t]) => (
+          {visibleFilters.map(([id, t]) => (
             <button key={id} className={`chip${filter === id ? ' on' : ''}`} onClick={() => setFilter(id)}>
-              {t} <span className="n">{id === 'all' ? all.length : all.filter((n) => n.c === id).length}</span>
+              {t} <span className="n">{id === 'all' ? all.length : id === 'unread' ? unreadCount : all.filter((n) => n.c === id).length}</span>
             </button>
           ))}
         </div>
@@ -890,19 +1043,29 @@ export function Notifications() {
               {g.items.map((n) => {
                 const [k, tint, ink] = CAT_STYLE[n.c];
                 return (
-                  <Link key={n.id} className="li" to={n.to} onClick={() => s.markRead(n.id)} style={{ alignItems: 'flex-start' }} aria-label={n.unread ? `Non lue : ${n.title}` : undefined}>
-                    <span className="mono" style={{ color: ink, borderColor: tint }}>{k}</span>
-                    <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
-                      <span className="row between" style={{ gap: 8 }}>
-                        <span className="b small ell">{n.title}</span>
-                        <span className="row" style={{ gap: 6, flex: 'none' }}>
-                          <span className="xs muted num">{n.time}</span>
-                          {n.unread && <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 4, background: '#F28C28' }} />}
+                  <div key={n.id} className="li" style={{ alignItems: 'flex-start', gap: 8 }}>
+                    <Link className="row grow" to={n.to} onClick={() => s.markRead(n.id)} style={{ alignItems: 'flex-start', gap: 10, minWidth: 0 }} aria-label={n.unread ? `Non lue : ${n.title}` : undefined}>
+                      <span className="mono" style={{ color: ink, borderColor: tint }}>{k}</span>
+                      <span className="col grow" style={{ gap: 2, minWidth: 0 }}>
+                        <span className="row between" style={{ gap: 8 }}>
+                          <span className="b small ell">{n.title}</span>
+                          <span className="row" style={{ gap: 6, flex: 'none' }}>
+                            <span className="xs muted num">{n.time}</span>
+                            {n.unread && <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 4, background: '#F28C28' }} />}
+                          </span>
                         </span>
+                        <span className="small muted" style={{ lineHeight: 1.4 }}>{n.text}</span>
                       </span>
-                      <span className="small muted" style={{ lineHeight: 1.4 }}>{n.text}</span>
-                    </span>
-                  </Link>
+                    </Link>
+                    <button
+                      className="iconbtn"
+                      style={{ width: 26, height: 26, color: '#5D6862', flex: 'none' }}
+                      aria-label={`Supprimer la notification ${n.title}`}
+                      onClick={() => s.removeNotif(n.id)}
+                    >
+                      <Icon name="close" size="sm" />
+                    </button>
+                  </div>
                 );
               })}
             </div>

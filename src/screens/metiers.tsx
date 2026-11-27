@@ -5,11 +5,11 @@ import { Echeances, type DueOptions } from './eleveur';
 import { volumeKg } from '../agri';
 import { DeliveryMap } from '../carte';
 import { COMMISSION, COURIER_VEHICLES, PLACES, canCarry, loadLabel, payout, placeOf, roadKm, vehicleOf, type Place, type VehicleId } from '../livraison';
-import { downloadCSV } from '../device';
+import { downloadCSV, printPage } from '../device';
 import { showToast } from '../toast';
 import type { ReactNode } from 'react';
 import { DashHeader, TodayCard } from '../dash';
-import { Badge, Icon, Photo, TabBar, type Tone } from '../ui';
+import { Badge, Icon, Photo, PhotoAdd, PreviewModal, TabBar, type PreviewData, type Tone } from '../ui';
 
 /*
   Les données de la maquette (visites, mission en cours, gains, lots, devis, factures) appartiennent au compte de démonstration.
@@ -149,13 +149,25 @@ export function VetSpace() {
     ...ownVisits.map((v) => ({ id: v.id, date: v.date, title: v.title, place: v.place, own: true, done: v.done })),
   ].sort((a, b) => a.date.localeCompare(b.date));
   const upcoming = planned.filter((v) => !(v.net ? v.net.status === 'done' : v.done));
+  const doneVisits = planned.filter((v) => (v.net ? v.net.status === 'done' : v.done));
   const demoVisits = s.session().demo ? VET_VISITS : [];
   const visitCount = upcoming.length + demoVisits.length + visitAsks.length;
   const [planning, setPlanning] = useState(false);
+  const [alertFilter, setAlertFilter] = useState<'all' | 'open' | 'high' | 'done'>('all');
+  const [alertNotes, setAlertNotes] = useState<Record<string, string>>({});
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const rejectedLocal = s.get<Record<string, string>>('vet.rejected', {});
+
   const visitDone = (v: PlannedVisit) => {
     if (v.net) s.doneVisit(v.id);
     else s.put('vet.visits', ownVisits.map((x) => (x.id === v.id ? { ...x, done: true } : x)));
     showToast('Visite enregistrée comme faite.');
+  };
+  const visitCancel = (v: PlannedVisit) => {
+    if (v.net) s.cancelVisit(v.id);
+    else s.put('vet.visits', ownVisits.filter((x) => x.id !== v.id));
+    showToast('Visite annulée.');
   };
 
   /* Un vétérinaire ne traite ni ne valide ses propres animaux : ils passent à un autre vétérinaire. */
@@ -175,23 +187,40 @@ export function VetSpace() {
     ...VET_VALIDATIONS.filter((v) => !own.has(v.id)).map((v) => ({ ...v, animalId: v.id })),
   ];
   const isValidated = (v: Val) => (v.net ? v.net.status === 'verified' : !!validated[v.id]);
+  const rejectedReasonOf = (v: Val) => (v.net ? (v.net.status === 'rejected' ? v.net.reason ?? 'Refusée' : undefined) : rejectedLocal[v.id]);
   const openAlerts = alerts.filter((a) => statusOf(a) !== 'done').length;
-  const pendingVal = validations.filter((v) => !isValidated(v)).length;
+  const pendingVal = validations.filter((v) => !isValidated(v) && !rejectedReasonOf(v)).length;
   const RANK = { Élevée: 0, Moyenne: 1, Faible: 2 } as const;
   const urgent = alerts.filter((a) => !statusOf(a)).sort((x, y) => RANK[x.urgency] - RANK[y.urgency])[0];
 
-  const markAlert = (id: string, status: 'taken' | 'done', label: string) => {
-    if (alerts.find((a) => a.id === id)?.net) s.answerAlert(id, status);
+  const markAlert = (id: string, status: 'taken' | 'done', label: string, note?: string) => {
+    if (alerts.find((a) => a.id === id)?.net) s.answerAlert(id, status, note);
     else s.put('vet.handled', { ...handled, [id]: status });
     showToast(label);
   };
   const validateSheet = (id: string, name: string) => {
     const v = validations.find((x) => x.id === id);
-    if (v?.net) { s.answerValidation(id); showToast(`Fiche ${v.animalId} vérifiée : l’éleveur est prévenu.`); return; }
+    if (v?.net) { s.answerValidation(id, 'verified'); showToast(`Fiche ${v.animalId} vérifiée : l’éleveur est prévenu.`); return; }
     s.put('vet.validated', { ...validated, [id]: true });
     s.notify({ c: 'alr', title: `Fiche ${id} vérifiée`, text: `${name} validée par le vétérinaire mandaté.`, to: `/animal/${id}` });
     showToast(`Fiche ${id} passée au statut « Vérifié ».`);
   };
+  const rejectSheet = (id: string) => {
+    const reason = rejectReason.trim() || 'Pièce ou identifiant à compléter';
+    const v = validations.find((x) => x.id === id);
+    if (v?.net) s.answerValidation(id, 'rejected', reason);
+    else s.put('vet.rejected', { ...rejectedLocal, [id]: reason });
+    setRejectId(null);
+    setRejectReason('');
+    showToast('Refus enregistré avec motif.');
+  };
+  const shownAlerts = alerts.filter((a) => {
+    const st = statusOf(a);
+    if (alertFilter === 'open') return st !== 'done';
+    if (alertFilter === 'high') return a.urgency === 'Élevée' && st !== 'done';
+    if (alertFilter === 'done') return st === 'done';
+    return true;
+  });
   const confirmVisit = (id: string, title: string) => {
     s.put('vet.confirmed', { ...confirmed, [id]: true });
     showToast(`Passage confirmé : ${title}`);
@@ -229,8 +258,13 @@ export function VetSpace() {
 
         {tab === 'alerts' && (
           <div className="col" style={{ gap: 10 }}>
-            {alerts.length === 0 && <div className="card pad"><span className="small muted">Aucune alerte dans votre zone.</span></div>}
-            {alerts.map((a) => {
+            <div className="chips">
+              {([['all', 'Toutes'], ['open', 'Ouvertes'], ['high', 'Urgence élevée'], ['done', 'Clôturées']] as const).map(([k, lbl]) => (
+                <button key={k} className={`chip${alertFilter === k ? ' on' : ''}`} onClick={() => setAlertFilter(k)}>{lbl}</button>
+              ))}
+            </div>
+            {shownAlerts.length === 0 && <div className="card pad"><span className="small muted">Aucune alerte dans ce filtre.</span></div>}
+            {shownAlerts.map((a) => {
               const st = statusOf(a);
               return (
                 <div key={a.id} className="card pad col" style={{ gap: 10 }}>
@@ -249,17 +283,25 @@ export function VetSpace() {
                   {a.net && (
                     <div className="col" style={{ gap: 6 }}>
                       {a.net.text.trim() && <p className="xs muted" style={{ lineHeight: 1.45 }}>{a.net.text}</p>}
+                      {a.net.note && <div className="notice n-info"><Icon name="check" size="sm" /><span><b>Compte-rendu :</b> {a.net.note}</span></div>}
                       {!!a.net.photos?.length && <div className="row" style={{ gap: 6 }}>{a.net.photos.map((p, i) => <Photo key={i} w={56} h={44} radius={6} src={p} />)}</div>}
                       <span className="xs"><b>Éleveur :</b> {a.net.from.name}, <span className="num" style={{ userSelect: 'all' }}>+225 {a.net.from.phone}</span></span>
-                      <Badge tone="grey" style={{ alignSelf: 'flex-start' }}>Reçue par SAVAA</Badge>
                     </div>
+                  )}
+                  {st === 'taken' && (
+                    <input
+                      className="input"
+                      placeholder="Compte-rendu ou traitement conseillé avant clôture (optionnel)"
+                      value={alertNotes[a.id] ?? ''}
+                      onChange={(e) => setAlertNotes({ ...alertNotes, [a.id]: e.target.value })}
+                    />
                   )}
                   <div className="row" style={{ gap: 8 }}>
                     {!a.net && <Link className="btn btn-s btn-sm grow" to={`/animal/${a.animalId}/sante`}>Dossier</Link>}
                     {st !== 'done' && (
                       <button
                         className="btn btn-p btn-sm grow"
-                        onClick={() => markAlert(a.id, st === 'taken' ? 'done' : 'taken', st === 'taken' ? `Alerte ${a.animalId} clôturée.` : `Prise en charge signalée à l’éleveur.`)}
+                        onClick={() => markAlert(a.id, st === 'taken' ? 'done' : 'taken', st === 'taken' ? `Alerte ${a.animalId} clôturée.` : `Prise en charge signalée à l’éleveur.`, alertNotes[a.id])}
                       >
                         {st === 'taken' ? 'Clôturer' : 'Prendre en charge'}
                       </button>
@@ -276,6 +318,7 @@ export function VetSpace() {
             {validations.length === 0 && <div className="card pad"><span className="small muted">Aucune fiche à valider.</span></div>}
             {validations.map((v) => {
               const ok = isValidated(v);
+              const rej = rejectedReasonOf(v);
               return (
                 <div key={v.id} className="card pad col" style={{ gap: 10 }}>
                   <div className="row" style={{ gap: 12 }}>
@@ -285,12 +328,22 @@ export function VetSpace() {
                       <span className="xs muted num">{v.officialId}</span>
                       <span className="xs muted">{v.farm} · {v.type}</span>
                     </div>
-                    <Badge tone={ok ? 'green' : 'amber'}>{ok ? 'Vérifié' : 'À vérifier'}</Badge>
+                    {ok ? <Badge tone="green">Vérifié</Badge> : rej ? <Badge tone="red">Refusée</Badge> : <Badge tone="amber">À vérifier</Badge>}
                   </div>
+                  {rej && <span className="xs" style={{ color: '#A0221A' }}>Motif : {rej}</span>}
+                  {rejectId === v.id && (
+                    <div className="row" style={{ gap: 6 }}>
+                      <input className="input grow" placeholder="Motif du refus (ex. boucle illisible)" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+                      <button className="btn btn-danger btn-sm" style={{ flex: 'none' }} onClick={() => rejectSheet(v.id)}>Confirmer</button>
+                    </div>
+                  )}
                   <div className="row" style={{ gap: 8 }}>
                     {v.net ? <span className="xs grow" style={{ alignSelf: 'center' }}><b>Éleveur :</b> {v.net.from.name}, <span className="num">+225 {v.net.from.phone}</span></span> : <Link className="btn btn-s btn-sm grow" to={`/animal/${v.id}`}>Voir la fiche</Link>}
-                    <button className="btn btn-p btn-sm grow" disabled={ok} onClick={() => validateSheet(v.id, v.name)}>
-                      {ok ? 'Validée' : 'Valider la fiche'}
+                    {!ok && !rej && (
+                      <button className="btn btn-s btn-sm" style={{ flex: 'none', color: '#A0221A' }} onClick={() => setRejectId(rejectId === v.id ? null : v.id)}>Refuser</button>
+                    )}
+                    <button className="btn btn-p btn-sm grow" disabled={ok || !!rej} onClick={() => validateSheet(v.id, v.name)}>
+                      {ok ? 'Validée' : rej ? 'Refusée' : 'Valider la fiche'}
                     </button>
                   </div>
                 </div>
@@ -320,10 +373,26 @@ export function VetSpace() {
                     <div className="li" key={v.id}>
                       <span className="col" style={{ width: 38, alignItems: 'center', gap: 0 }}><span className="b num" style={{ fontSize: 17 }}>{d}</span><span className="xs muted">{m}</span></span>
                       <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b">{v.title}</span><span className="xs muted">{v.place}</span></div>
-                      <button className="btn btn-s btn-sm" style={{ flex: 'none' }} onClick={() => visitDone(v)}>Visite faite</button>
+                      <div className="row" style={{ gap: 6, flex: 'none' }}>
+                        <button className="btn btn-s btn-sm" onClick={() => visitDone(v)}>Faite</button>
+                        <button className="iconbtn" style={{ width: 28, height: 28, color: '#A0221A' }} aria-label="Annuler cette visite" onClick={() => visitCancel(v)}><Icon name="close" size="sm" /></button>
+                      </div>
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {doneVisits.length > 0 && (
+              <div className="col" style={{ gap: 6, marginTop: 6 }}>
+                <span className="eyebrow">Visites effectuées ({doneVisits.length})</span>
+                <div className="card list">
+                  {doneVisits.map((v) => (
+                    <div className="li" key={v.id}>
+                      <div className="col grow" style={{ gap: 2, minWidth: 0 }}><span className="small b ell">{v.title}</span><span className="xs muted">{v.place}, {frDate(v.date)}</span></div>
+                      <Badge tone="green">Faite</Badge>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -395,6 +464,7 @@ const missionLine = (m: NetMission) => [vehicleOf(m.vehicle)?.label, m.load ? lo
 function NetMissionCard({ m }: { m: NetMission }) {
   const s = useStore();
   const [code, setCode] = useState('');
+  const [confirmDrop, setConfirmDrop] = useState(false);
   const [label, tone] = MISSION_STEP[m.status];
   const net = payout(m.fee);
   const deliver = () => {
@@ -434,7 +504,14 @@ function NetMissionCard({ m }: { m: NetMission }) {
             <span className="hint">L’acheteur trouve ce code dans le suivi de sa commande. Le paiement du vendeur est libéré à la remise.</span>
           </div>
           {m.status === 'accepted' && (
-            <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => { s.releaseMission(m.id); showToast('Mission rendue : elle repart chez les autres livreurs de la zone.'); }}>Je ne peux plus la faire, me désister</button>
+            !confirmDrop ? (
+              <button className="link plain" style={{ alignSelf: 'flex-start' }} onClick={() => setConfirmDrop(true)}>Je ne peux plus la faire, me désister</button>
+            ) : (
+              <div className="row" style={{ gap: 8 }}>
+                <button className="btn btn-danger btn-sm" onClick={() => { s.releaseMission(m.id); setConfirmDrop(false); showToast('Mission rendue : elle repart chez les autres livreurs de la zone.'); }}>Confirmer le désistement</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDrop(false)}>Garder</button>
+              </div>
+            )
           )}
         </>
       )}
@@ -477,6 +554,7 @@ function CourierSettings({ c, onSave }: { c: Omit<NetCourier, 'name' | 'phone'>;
 export function CourierSpace() {
   const s = useStore();
   const [tab, setTab] = useState<'active' | 'offers' | 'history'>('active');
+  const [histPreview, setHistPreview] = useState<PreviewData | null>(null);
   const accepted = s.get<Record<string, boolean>>('courier.accepted', {});
   const step = s.get<'picked' | 'route' | 'delivered'>('courier.step', 'route');
   const [codeInput, setCodeInput] = useState('');
@@ -545,7 +623,7 @@ export function CourierSpace() {
             <span className="xs muted">{vehicle?.label}, {me.radius} km autour de {me.base}{saved ? '' : ' (à confirmer)'}</span>
             <button className="link plain xs" style={{ alignSelf: 'flex-start' }} aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? 'Fermer' : 'Modifier véhicule et zone'}</button>
           </div>
-          <button className="li" role="switch" aria-checked={me.online} aria-label="En service" onClick={toggleOnline} style={{ flex: 'none', padding: 0, border: 0, background: 'none', minHeight: 0 }}>
+          <button role="switch" aria-checked={me.online} aria-label="En service" onClick={toggleOnline} style={{ flex: 'none', padding: 4, border: 0, background: 'none', cursor: 'pointer', display: 'flex' }}>
             <span className={`toggle${me.online ? ' on' : ''}`} />
           </button>
         </div>
@@ -625,6 +703,37 @@ export function CourierSpace() {
             )}
           </div>
         )}
+        {tab === 'active' && acceptedOffers.map((m) => (
+          <div key={m.id} className="card pad col" style={{ gap: 10 }}>
+            <div className="row between">
+              <span className="b small num">{m.id}</span>
+              <Badge tone="blue">Mission acceptée</Badge>
+            </div>
+            <div className="row" style={{ gap: 12 }}>
+              <Photo w={52} h={52} radius={8} src={m.photo} />
+              <div className="col grow" style={{ gap: 2 }}>
+                <span className="b small">{m.title}</span>
+                <span className="xs muted">{m.route}</span>
+                <span className="xs muted">{m.vehicle} · {m.when}</span>
+              </div>
+            </div>
+            <div className="row between">
+              <span className="price">{fcfa(m.fee)} FCFA</span>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ flex: 'none', color: '#A0221A' }}
+                onClick={() => {
+                  const next = { ...accepted };
+                  delete next[m.id];
+                  s.put('courier.accepted', next);
+                  showToast(`Mission ${m.id} libérée.`);
+                }}
+              >
+                Me désister
+              </button>
+            </div>
+          </div>
+        ))}
 
         {tab === 'offers' && (
           <div className="col" style={{ gap: 10 }}>
@@ -643,6 +752,7 @@ export function CourierSpace() {
                     <span className="b small">{m.title}</span>
                     <span className="xs muted">{m.pickup} → {m.dropoff}</span>
                     <span className="xs muted">{m.from && base ? `À ${away(m)} km de vous · ` : ''}{missionLine(m)}</span>
+                    <span className="xs muted">Commande {m.orderRef}, payée le {m.date}</span>
                   </div>
                 </div>
                 <div className="row between" style={{ gap: 8 }}>
@@ -666,7 +776,7 @@ export function CourierSpace() {
                   <div className="row between">
                     <span className="price">{fcfa(m.fee)} FCFA</span>
                     {ok ? <Badge tone="green">Mission acceptée</Badge> : (
-                      <button className="btn btn-p btn-sm" onClick={() => { s.put('courier.accepted', { ...accepted, [m.id]: true }); showToast(`Mission ${m.id} acceptée.`); }}>Accepter la mission</button>
+                      <button className="btn btn-p btn-sm" onClick={() => { s.put('courier.accepted', { ...accepted, [m.id]: true }); showToast(`Mission ${m.id} ajoutée à vos missions en cours.`); setTab('active'); }}>Accepter la mission</button>
                     )}
                   </div>
                 </div>
@@ -677,7 +787,21 @@ export function CourierSpace() {
         )}
 
         {tab === 'history' && myDone.map((m) => (
-          <div className="card list" key={m.id}><div className="li">{m.photo && <Photo w={48} h={48} radius={6} src={m.photo} />}<div className="col grow"><span className="small b">{m.title}</span><span className="xs muted">{m.pickup} → {m.dropoff}, {m.deliveredAt}</span></div><span className="small b num" style={{ color: '#145C3A' }}>+{fcfa(payout(m.fee))}</span></div></div>
+          <div className="card list" key={m.id}>
+            <button
+              type="button"
+              className="li"
+              onClick={() => setHistPreview({
+                title: `Livraison ${m.orderRef}`,
+                subtitle: m.title,
+                badge: ['Livrée', 'green'],
+                images: m.photo ? [m.photo] : undefined,
+                details: [['Trajet', `${m.pickup} → ${m.dropoff}`], ['Livrée le', m.deliveredAt ?? m.date], ['Destinataire', m.buyer.name], ['Gain net', `+${fcfa(payout(m.fee))} FCFA`]],
+              })}
+            >
+              {m.photo && <Photo w={48} h={48} radius={6} src={m.photo} />}<div className="col grow"><span className="small b">{m.title}</span><span className="xs muted">{m.pickup} → {m.dropoff}, {m.deliveredAt}</span></div><span className="small b num" style={{ color: '#145C3A' }}>+{fcfa(payout(m.fee))}</span>
+            </button>
+          </div>
         ))}
         {tab === 'history' && !demo && !myDone.length && (
           <EmptyState title="Aucune livraison pour l’instant" text="Vos livraisons terminées et ce qui vous revient (prix payé moins 5 % de commission) apparaîtront ici." />
@@ -686,22 +810,44 @@ export function CourierSpace() {
         {tab === 'history' && demo && (
           <div className="card list">
             {step === 'delivered' && (
-              <div className="li">
+              <button
+                type="button"
+                className="li"
+                onClick={() => setHistPreview({
+                  title: 'Livraison SAV-2026-11-004812',
+                  subtitle: 'Taurillon FK-0142 + 4 sacs',
+                  badge: ['Livrée', 'green'],
+                  images: ['images/taurillon-goudali.jpg'],
+                  details: [['Trajet', 'Sinématiali → Korhogo'], ['Date', today()], ['Gain', '+25 000 FCFA']],
+                })}
+              >
                 <Photo w={48} h={48} radius={6} src="images/taurillon-goudali.jpg" />
                 <div className="col grow"><span className="small b">SAV-2026-11-004812</span><span className="xs muted">Sinématiali → Korhogo, {today()}</span></div>
                 <span className="small b num" style={{ color: '#145C3A' }}>+25 000</span>
-              </div>
+              </button>
             )}
             {MISSION_HISTORY.map((h) => (
-              <div className="li" key={h.id}>
+              <button
+                type="button"
+                className="li"
+                key={h.id}
+                onClick={() => setHistPreview({
+                  title: h.title,
+                  subtitle: h.id,
+                  badge: ['Livrée', 'green'],
+                  images: [h.photo],
+                  details: [['Trajet', h.route], ['Date', h.date], ['Gain', `+${fcfa(h.fee)} FCFA`]],
+                })}
+              >
                 <Photo w={48} h={48} radius={6} src={h.photo} />
                 <div className="col grow"><span className="small b">{h.title}</span><span className="xs muted">{h.route}, {h.date}</span></div>
                 <span className="small b num" style={{ color: '#145C3A' }}>+{fcfa(h.fee)}</span>
-              </div>
+              </button>
             ))}
           </div>
         )}
       </div>
+      <PreviewModal data={histPreview} onClose={() => setHistPreview(null)} />
       <TabBar />
     </div>
   );
@@ -767,24 +913,55 @@ export function AgriSpace() {
   const [crop, setCrop] = useState('');
   const [qty, setQty] = useState('');
   const [price, setPrice] = useState('');
+  const [unit, setUnit] = useState('le kg');
+  const [lotPhoto, setLotPhoto] = useState('');
+  const [editLotId, setEditLotId] = useState<string | null>(null);
+  const [editCrop, setEditCrop] = useState('');
+  const [editQty, setEditQty] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editStatus, setEditStatus] = useState<HarvestLot['status']>('Disponible');
 
   const addLot = () => {
     if (!crop.trim() || !qty.trim()) return;
     const lot: HarvestLot = {
-      id: `REC-${lots.length + 1}`,
+      id: `REC-${Date.now().toString(36).slice(-4).toUpperCase()}`,
       crop: crop.trim(),
       qty: qty.trim(),
       price: Number(price.replace(/\D/g, '')),
-      unit: 'le kg',
+      unit,
       status: 'Disponible',
-      photo: '',
+      photo: lotPhoto,
     };
     s.put('agri.lots', [lot, ...extraLots]);
     setCrop('');
     setQty('');
     setPrice('');
+    setLotPhoto('');
     setTab('lots');
     showToast('Lot de récolte ajouté à vos disponibilités.');
+  };
+
+  const startEditLot = (l: HarvestLot) => {
+    setEditLotId(l.id);
+    setEditCrop(l.crop);
+    setEditQty(l.qty);
+    setEditPrice(l.price ? String(l.price) : '');
+    setEditStatus(l.status);
+  };
+  const saveLotEdit = (l: HarvestLot) => {
+    if (!editCrop.trim() || !editQty.trim()) return;
+    const updated: HarvestLot = { ...l, crop: editCrop.trim(), qty: editQty.trim(), price: Number(editPrice.replace(/\D/g, '')) || 0, status: editStatus };
+    if (extraLots.some((x) => x.id === l.id)) {
+      s.put('agri.lots', extraLots.map((x) => (x.id === l.id ? updated : x)));
+    } else {
+      setLot(l.id, editStatus);
+    }
+    setEditLotId(null);
+    showToast(`Lot « ${updated.crop} » mis à jour.`);
+  };
+  const deleteLot = (id: string) => {
+    s.put('agri.lots', extraLots.filter((x) => x.id !== id));
+    showToast('Lot supprimé.');
   };
 
   return (
@@ -823,26 +1000,54 @@ export function AgriSpace() {
         )}
         {tab === 'lots' && !!lots.length && (
           <div className="col" style={{ gap: 10 }}>
-            {lots.map((l) => (
-              <div key={l.id} className="card pad col" style={{ gap: 10 }}>
-                <div className="row" style={{ gap: 12 }}>
-                  {l.photo && <Photo w={56} h={56} radius={8} src={l.photo} />}
-                  <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
-                    <div className="row between" style={{ gap: 6 }}>
-                      <span className="b small ell">{l.crop}</span>
-                      <Badge tone={LOT_TONE[l.status]}>{l.status}</Badge>
+            {lots.map((l) => {
+              const isCustom = extraLots.some((x) => x.id === l.id);
+              const isEditing = editLotId === l.id;
+              return (
+                <div key={l.id} className="card pad col" style={{ gap: 10 }}>
+                  <div className="row" style={{ gap: 12 }}>
+                    {l.photo && <Photo w={56} h={56} radius={8} src={l.photo} />}
+                    <div className="col grow" style={{ gap: 2, minWidth: 0 }}>
+                      <div className="row between" style={{ gap: 6 }}>
+                        <span className="b small ell">{l.crop}</span>
+                        <Badge tone={LOT_TONE[l.status]}>{l.status}</Badge>
+                      </div>
+                      <span className="xs muted">{l.qty}</span>
+                      {l.price ? <span className="price">{fcfa(l.price)} FCFA <span className="xs muted" style={{ fontWeight: 400 }}>{l.unit}</span></span> : <span className="xs muted">Prix à définir</span>}
                     </div>
-                    <span className="xs muted">{l.qty}</span>
-                    {l.price ? <span className="price">{fcfa(l.price)} FCFA <span className="xs muted" style={{ fontWeight: 400 }}>{l.unit}</span></span> : <span className="xs muted">Prix à définir</span>}
+                  </div>
+                  {isEditing && (
+                    <div className="col" style={{ gap: 8, padding: 10, borderRadius: 8, background: '#F8FAF8' }}>
+                      <div className="grid2" style={{ gap: 8 }}>
+                        <div className="field"><label className="xs muted">Culture</label><input className="input" value={editCrop} onChange={(e) => setEditCrop(e.target.value)} disabled={!isCustom} /></div>
+                        <div className="field"><label className="xs muted">Quantité</label><input className="input" value={editQty} onChange={(e) => setEditQty(e.target.value)} disabled={!isCustom} /></div>
+                        <div className="field"><label className="xs muted">Prix (FCFA)</label><input className="input num" inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} disabled={!isCustom} /></div>
+                        <div className="field">
+                          <label className="xs muted">Statut</label>
+                          <select className="input" value={editStatus} onChange={(e) => setEditStatus(e.target.value as HarvestLot['status'])}>
+                            <option value="Disponible">Disponible</option>
+                            <option value="Récolte en cours">Récolte en cours</option>
+                            <option value="Épuisé">Épuisé</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="row between">
+                        {isCustom ? <button className="plain xs" style={{ color: '#A0221A', cursor: 'pointer' }} onClick={() => deleteLot(l.id)}>Supprimer</button> : <span />}
+                        <div className="row" style={{ gap: 6 }}>
+                          <button className="btn btn-ghost btn-sm" style={{ flex: 'none' }} onClick={() => setEditLotId(null)}>Annuler</button>
+                          <button className="btn btn-p btn-sm" style={{ flex: 'none' }} onClick={() => saveLotEdit(l)}>Enregistrer</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                    <button className="btn btn-s btn-sm grow" onClick={() => (isEditing ? setEditLotId(null) : startEditLot(l))}>{isEditing ? 'Fermer' : 'Modifier'}</button>
+                    <button className="btn btn-s btn-sm grow" onClick={() => setLot(l.id, l.status === 'Épuisé' ? 'Disponible' : 'Épuisé')}>{l.status === 'Épuisé' ? 'Disponible' : 'Épuisé'}</button>
+                    {l.listingId ? <Link className="btn btn-s btn-sm grow" to={`/annonce/${l.listingId}`}>Annonce</Link> : <Link className="btn btn-p btn-sm grow" to="/vendre">Mettre en vente</Link>}
                   </div>
                 </div>
-                <div className="row" style={{ gap: 8 }}>
-                  <button className="btn btn-s btn-sm grow" onClick={() => setLot(l.id, l.status === 'Épuisé' ? 'Disponible' : 'Épuisé')}>{l.status === 'Épuisé' ? 'Remettre disponible' : 'Marquer épuisé'}</button>
-                  {l.listingId && <Link className="btn btn-s btn-sm grow" to={`/annonce/${l.listingId}`}>Voir l’annonce</Link>}
-                  <Link className="btn btn-p btn-sm grow" to="/vendre">Mettre en vente</Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -861,6 +1066,21 @@ export function AgriSpace() {
               <div className="field">
                 <label htmlFor="ag-price">Prix indicatif (FCFA)</label>
                 <input id="ag-price" className="input num" inputMode="numeric" placeholder="450" value={price} onChange={(e) => setPrice(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid2">
+              <div className="field">
+                <label htmlFor="ag-unit">Unité</label>
+                <select id="ag-unit" className="input" value={unit} onChange={(e) => setUnit(e.target.value)}>
+                  <option value="le kg">le kg</option>
+                  <option value="le sac 50 kg">le sac 50 kg</option>
+                  <option value="la tonne">la tonne</option>
+                  <option value="le lot">le lot</option>
+                </select>
+              </div>
+              <div className="field">
+                <span className="lbl">Photo (optionnel)</span>
+                {lotPhoto ? <Photo src={lotPhoto} h={46} radius={8} onRemove={() => setLotPhoto('')} /> : <PhotoAdd height={46} label="Photo" icon="camera" onAdd={setLotPhoto} />}
               </div>
             </div>
             <button className="btn btn-p btn-block" disabled={!crop.trim() || !qty.trim()} onClick={addLot}>Enregistrer le lot</button>
@@ -955,6 +1175,8 @@ export function SupplierSpace() {
   const cashed = myInvoices.filter((x) => x.status === 'paid' && x.paidAt?.endsWith(month)).reduce((t, x) => t + x.amount, 0);
   const recurring = net.recurring.filter((r) => r.supplier.phone === myPhone);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [delays, setDelays] = useState<Record<string, string>>({});
+  const [invPreview, setInvPreview] = useState<PreviewData | null>(null);
   const invoiceOf = (quoteId: string) => myInvoices.find((x) => x.quoteId === quoteId);
   const pendingQuotes = quotes.filter((q) => !sentOf(q.id)).length;
   /* Références : ses propres annonces d'aliments, d'intrants et de matériel (en démo, celles de la maquette). */
@@ -963,7 +1185,8 @@ export function SupplierSpace() {
   const sendQuote = (id: string, fallback: number, client: string, isNet = false) => {
     const val = Number((offers[id] ?? '').replace(/\D/g, '')) || fallback;
     if (!val) { showToast('Indiquez votre prix avant de répondre.'); return; }
-    if (isNet) s.offerQuote(id, val, 'à convenir avec le client', org);
+    const delay = (delays[id] ?? '').trim() || 'sous 48 h';
+    if (isNet) s.offerQuote(id, val, delay, org);
     else s.put('fourn.sent', { ...sent, [id]: val });
     showToast(`Offre de ${fcfa(val)} FCFA envoyée à ${client}.`);
   };
@@ -1040,21 +1263,42 @@ export function SupplierSpace() {
                       )}
                     </div>
                   ) : sentPrice ? (
-                    <div className="notice n-info">
-                      <Icon name="check" size="sm" />
-                      <span>Votre tarif proposé : <b>{fcfa(sentPrice)} FCFA</b> {per}. En attente de la réponse du client.</span>
+                    <div className="col" style={{ gap: 6 }}>
+                      <div className="notice n-info">
+                        <Icon name="check" size="sm" />
+                        <span>Votre tarif proposé : <b>{fcfa(sentPrice)} FCFA</b> {per}. En attente de la réponse du client.</span>
+                      </div>
+                      {q.net && (
+                        <button
+                          className="link plain xs"
+                          style={{ alignSelf: 'flex-start', color: '#A0221A' }}
+                          onClick={() => { s.withdrawOffer(q.id); showToast('Offre retirée.'); }}
+                        >
+                          Retirer mon offre
+                        </button>
+                      )}
                     </div>
                   ) : (
-                    <div className="row" style={{ gap: 8 }}>
-                      <input
-                        className="input num grow"
-                        inputMode="numeric"
-                        aria-label={`Votre prix ${per}, en FCFA`}
-                        placeholder={q.suggested ? `Tarif unitaire (ex. ${fcfa(q.suggested)})` : `Votre prix ${per}, en FCFA`}
-                        value={offers[q.id] ?? ''}
-                        onChange={(e) => setOffers({ ...offers, [q.id]: e.target.value })}
-                      />
-                      <button className="btn btn-p btn-sm" onClick={() => sendQuote(q.id, q.suggested, q.client, !!q.net)}>Répondre</button>
+                    <div className="col" style={{ gap: 8 }}>
+                      <div className="row" style={{ gap: 8 }}>
+                        <input
+                          className="input num grow"
+                          inputMode="numeric"
+                          aria-label={`Votre prix ${per}, en FCFA`}
+                          placeholder={q.suggested ? `Tarif unitaire (ex. ${fcfa(q.suggested)})` : `Votre prix ${per}, en FCFA`}
+                          value={offers[q.id] ?? ''}
+                          onChange={(e) => setOffers({ ...offers, [q.id]: e.target.value })}
+                        />
+                        <input
+                          className="input"
+                          style={{ width: 136 }}
+                          aria-label="Délai de livraison"
+                          placeholder="Délai (48 h)"
+                          value={delays[q.id] ?? ''}
+                          onChange={(e) => setDelays({ ...delays, [q.id]: e.target.value })}
+                        />
+                      </div>
+                      <button className="btn btn-p btn-sm" onClick={() => sendQuote(q.id, q.suggested, q.client, !!q.net)}>Envoyer mon offre</button>
                     </div>
                   )}
                 </div>
@@ -1110,24 +1354,39 @@ export function SupplierSpace() {
           <div className="sec">
             <div className="sech">
               <h2>Factures B2B</h2>
-              <button
-                className="link plain"
-                onClick={() => downloadCSV('factures-fournisseur-savaa.csv', [['Facture', 'Client', 'Montant (FCFA)', 'Statut'], ...invoices.map(([n, c, m, st]) => [n, c, m, st])])}
-              >
-                Exporter CSV
-              </button>
+              <div className="row" style={{ gap: 10 }}>
+                <button className="link plain" onClick={printPage}>Imprimer / PDF</button>
+                <button
+                  className="link plain"
+                  onClick={() => downloadCSV('factures-fournisseur-savaa.csv', [['Facture', 'Client', 'Montant (FCFA)', 'Statut'], ...invoices.map(([n, c, m, st]) => [n, c, m, st])])}
+                >
+                  Exporter CSV
+                </button>
+              </div>
             </div>
             <div className="card list">
               {invoices.map(([n, c, m, st, tone]) => (
-                <div className="li" key={n}>
+                <button
+                  type="button"
+                  className="li"
+                  key={n}
+                  onClick={() => setInvPreview({
+                    title: `Facture ${n}`,
+                    subtitle: c,
+                    badge: [st, tone],
+                    details: [['Référence', n], ['Client', c], ['Montant', `${fcfa(m)} FCFA`], ['Statut', st]],
+                    printable: true,
+                  })}
+                >
                   <div className="col grow"><span className="small b num">{n}</span><span className="xs muted">{c}, {fcfa(m)} FCFA</span></div>
                   <Badge tone={tone}>{st}</Badge>
-                </div>
+                </button>
               ))}
             </div>
           </div>
         )}
       </div>
+      <PreviewModal data={invPreview} onClose={() => setInvPreview(null)} />
       <TabBar />
     </div>
   );

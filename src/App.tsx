@@ -3,7 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Guard, StaffGuard } from './guard';
 import { DesktopNav } from './nav';
 import { Splash } from './screens/compte';
-import { Toaster } from './ui';
+import { OfflineBanner, Toaster } from './ui';
 
 /** Charge un composant nommé à la demande (découpage du bundle JS par écran). */
 function load<M extends Record<string, unknown>, K extends keyof M>(loader: () => Promise<M>, key: K) {
@@ -14,6 +14,7 @@ const Catalog = load(() => import('./screens/achat'), 'Catalog');
 const CatalogOffline = load(() => import('./screens/achat'), 'CatalogOffline');
 const Home = load(() => import('./screens/achat'), 'Home');
 const ListingDetail = load(() => import('./screens/achat'), 'ListingDetail');
+const PublicShop = load(() => import('./screens/achat'), 'PublicShop');
 
 const Cart = load(() => import('./screens/commande'), 'Cart');
 const Orders = load(() => import('./screens/commande'), 'Orders');
@@ -43,6 +44,9 @@ const Herd = load(() => import('./screens/eleveur'), 'Herd');
 
 const ProductSheet = load(() => import('./screens/fiche'), 'ProductSheet');
 const QuotePage = load(() => import('./screens/devis'), 'QuotePage');
+const Messages = load(() => import('./screens/messages'), 'Messages');
+const ThreadView = load(() => import('./screens/messages'), 'ThreadView');
+const QrScanner = load(() => import('./screens/scanner'), 'QrScanner');
 
 const AgriSpace = load(() => import('./screens/metiers'), 'AgriSpace');
 const CourierSpace = load(() => import('./screens/metiers'), 'CourierSpace');
@@ -88,6 +92,8 @@ export default function App() {
           <Route path="/profil-metier" element={<ProDetails />} />
           <Route path="/compte" element={<Guard need="login"><Profile /></Guard>} />
           <Route path="/notifications" element={<Guard need="login"><Notifications /></Guard>} />
+          <Route path="/messages" element={<Guard need="login"><Messages /></Guard>} />
+          <Route path="/messages/:id" element={<Guard need="login"><ThreadView /></Guard>} />
 
           {/* Lot 3, achat */}
           <Route path="/accueil" element={<Home />} />
@@ -96,7 +102,9 @@ export default function App() {
           <Route path="/favoris" element={<Catalog favorites />} />
           <Route path="/commandes" element={<Guard need="login"><Orders /></Guard>} />
           <Route path="/annonce/:id" element={<ListingDetail />} />
+          <Route path="/boutique-publique/:seller" element={<PublicShop />} />
           <Route path="/fiche/:code" element={<ProductSheet />} />
+          <Route path="/scanner" element={<QrScanner />} />
           <Route path="/panier" element={<Guard need="login"><Cart /></Guard>} />
           <Route path="/paiement" element={<Guard need="login"><Payment /></Guard>} />
           <Route path="/recu" element={<Guard need="login"><Receipt /></Guard>} />
@@ -141,6 +149,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/accueil" replace />} />
         </Routes>
       </Suspense>
+      <OfflineBanner />
       <Toaster />
     </HashRouter>
   );
