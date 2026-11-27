@@ -1,24 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { resolveQrCode } from '../scanner-code';
 import { showToast } from '../toast';
 import { Badge, Header, Icon, TabBar } from '../ui';
 
 type BarcodeHit = { rawValue?: string };
 type Detector = { detect: (src: HTMLVideoElement) => Promise<BarcodeHit[]> };
 type BarcodeDetectorCtor = new (opts: { formats: string[] }) => Detector;
-
-/** Extrait la route SAVAA depuis une URL de QR code ou un code saisi manuellement. */
-function resolveCode(raw: string): string | null {
-  const s = raw.trim();
-  if (!s) return null;
-  const ficheMatch = /\/fiche\/([A-Z0-9-]+)/i.exec(s) ?? /^(SAV-TRACE-[A-Z0-9-]+)$/i.exec(s);
-  if (ficheMatch) return `/fiche/${ficheMatch[1].toUpperCase()}`;
-  const animalMatch = /\/animal\/([A-Z0-9-]+)/i.exec(s) ?? /^(FK-\d+)$/i.exec(s);
-  if (animalMatch) return `/animal/${animalMatch[1].toUpperCase()}`;
-  const listingMatch = /\/annonce\/([A-Z0-9-]+)/i.exec(s);
-  if (listingMatch) return `/annonce/${listingMatch[1]}`;
-  return null;
-}
 
 const SAMPLE_CODES: [string, string][] = [
   ['SAV-TRACE-2026-014217', 'Taurillon Zébu Goudali'],
@@ -35,7 +23,7 @@ export function QrScanner() {
   const [autoDetect, setAutoDetect] = useState(false);
 
   const openCode = (value: string) => {
-    const target = resolveCode(value);
+    const target = resolveQrCode(value);
     if (!target) {
       showToast('Code non reconnu. Format attendu : SAV-TRACE-… ou FK-…');
       return;
@@ -75,7 +63,7 @@ export function QrScanner() {
               const hits = await detector.detect(v);
               const val = hits[0]?.rawValue;
               if (val) {
-                const target = resolveCode(val);
+                const target = resolveQrCode(val);
                 if (target) {
                   if (timer) window.clearInterval(timer);
                   stream?.getTracks().forEach((t) => t.stop());
