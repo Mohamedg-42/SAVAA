@@ -1,0 +1,12 @@
+{
+  "name": "@savaa/mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Client 2 : Application Mobile Native SAVAA (Android & iOS via Capacitor, sans Back-office /admin)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.ts",
+    "build": "vite build --config vite.config.ts",
+    "preview": "vite preview --config vite.config.ts"
+  }
+}

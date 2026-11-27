@@ -1,14 +1,20 @@
-# SAVAA, front React
+# SAVAA — Plateforme Agropastorale (Site Web, Application Mobile & Serveur PostgreSQL)
 
-Application de démonstration de SAVAA (achat et vente d'animaux, de récoltes et d'intrants, avec suivi sanitaire et traçabilité). Front seul, données fictives, calqué sur la maquette v2.
-
-React 19, TypeScript, Vite 6, react-router 7.
+Plateforme SAVAA (marché agropastoral, suivi sanitaire, traçabilité `SAV-TRACE`, logistique intelligente et espace investisseur) structurée en architecture **Client-Serveur** :
+- **Client 1 (`apps/web/`)** : Site Web e-commerce + Fiches QR publiques + Back-Office (`/admin`)
+- **Client 2 (`apps/mobile/` + `android/` & `ios/`)** : Application Mobile Native Android & iOS via Capacitor (sans `/admin`)
+- **Code partagé (`packages/shared/`)** : Règles métier et client API REST / Temps réel (SSE)
+- **Serveur (`backend/`)** : API REST Node.js + Base de données **PostgreSQL** ([backend/db/schema.sql](backend/db/schema.sql))
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # vérification TypeScript + build
-npm run lint
+docker compose up -d   # Démarre PostgreSQL 16 (port 5432)
+npm run db:migrate     # Initialise les 16 tables PostgreSQL
+npm run dev:api        # Serveur Backend API REST (http://localhost:4000)
+npm run dev:web        # Site Web + Back-Office /admin (http://localhost:5173)
+npm run dev:mobile     # Application Mobile sans /admin (http://localhost:5174)
+npm run mobile:sync    # Compile l'App Mobile et synchronise Android & iOS
 ```
 
-La structure, les écrans par lot, les références (maquette, cahier des charges) et les règles à respecter sont décrits dans [PASSATION.md](PASSATION.md).
+- Documentation complète du projet : [DOCUMENTATION_PROJET_SAVAA.md](DOCUMENTATION_PROJET_SAVAA.md)
+- Guide opérationnel de passation : [PASSATION.md](PASSATION.md)

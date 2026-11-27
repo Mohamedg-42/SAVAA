@@ -4,14 +4,36 @@ Mise à jour du 22/11/2026.
 
 C'est le front de démonstration de SAVAA, fait à partir de la maquette v2. Il n'y a pas de backend : les données partent de la maquette et tout ce qu'on saisit est gardé dans le navigateur (localStorage). « Remettre la démo à zéro », en bas de l'écran Compte, revient aux données de départ.
 
+## Architecture Client-Serveur (Site Web + App Mobile + Serveur API)
+
+```text
+savaa-react/
+├── apps/
+│   ├── web/            # Client 1 : Site Web (Catalogue, Espaces Pro/Investisseur, Fiches QR, Back-office /admin)
+│   └── mobile/         # Client 2 : Application Mobile native Android & iOS (sans Back-office /admin)
+├── packages/
+│   └── shared/         # Logique métier et client API HTTP/SSE partagés entre Site Web et App Mobile
+├── backend/            # Serveur API REST central (http://localhost:4000) + Base PostgreSQL (backend/db/schema.sql)
+├── docker-compose.yml  # Conteneur PostgreSQL 16 préconfiguré avec schema.sql
+├── android/            # Projet natif Android (Capacitor → APK / AAB)
+└── ios/                # Projet natif iOS (Capacitor → IPA)
+```
+
 ## Lancer le projet
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # vérifie aussi les types
+docker compose up -d   # (Optionnel) Démarre PostgreSQL 16 en local sur le port 5432
+npm run db:migrate     # Crée / met à jour toutes les tables PostgreSQL (backend/db/schema.sql)
+npm run dev:api        # Serveur Backend API REST + PostgreSQL (http://localhost:4000)
+npm run dev:web        # Client 1 — Site Web + Back-office /admin (http://localhost:5173)
+npm run dev:mobile     # Client 2 — Application Mobile sans /admin (http://localhost:5174)
+npm run build          # Vérifie les types + compile Site Web (apps/web/dist) et App Mobile (apps/mobile/dist)
 npm run lint
-npm test         # tests Vitest (src/*.test.ts)
+npm test               # Tests Vitest (src/*.test.ts)
+npm run mobile:sync    # Build App Mobile + synchronisation Capacitor (Android & iOS)
+npm run mobile:android # Ouvre le projet natif Android Studio (APK / AAB)
+npm run mobile:ios     # Ouvre le projet natif Xcode (iOS)
 ```
 
 ## Où trouver quoi
@@ -36,7 +58,7 @@ Côté code :
 
   Le QR code vient de la seule dépendance ajoutée, `react-qr-code`. Le détail des changements et les guides de test sont dans `CHANGELOG.md`.
 - `src/logo.tsx` dessine le logo SAVAA (fichier source `public/logo-savaa.svg`), avec son animation sur l'écran de démarrage.
-- `public/` contient l'icône d'onglet (`favicon.svg`), les icônes d'installation sur l'écran d'accueil du téléphone (`icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, `manifest.webmanifest`), les photos de démonstration (`images/`) et les logos des moyens de paiement (`images/payments/`).
+- `public/` contient l'icône d'onglet (`favicon.svg`), les icônes (`icon-192.png`, `icon-512.png`, `apple-touch-icon.png`), les photos de démonstration (`images/`) et les logos des moyens de paiement (`images/payments/`).
 
 Les écrans sont rangés par thème dans `src/screens/` :
 

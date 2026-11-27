@@ -12,12 +12,3 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
-
-/* Enregistrement du Service Worker en build de production (mode PWA hors connexion). */
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {
-      /* enregistrement ignoré si le navigateur bloque les SW (ex. navigation privée) */
-    })
-  })
-}

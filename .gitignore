@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
+apps/web/dist
+apps/mobile/dist
+backend/db/*.json
 dist-ssr
 *.local
 
@@ -21,4 +24,16 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
+# Mobile native build caches
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+android/captures
+ios/App/Pods
+ios/App/build
+ios/DerivedData
+*.apk
+*.aab
+*.ipa
 *.sw?

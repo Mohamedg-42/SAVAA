@@ -75,15 +75,22 @@ function PageFallback() {
 /*
   Accès : sans compte, on parcourt l'accueil, le catalogue, les annonces et les fiches de traçabilité.
   Le reste demande d'être connecté, et certains espaces un rôle (voir guard.tsx).
+  - target = 'web' (apps/web) : Site Web grand écran avec DesktopNav + Back-office (/admin).
+  - target = 'mobile' (apps/mobile) : Application Mobile native (Android & iOS) sans DesktopNav et sans Back-office (/admin).
 */
-export default function App() {
+export type AppTarget = 'web' | 'mobile';
+
+export default function App({ target }: { target?: AppTarget } = {}) {
+  const mode: AppTarget = target ?? (import.meta.env.VITE_APP_TARGET === 'mobile' ? 'mobile' : 'web');
+  const isWeb = mode === 'web';
+
   return (
     <HashRouter>
-      {/* Ordinateur : barre de navigation commune à toutes les pages (masquée sur téléphone et tablette). */}
-      <DesktopNav />
+      {/* Site Web (ordinateur) : barre de navigation commune en haut. Non incluse dans l'Application Mobile. */}
+      {isWeb && <DesktopNav />}
       <Suspense fallback={<PageFallback />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/demarrage" replace />} />
+          <Route path="/" element={<Navigate to={isWeb ? '/accueil' : '/demarrage'} replace />} />
 
           {/* Lot 4, compte */}
           <Route path="/demarrage" element={<Splash />} />
@@ -141,10 +148,14 @@ export default function App() {
           <Route path="/investir/propositions" element={<Guard need="invest"><InvestProposals /></Guard>} />
           <Route path="/investir/propositions/:id" element={<Guard need="invest"><InvestProposalDetail /></Guard>} />
 
-          {/* Lot 6, outils de l’équipe SAVAA : code d’accès d’équipe ; les anciennes adresses de prospection renvoient au back-office */}
-          <Route path="/prospection" element={<ProspectRedirect />} />
-          <Route path="/prospect/:id" element={<ProspectRedirect />} />
-          <Route path="/admin" element={<StaffGuard><BackOffice /></StaffGuard>} />
+          {/* Lot 6, Back-office réservé uniquement au Site Web (apps/web) */}
+          {isWeb && (
+            <>
+              <Route path="/prospection" element={<ProspectRedirect />} />
+              <Route path="/prospect/:id" element={<ProspectRedirect />} />
+              <Route path="/admin" element={<StaffGuard><BackOffice /></StaffGuard>} />
+            </>
+          )}
 
           <Route path="*" element={<Navigate to="/accueil" replace />} />
         </Routes>

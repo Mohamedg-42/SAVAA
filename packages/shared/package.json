@@ -1,0 +1,8 @@
+{
+  "name": "@savaa/shared",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Code métier et client API partagés entre le Site Web (apps/web) et l'Application Mobile (apps/mobile)",
+  "type": "module",
+  "main": "./index.ts"
+}

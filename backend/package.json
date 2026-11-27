@@ -1,0 +1,12 @@
+{
+  "name": "@savaa/backend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Serveur API REST central SAVAA avec base PostgreSQL (partagé entre le Site Web et l'Application Mobile)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "db:migrate": "node db/migrate.mjs"
+  }
+}

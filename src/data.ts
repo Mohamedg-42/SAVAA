@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { fetchServerSync, pushServerAccounts, pushServerKv, pushServerNet, resetServerDb, subscribeServerUpdates } from './api';
 import { addLoads, canCarry, deliveryOptions, loadOf, placeOf, roadKm, vehicleOf, type DeliveryOption, type Load, type Place, type VehicleId } from './livraison';
 import type { Tone } from './ui';
 
@@ -1297,6 +1298,7 @@ function writeAccounts(a: Accounts) {
       /* pas de stockage : le compte ne sera pas retrouvé */
     }
   }
+  pushServerAccounts(a);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1521,6 +1523,7 @@ function writeNet(n: Net) {
   } catch {
     /* stockage plein : l'échange n'est pas gardé */
   }
+  pushServerNet(n);
   version++;
   listeners.forEach((l) => l());
 }
@@ -1566,6 +1569,7 @@ export const store = {
     } catch {
       /* rien à effacer */
     }
+    resetServerDb();
     clearCurrent();
   },
 
@@ -1944,6 +1948,7 @@ export const store = {
   },
   put(key: string, value: unknown) {
     commit({ kv: { ...state.kv, [key]: value } });
+    pushServerKv(key, value);
   },
 
   /* Annonces */
@@ -2204,3 +2209,36 @@ export function useStore() {
   );
   return store;
 }
+
+/** Synchronise l'état partagé (annonces, commandes, missions, devis, comptes, dossiers investisseurs) avec le serveur Backend. */
+export async function syncWithBackend(): Promise<void> {
+  const remote = await fetchServerSync<Partial<Net>, Accounts>();
+  if (!remote) return;
+  try {
+    if (remote.net) {
+      const mergedNet: Net = { ...EMPTY_NET, ...readNet(), ...remote.net };
+      localStorage.setItem(NET_KEY, JSON.stringify(mergedNet));
+    }
+    if (remote.accounts && Object.keys(remote.accounts).length > 0) {
+      const mergedAccounts: Accounts = { ...readAccounts(), ...remote.accounts };
+      localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(mergedAccounts));
+    }
+  } catch {
+    /* stockage local plein */
+  }
+  if (remote.kv && Object.keys(remote.kv).length > 0) {
+    state = { ...state, kv: { ...state.kv, ...remote.kv } };
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch {
+      /* ignoré */
+    }
+  }
+  version++;
+  listeners.forEach((l) => l());
+}
+
+void syncWithBackend();
+subscribeServerUpdates(() => {
+  void syncWithBackend();
+});
